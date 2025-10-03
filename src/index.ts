@@ -96,7 +96,6 @@ if (process.argv.length > 2) {
 
 // Attempt to parse JSON from stdin to check for MCP server parameters
 if (!mcpOptions?.apiKey) {
-  process.stdin.setEncoding('utf8');
   process.stdin.once('data', (data) => {
     try {
       const firstMessage = JSON.parse(data.toString());
