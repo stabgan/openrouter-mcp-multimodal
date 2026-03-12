@@ -94,23 +94,15 @@ if (process.argv.length > 2) {
   }
 }
 
-// Attempt to parse JSON from stdin to check for MCP server parameters
-if (!mcpOptions?.apiKey) {
-  process.stdin.setEncoding('utf8');
-  process.stdin.once('data', (data) => {
-    try {
-      const firstMessage = JSON.parse(data.toString());
-      if (firstMessage.params && typeof firstMessage.params === 'object') {
-        mcpOptions = {
-          apiKey: firstMessage.params.OPENROUTER_API_KEY || firstMessage.params.apiKey,
-          defaultModel: firstMessage.params.OPENROUTER_DEFAULT_MODEL || firstMessage.params.defaultModel
-        };
-      }
-    } catch (error) {
-      // Not a valid JSON message or no parameters, continue with environment variables
-    }
-  });
-}
+// Note: We intentionally do NOT attempt to parse stdin for configuration here.
+// The MCP SDK's StdioServerTransport expects stdin to emit binary Buffers.
+// Calling process.stdin.setEncoding('utf8') or consuming messages before
+// transport connection breaks the MCP protocol and causes errors like:
+// "TypeError: this._buffer.subarray is not a function"
+//
+// Configuration should be provided via:
+// - Environment variables: OPENROUTER_API_KEY, OPENROUTER_DEFAULT_MODEL
+// - Config file: --config=/path/to/config.json
 
 const server = new OpenRouterMultimodalServer(mcpOptions);
 server.run().catch(console.error); 

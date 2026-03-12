@@ -17,12 +17,14 @@ import { handleGetModelInfo, GetModelInfoToolRequest } from './tool-handlers/get
 import { handleValidateModel, ValidateModelToolRequest } from './tool-handlers/validate-model.js';
 import { handleMultiImageAnalysis, MultiImageAnalysisToolRequest } from './tool-handlers/multi-image-analysis.js';
 import { handleAnalyzeImage, AnalyzeImageToolRequest } from './tool-handlers/analyze-image.js';
+import { handleGenerateImage, GenerateImageToolRequest } from './tool-handlers/generate-image.js';
 
 export class ToolHandlers {
   private server: Server;
   private openai: OpenAI;
   private modelCache: ModelCache;
   private apiClient: OpenRouterAPIClient;
+  private apiKey: string;
   private defaultModel?: string;
 
   constructor(
@@ -33,6 +35,7 @@ export class ToolHandlers {
     this.server = server;
     this.modelCache = ModelCache.getInstance();
     this.apiClient = new OpenRouterAPIClient(apiKey);
+    this.apiKey = apiKey;
     this.defaultModel = defaultModel;
 
     this.openai = new OpenAI({
@@ -121,6 +124,11 @@ export class ToolHandlers {
                 description: 'Sampling temperature (0-2)',
                 minimum: 0,
                 maximum: 2,
+              },
+              max_tokens: {
+                type: 'number',
+                description: 'Maximum number of tokens to generate in the response. Use this to ensure the model completes long outputs.',
+                minimum: 1,
               },
             },
             required: ['messages'],
@@ -289,6 +297,30 @@ export class ToolHandlers {
             required: ['model'],
           },
         },
+        
+        // Generate Image Tool
+        {
+          name: 'generate_image',
+          description: 'Generate an image using OpenRouter image generation models (e.g., Nano Banana / Gemini 2.5 Flash Image). Returns the generated image as base64 data. Optionally saves to disk.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              prompt: {
+                type: 'string',
+                description: 'The prompt describing the image to generate. Be descriptive about style, colors, composition, etc.',
+              },
+              model: {
+                type: 'string',
+                description: 'The image generation model to use. Defaults to "google/gemini-2.5-flash-image" (Nano Banana). Other options: "google/gemini-3-pro-image-preview" (Nano Banana Pro).',
+              },
+              save_path: {
+                type: 'string',
+                description: 'Optional absolute file path to save the generated image. Directory will be created if it does not exist. Example: "/path/to/image.png"',
+              },
+            },
+            required: ['prompt'],
+          },
+        },
       ],
     }));
 
@@ -335,6 +367,13 @@ export class ToolHandlers {
               arguments: request.params.arguments as unknown as ValidateModelToolRequest
             }
           }, this.modelCache);
+        
+        case 'generate_image':
+          return handleGenerateImage({
+            params: {
+              arguments: request.params.arguments as unknown as GenerateImageToolRequest
+            }
+          }, this.apiKey);
         
         default:
           throw new McpError(

@@ -8,6 +8,7 @@ export interface ChatCompletionToolRequest {
   model?: string;
   messages: ChatCompletionMessageParam[];
   temperature?: number;
+  max_tokens?: number;
 }
 
 // Utility function to estimate token count (simplified)
@@ -154,6 +155,7 @@ export async function handleChatCompletion(
       model,
       messages: truncatedMessages,
       temperature: args.temperature ?? 1,
+      ...(args.max_tokens && { max_tokens: args.max_tokens }),
     });
 
     return {

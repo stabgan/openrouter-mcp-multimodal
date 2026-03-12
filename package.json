@@ -1,7 +1,7 @@
 {
-  "name": "@stabgan/openrouter-mcp-multimodal",
-  "version": "1.5.0",
-  "description": "MCP server for OpenRouter providing text chat and image analysis tools",
+  "name": "@firstdoit/openrouter-mcp-multimodal",
+  "version": "1.6.1",
+  "description": "MCP server for OpenRouter providing text chat and image analysis tools (fixed stdio buffer handling)",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -33,12 +33,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/stabgan/openrouter-mcp-multimodal.git"
+    "url": "git+https://github.com/firstdoit/openrouter-mcp-multimodal.git"
   },
   "bugs": {
-    "url": "https://github.com/stabgan/openrouter-mcp-multimodal/issues"
+    "url": "https://github.com/firstdoit/openrouter-mcp-multimodal/issues"
   },
-  "homepage": "https://github.com/stabgan/openrouter-mcp-multimodal#readme",
+  "homepage": "https://github.com/firstdoit/openrouter-mcp-multimodal#readme",
   "engines": {
     "node": ">=18.0.0"
   },
