@@ -1,47 +1,25 @@
-FROM node:20-alpine
-
+FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Install dependencies for sharp and network troubleshooting
-RUN apk add --no-cache \
-    g++ \
-    make \
-    python3 \
-    curl \
-    ca-certificates \
-    vips-dev
+RUN apk add --no-cache g++ make python3 vips-dev
 
-# Configure npm for better reliability
-RUN npm config set strict-ssl false
-RUN npm config set registry https://registry.npmjs.org/
-RUN npm config set fetch-retry-mintimeout 20000
-RUN npm config set fetch-retry-maxtimeout 120000
-
-# Install global packages needed for build
-RUN npm install -g typescript shx
-
-# Copy package files and modify to prevent prepare script from running
 COPY package*.json ./
-RUN node -e "const pkg = require('./package.json'); delete pkg.scripts.prepare; require('fs').writeFileSync('./package.json', JSON.stringify(pkg, null, 2));"
+RUN node -e "const p=require('./package.json');delete p.scripts.prepare;require('fs').writeFileSync('./package.json',JSON.stringify(p,null,2));"
+RUN npm ci --legacy-peer-deps
 
-# Install dependencies without running the prepare script, including sharp with the correct platform
-RUN npm cache clean --force && \
-    npm install --legacy-peer-deps --no-optional && \
-    npm install --platform=linuxmusl --arch=x64 sharp
+COPY tsconfig.json ./
+COPY src/ ./src/
+RUN npx tsc
+RUN npm prune --omit=dev
 
-# Copy source code
-COPY . .
+FROM node:20-alpine
+WORKDIR /app
 
-# Build TypeScript code manually
-RUN npx tsc && \
-    npx shx chmod +x dist/*.js
+RUN apk add --no-cache vips
 
-# Switch to production for runtime
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+COPY package.json ./
+
 ENV NODE_ENV=production
-
-# The API key should be passed at runtime
-# ENV OPENROUTER_API_KEY=your-api-key-here
-# ENV OPENROUTER_DEFAULT_MODEL=your-default-model
-
-# Run the server
 CMD ["node", "dist/index.js"]

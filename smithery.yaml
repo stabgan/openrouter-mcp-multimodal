@@ -27,7 +27,7 @@ startCommand:
         args: ["dist/index.js"],
         env: {
           OPENROUTER_API_KEY: config.OPENROUTER_API_KEY,
-          OPENROUTER_DEFAULT_MODEL: config.OPENROUTER_DEFAULT_MODEL || "anthropic/claude-3.5-sonnet"
+          OPENROUTER_DEFAULT_MODEL: config.OPENROUTER_DEFAULT_MODEL || "nvidia/nemotron-nano-12b-v2-vl:free"
         }
       };
     }
@@ -51,7 +51,7 @@ config:
     - name: OPENROUTER_DEFAULT_MODEL
       description: Default model to use if none specified in requests
       required: false
-      defaultValue: "anthropic/claude-3.5-sonnet"
+      defaultValue: "nvidia/nemotron-nano-12b-v2-vl:free"
 
 documentation:
   description: |
@@ -60,8 +60,8 @@ documentation:
   usage: |
     This MCP server provides the following tools:
     - chat_completion: Send text or multimodal messages to OpenRouter
-    - analyze_image: Analyze a single image with an optional question
-    - multi_image_analysis: Analyze multiple images with a single prompt
+    - analyze_image: Analyze images from files, URLs, or data URLs
+    - generate_image: Generate images from text prompts
     - search_models: Search and filter available models
     - get_model_info: Get detailed information about a specific model
     - validate_model: Check if a model ID is valid

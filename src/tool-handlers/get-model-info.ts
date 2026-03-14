@@ -1,54 +1,25 @@
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { ModelCache } from '../model-cache.js';
-
-export interface GetModelInfoToolRequest {
-  model: string;
-}
+import { OpenRouterAPIClient } from '../openrouter-api.js';
 
 export async function handleGetModelInfo(
-  request: { params: { arguments: GetModelInfoToolRequest } },
-  modelCache: ModelCache
+  request: { params: { arguments: { model: string } } },
+  modelCache: ModelCache,
+  apiClient?: OpenRouterAPIClient,
 ) {
-  const args = request.params.arguments;
-  
-  try {
-    if (!modelCache.isCacheValid()) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: 'Model cache is empty or expired. Please call search_models first to populate the cache.',
-          },
-        ],
-        isError: true,
-      };
-    }
-    
-    const model = modelCache.getModel(args.model);
-    if (!model) {
-      throw new McpError(ErrorCode.InvalidParams, `Model '${args.model}' not found`);
-    }
-    
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(model, null, 2),
-        },
-      ],
-    };
-  } catch (error) {
-    if (error instanceof Error) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Error retrieving model info: ${error.message}`,
-          },
-        ],
-        isError: true,
-      };
-    }
-    throw error;
+  const { model } = request.params.arguments;
+
+  if (!modelCache.isValid() && apiClient) {
+    modelCache.setModels(await apiClient.getModels());
   }
+
+  if (!modelCache.isValid()) {
+    return { content: [{ type: 'text', text: 'No model data available.' }], isError: true };
+  }
+
+  const info = modelCache.get(model);
+  if (!info) {
+    return { content: [{ type: 'text', text: `Model '${model}' not found.` }], isError: true };
+  }
+
+  return { content: [{ type: 'text', text: JSON.stringify(info, null, 2) }] };
 }

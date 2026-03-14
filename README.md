@@ -2,125 +2,62 @@
 
 # OpenRouter MCP Multimodal Server
 
-[![Build Status](https://github.com/stabgan/openrouter-mcp-multimodal/actions/workflows/publish.yml/badge.svg)](https://github.com/stabgan/openrouter-mcp-multimodal/actions/workflows/publish.yml)
 [![npm version](https://img.shields.io/npm/v/@stabgan/openrouter-mcp-multimodal.svg)](https://www.npmjs.com/package/@stabgan/openrouter-mcp-multimodal)
 [![Docker Pulls](https://img.shields.io/docker/pulls/stabgandocker/openrouter-mcp-multimodal.svg)](https://hub.docker.com/r/stabgandocker/openrouter-mcp-multimodal)
+[![Build Status](https://github.com/stabgan/openrouter-mcp-multimodal/actions/workflows/publish.yml/badge.svg)](https://github.com/stabgan/openrouter-mcp-multimodal/actions/workflows/publish.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-An MCP (Model Context Protocol) server that provides chat and image analysis capabilities through OpenRouter.ai's diverse model ecosystem. This server combines text chat functionality with powerful image analysis capabilities.
+The **only** OpenRouter MCP server with native vision, image generation, and smart image optimization — all in one package.
 
-## Features
+Access 300+ LLMs through [OpenRouter](https://openrouter.ai) via the [Model Context Protocol](https://modelcontextprotocol.io), with first-class support for multimodal workflows: analyze images, generate images, and chat — using free or paid models.
 
-- **Text Chat:**
-  - Direct access to all OpenRouter.ai chat models
-  - Support for simple text and multimodal conversations
-  - Configurable temperature and other parameters
+## Why This One?
 
-- **Image Analysis:**
-  - Analyze single images with custom questions
-  - Process multiple images simultaneously 
-  - Automatic image resizing and optimization
-  - Support for various image sources (local files, URLs, data URLs)
+| Feature | This Server | Other OpenRouter MCP Servers |
+|---|---|---|
+| Text chat with 300+ models | ✅ | ✅ |
+| Image analysis (vision) | ✅ Native with sharp optimization | ❌ |
+| Image generation | ✅ | ❌ |
+| Auto image resize & compress | ✅ (800px max, JPEG 80%) | ❌ |
+| Model search & validation | ✅ | Partial |
+| Free model support | ✅ (default: free Nemotron VL) | Varies |
+| Docker support | ✅ (345MB Alpine image) | ❌ |
+| Zero external HTTP deps | ✅ (native fetch only) | ❌ (axios, node-fetch) |
 
-- **Model Selection:**
-  - Search and filter available models
-  - Validate model IDs
-  - Get detailed model information
-  - Support for default model configuration
+## Tools
 
-- **Performance Optimization:**
-  - Smart model information caching
-  - Exponential backoff for retries
-  - Automatic rate limit handling
+| Tool | Description |
+|---|---|
+| `chat_completion` | Send messages to any OpenRouter model. Supports text and multimodal content. |
+| `analyze_image` | Analyze images from local files, URLs, or data URIs. Auto-optimized with sharp. |
+| `generate_image` | Generate images from text prompts. Optionally save to disk. |
+| `search_models` | Search/filter models by name, provider, or capabilities (e.g. vision-only). |
+| `get_model_info` | Get pricing, context length, and capabilities for any model. |
+| `validate_model` | Check if a model ID exists on OpenRouter. |
 
-## What's New in 1.5.0
-
-- **Improved OS Compatibility:**
-  - Enhanced path handling for Windows, macOS, and Linux
-  - Better support for Windows-style paths with drive letters
-  - Normalized path processing for consistent behavior across platforms
-
-- **MCP Configuration Support:**
-  - Cursor MCP integration without requiring environment variables
-  - Direct configuration via MCP parameters
-  - Flexible API key and model specification options
-
-- **Robust Error Handling:**
-  - Improved fallback mechanisms for image processing
-  - Better error reporting with specific diagnostics
-  - Multiple backup strategies for file reading
-
-- **Image Processing Enhancements:**
-  - More reliable base64 encoding for all image types
-  - Fallback options when Sharp module is unavailable
-  - Better handling of large images with automatic optimization
-
-## Installation
-
-### Option 1: Install via npm
-
-```bash
-npm install -g @stabgan/openrouter-mcp-multimodal
-```
-
-### Option 2: Run via Docker
-
-```bash
-docker run -i -e OPENROUTER_API_KEY=your-api-key-here stabgandocker/openrouter-mcp-multimodal:latest
-```
-
-## Quick Start Configuration
+## Quick Start
 
 ### Prerequisites
 
-1. Get your OpenRouter API key from [OpenRouter Keys](https://openrouter.ai/keys)
-2. Choose a default model (optional)
+Get a free API key from [openrouter.ai/keys](https://openrouter.ai/keys).
 
-### MCP Configuration Options
-
-Add one of the following configurations to your MCP settings file (e.g., `cline_mcp_settings.json` or `claude_desktop_config.json`):
-
-#### Option 1: Using npx (Node.js)
+### Option 1: npx (no install)
 
 ```json
 {
   "mcpServers": {
     "openrouter": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@stabgan/openrouter-mcp-multimodal"
-      ],
+      "args": ["-y", "@stabgan/openrouter-mcp-multimodal"],
       "env": {
-        "OPENROUTER_API_KEY": "your-api-key-here",
-        "DEFAULT_MODEL": "qwen/qwen2.5-vl-32b-instruct:free"
+        "OPENROUTER_API_KEY": "sk-or-v1-..."
       }
     }
   }
 }
 ```
 
-#### Option 2: Using uv (Python Package Manager)
-
-```json
-{
-  "mcpServers": {
-    "openrouter": {
-      "command": "uv",
-      "args": [
-        "run",
-        "-m",
-        "openrouter_mcp_multimodal"
-      ],
-      "env": {
-        "OPENROUTER_API_KEY": "your-api-key-here",
-        "DEFAULT_MODEL": "qwen/qwen2.5-vl-32b-instruct:free"
-      }
-    }
-  }
-}
-```
-
-#### Option 3: Using Docker
+### Option 2: Docker
 
 ```json
 {
@@ -128,11 +65,8 @@ Add one of the following configurations to your MCP settings file (e.g., `cline_
     "openrouter": {
       "command": "docker",
       "args": [
-        "run",
-        "--rm",
-        "-i",
-        "-e", "OPENROUTER_API_KEY=your-api-key-here",
-        "-e", "DEFAULT_MODEL=qwen/qwen2.5-vl-32b-instruct:free",
+        "run", "--rm", "-i",
+        "-e", "OPENROUTER_API_KEY=sk-or-v1-...",
         "stabgandocker/openrouter-mcp-multimodal:latest"
       ]
     }
@@ -140,100 +74,133 @@ Add one of the following configurations to your MCP settings file (e.g., `cline_
 }
 ```
 
-#### Option 4: Using Smithery (recommended)
+### Option 3: Global install
+
+```bash
+npm install -g @stabgan/openrouter-mcp-multimodal
+```
+
+Then add to your MCP config:
 
 ```json
 {
   "mcpServers": {
     "openrouter": {
-      "command": "smithery",
-      "args": [
-        "run",
-        "stabgan/openrouter-mcp-multimodal"
-      ],
+      "command": "openrouter-multimodal",
       "env": {
-        "OPENROUTER_API_KEY": "your-api-key-here",
-        "DEFAULT_MODEL": "qwen/qwen2.5-vl-32b-instruct:free"
+        "OPENROUTER_API_KEY": "sk-or-v1-..."
       }
     }
   }
 }
 ```
 
-## Examples
+### Option 4: Smithery
 
-For comprehensive examples of how to use this MCP server, check out the [examples directory](./examples/). We provide:
-
-- JavaScript examples for Node.js applications
-- Python examples with interactive chat capabilities
-- Code snippets for integrating with various applications
-
-Each example comes with clear documentation and step-by-step instructions.
-
-## Dependencies
-
-This project uses the following key dependencies:
-
-- `@modelcontextprotocol/sdk`: ^1.8.0 - Latest MCP SDK for tool implementation
-- `openai`: ^4.89.1 - OpenAI-compatible API client for OpenRouter
-- `sharp`: ^0.33.5 - Fast image processing library
-- `axios`: ^1.8.4 - HTTP client for API requests
-- `node-fetch`: ^3.3.2 - Modern fetch implementation
-
-Node.js 18 or later is required. All dependencies are regularly updated to ensure compatibility and security.
-
-## Available Tools
-
-### mcp_openrouter_chat_completion
-
-Send text or multimodal messages to OpenRouter models:
-
-```javascript
-use_mcp_tool({
-  server_name: "openrouter",
-  tool_name: "mcp_openrouter_chat_completion",
-  arguments: {
-    model: "google/gemini-2.5-pro-exp-03-25:free", // Optional if default is set
-    messages: [
-      {
-        role: "system",
-        content: "You are a helpful assistant."
-      },
-      {
-        role: "user",
-        content: "What is the capital of France?"
-      }
-    ],
-    temperature: 0.7 // Optional, defaults to 1.0
-  }
-});
+```bash
+npx -y @smithery/cli install @stabgan/openrouter-mcp-multimodal --client claude
 ```
 
-For multimodal messages with images:
+## Configuration
 
-```javascript
-use_mcp_tool({
-  server_name: "openrouter",
-  tool_name: "mcp_openrouter_chat_completion",
-  arguments: {
-    model: "anthropic/claude-3.5-sonnet",
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: "What's in this image?"
-          },
-          {
-            type: "image_url",
-            image_url: {
-              url: "https://example.com/image.jpg"
-            }
-          }
-        ]
-      }
-    ]
-  }
-});
+| Environment Variable | Required | Default | Description |
+|---|---|---|---|
+| `OPENROUTER_API_KEY` | Yes | — | Your OpenRouter API key |
+| `OPENROUTER_DEFAULT_MODEL` | No | `nvidia/nemotron-nano-12b-v2-vl:free` | Default model for all tools |
+
+## Usage Examples
+
+### Chat
+
 ```
+Use chat_completion to explain quantum computing in simple terms.
+```
+
+### Analyze an Image
+
+```
+Use analyze_image on /path/to/photo.jpg and tell me what you see.
+```
+
+### Find Vision Models
+
+```
+Use search_models with capabilities.vision = true to find models that can see images.
+```
+
+### Generate an Image
+
+```
+Use generate_image with prompt "a cat astronaut on mars, digital art" and save to ./cat.png
+```
+
+## Architecture
+
+```
+src/
+├── index.ts              # Server entry point, env validation, graceful shutdown
+├── tool-handlers.ts      # Tool registration and routing
+├── model-cache.ts        # In-memory model cache (1hr TTL)
+├── openrouter-api.ts     # OpenRouter REST client (native fetch)
+└── tool-handlers/
+    ├── chat-completion.ts   # Text & multimodal chat
+    ├── analyze-image.ts     # Vision analysis pipeline
+    ├── generate-image.ts    # Image generation
+    ├── image-utils.ts       # Sharp optimization, format detection, fetch
+    ├── search-models.ts     # Model search with filtering
+    ├── get-model-info.ts    # Model detail lookup
+    └── validate-model.ts    # Model existence check
+```
+
+Key design decisions:
+- **Zero HTTP dependencies** — uses Node.js native `fetch` (no axios, no node-fetch)
+- **Lazy sharp loading** — `sharp` is loaded on first image operation, not at startup
+- **Singleton model cache** — fetched once, shared across all tool handlers, 1-hour TTL
+- **Graceful error handling** — every tool returns structured errors, never crashes the server
+- **Process safety** — uncaught exceptions and unhandled rejections trigger clean exit (no zombie processes)
+
+## Development
+
+```bash
+git clone https://github.com/stabgan/openrouter-mcp-multimodal.git
+cd openrouter-mcp-multimodal
+npm install
+cp .env.example .env  # Add your API key
+npm run build
+npm start
+```
+
+### Run Tests
+
+```bash
+npm test
+```
+
+29 unit tests covering model cache, image utilities, and tool handlers.
+
+### Docker Build
+
+```bash
+docker build -t openrouter-mcp .
+docker run -i -e OPENROUTER_API_KEY=sk-or-v1-... openrouter-mcp
+```
+
+Multi-stage build: 345MB final image (Alpine + vips runtime only).
+
+## Compatibility
+
+Works with any MCP client:
+- [Claude Desktop](https://claude.ai/download)
+- [Cursor](https://cursor.sh)
+- [Kiro](https://kiro.dev)
+- [Windsurf](https://codeium.com/windsurf)
+- [Cline](https://github.com/cline/cline)
+- Any MCP-compatible client
+
+## License
+
+MIT
+
+## Contributing
+
+Issues and PRs welcome. Please open an issue first for major changes.

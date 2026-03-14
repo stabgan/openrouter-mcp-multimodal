@@ -1,0 +1,13 @@
+node_modules
+dist
+.env
+.git
+.github
+*.log
+*.md
+*.png
+*.jpg
+test*
+src/__tests__
+vitest.config.ts
+.DS_Store

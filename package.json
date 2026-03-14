@@ -1,63 +1,31 @@
 {
-  "name": "@firstdoit/openrouter-mcp-multimodal",
-  "version": "1.6.1",
-  "description": "MCP server for OpenRouter providing text chat and image analysis tools (fixed stdio buffer handling)",
+  "name": "@stabgan/openrouter-mcp-multimodal",
+  "version": "1.6.2",
+  "description": "MCP server for OpenRouter with text chat, image analysis, and image generation",
   "type": "module",
   "main": "dist/index.js",
-  "bin": {
-    "openrouter-multimodal": "dist/index.js"
-  },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
+  "bin": { "openrouter-multimodal": "dist/index.js" },
+  "files": ["dist", "README.md"],
   "scripts": {
     "build": "tsc && shx chmod +x dist/*.js",
     "prepare": "npm run build",
     "start": "node dist/index.js",
-    "watch": "tsc --watch",
-    "examples": "node examples/index.js",
-    "audit": "npm audit fix"
+    "test": "node --experimental-vm-modules node_modules/.bin/vitest run"
   },
-  "keywords": [
-    "mcp",
-    "openrouter",
-    "ai",
-    "llm",
-    "vision",
-    "image-analysis",
-    "modelcontextprotocol"
-  ],
+  "keywords": ["mcp", "openrouter", "ai", "llm", "vision", "image-analysis"],
   "author": "stabgan",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/firstdoit/openrouter-mcp-multimodal.git"
-  },
-  "bugs": {
-    "url": "https://github.com/firstdoit/openrouter-mcp-multimodal/issues"
-  },
-  "homepage": "https://github.com/firstdoit/openrouter-mcp-multimodal#readme",
-  "engines": {
-    "node": ">=18.0.0"
-  },
+  "engines": { "node": ">=18.0.0" },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.8.0",
-    "axios": "^1.8.4",
-    "dotenv": "^16.4.7",
-    "node-fetch": "^3.3.2",
     "openai": "^4.89.1",
     "sharp": "^0.33.5"
   },
   "devDependencies": {
     "@types/node": "^22.13.14",
-    "@types/sharp": "^0.32.0",
+    "dotenv": "^16.4.7",
     "shx": "^0.3.4",
-    "typescript": "^5.8.2"
-  },
-  "overrides": {
-    "uri-js": "npm:uri-js-replace",
-    "whatwg-url": "^14.1.0"
+    "typescript": "^5.8.2",
+    "vitest": "^3.1.1"
   }
 }

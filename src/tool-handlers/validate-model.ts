@@ -1,50 +1,18 @@
 import { ModelCache } from '../model-cache.js';
-
-export interface ValidateModelToolRequest {
-  model: string;
-}
+import { OpenRouterAPIClient } from '../openrouter-api.js';
 
 export async function handleValidateModel(
-  request: { params: { arguments: ValidateModelToolRequest } },
-  modelCache: ModelCache
+  request: { params: { arguments: { model: string } } },
+  modelCache: ModelCache,
+  apiClient?: OpenRouterAPIClient,
 ) {
-  const args = request.params.arguments;
-  
-  try {
-    if (!modelCache.isCacheValid()) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: 'Model cache is empty or expired. Please call search_models first to populate the cache.',
-          },
-        ],
-        isError: true,
-      };
-    }
-    
-    const isValid = modelCache.hasModel(args.model);
-    
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify({ valid: isValid }),
-        },
-      ],
-    };
-  } catch (error) {
-    if (error instanceof Error) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Error validating model: ${error.message}`,
-          },
-        ],
-        isError: true,
-      };
-    }
-    throw error;
+  if (!modelCache.isValid() && apiClient) {
+    modelCache.setModels(await apiClient.getModels());
   }
+
+  if (!modelCache.isValid()) {
+    return { content: [{ type: 'text', text: 'No model data available.' }], isError: true };
+  }
+
+  return { content: [{ type: 'text', text: JSON.stringify({ valid: modelCache.has(request.params.arguments.model) }) }] };
 }

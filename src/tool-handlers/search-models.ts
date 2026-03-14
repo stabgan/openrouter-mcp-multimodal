@@ -1,68 +1,18 @@
 import { ModelCache } from '../model-cache.js';
 import { OpenRouterAPIClient } from '../openrouter-api.js';
 
-export interface SearchModelsToolRequest {
-  query?: string;
-  provider?: string;
-  minContextLength?: number | string;
-  maxContextLength?: number | string;
-  maxPromptPrice?: number | string;
-  maxCompletionPrice?: number | string;
-  capabilities?: {
-    functions?: boolean;
-    tools?: boolean;
-    vision?: boolean;
-    json_mode?: boolean;
-  };
-  limit?: number | string;
-}
-
 export async function handleSearchModels(
-  request: { params: { arguments: SearchModelsToolRequest } },
+  request: { params: { arguments: any } },
   apiClient: OpenRouterAPIClient,
-  modelCache: ModelCache
+  modelCache: ModelCache,
 ) {
-  const args = request.params.arguments;
-  
   try {
-    // Refresh the cache if needed
-    if (!modelCache.isCacheValid()) {
-      const models = await apiClient.getModels();
-      modelCache.setModels(models);
+    if (!modelCache.isValid()) {
+      modelCache.setModels(await apiClient.getModels());
     }
-    
-    // Search models based on criteria
-    const results = modelCache.searchModels({
-      query: args.query,
-      provider: args.provider,
-      minContextLength: args.minContextLength,
-      maxContextLength: args.maxContextLength,
-      maxPromptPrice: args.maxPromptPrice,
-      maxCompletionPrice: args.maxCompletionPrice,
-      capabilities: args.capabilities,
-      limit: args.limit || 10,
-    });
-    
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(results, null, 2),
-        },
-      ],
-    };
-  } catch (error) {
-    if (error instanceof Error) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Error searching models: ${error.message}`,
-          },
-        ],
-        isError: true,
-      };
-    }
-    throw error;
+    const results = modelCache.search(request.params.arguments);
+    return { content: [{ type: 'text', text: JSON.stringify(results, null, 2) }] };
+  } catch (error: any) {
+    return { content: [{ type: 'text', text: `Error: ${error.message}` }], isError: true };
   }
 }

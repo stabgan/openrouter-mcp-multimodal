@@ -7,7 +7,6 @@
     "strict": true,
     "outDir": "dist",
     "declaration": true,
-    "sourceMap": true,
     "skipLibCheck": true
   },
   "include": ["src/**/*"]
