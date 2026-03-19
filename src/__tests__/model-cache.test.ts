@@ -1,20 +1,44 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { ModelCache } from '../model-cache.js';
 
 describe('ModelCache', () => {
   let cache: ModelCache;
 
   beforeEach(() => {
+    vi.unstubAllEnvs();
     cache = ModelCache.getInstance();
-    // Reset by setting empty then re-populating
     cache.setModels([]);
   });
 
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   const sampleModels = [
-    { id: 'openai/gpt-4', name: 'OpenAI: GPT-4', architecture: { input_modalities: ['text', 'image'] }, context_length: 128000 },
-    { id: 'anthropic/claude-3', name: 'Anthropic: Claude 3', architecture: { input_modalities: ['text', 'image'] }, context_length: 200000 },
-    { id: 'meta/llama-3', name: 'Meta: Llama 3', architecture: { input_modalities: ['text'] }, context_length: 8192 },
-    { id: 'qwen/qwen-vl:free', name: 'Qwen: VL (free)', architecture: { input_modalities: ['text', 'image'] }, context_length: 32000 },
+    {
+      id: 'openai/gpt-4',
+      name: 'OpenAI: GPT-4',
+      architecture: { input_modalities: ['text', 'image'] },
+      context_length: 128000,
+    },
+    {
+      id: 'anthropic/claude-3',
+      name: 'Anthropic: Claude 3',
+      architecture: { input_modalities: ['text', 'image'] },
+      context_length: 200000,
+    },
+    {
+      id: 'meta/llama-3',
+      name: 'Meta: Llama 3',
+      architecture: { input_modalities: ['text'] },
+      context_length: 8192,
+    },
+    {
+      id: 'qwen/qwen-vl:free',
+      name: 'Qwen: VL (free)',
+      architecture: { input_modalities: ['text', 'image'] },
+      context_length: 32000,
+    },
   ];
 
   it('should be a singleton', () => {
@@ -60,7 +84,7 @@ describe('ModelCache', () => {
     cache.setModels(sampleModels);
     const results = cache.search({ capabilities: { vision: true } });
     expect(results).toHaveLength(3);
-    expect(results.every((m: any) => m.architecture.input_modalities.includes('image'))).toBe(true);
+    expect(results.every((m) => m.architecture?.input_modalities?.includes('image'))).toBe(true);
   });
 
   it('should respect limit', () => {
@@ -74,5 +98,13 @@ describe('ModelCache', () => {
     const results = cache.search({ query: 'free', capabilities: { vision: true } });
     expect(results).toHaveLength(1);
     expect(results[0].id).toBe('qwen/qwen-vl:free');
+  });
+
+  it('should expire cache after TTL from env', async () => {
+    vi.stubEnv('OPENROUTER_MODEL_CACHE_TTL_MS', '25');
+    cache.setModels(sampleModels);
+    expect(cache.isValid()).toBe(true);
+    await new Promise((r) => setTimeout(r, 60));
+    expect(cache.isValid()).toBe(false);
   });
 });

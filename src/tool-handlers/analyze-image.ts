@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions.js';
 import { prepareImageUrl } from './image-utils.js';
 
 const DEFAULT_MODEL = 'nvidia/nemotron-nano-12b-v2-vl:free';
@@ -25,17 +26,20 @@ export async function handleAnalyzeImage(
 
     const completion = await openai.chat.completions.create({
       model: model || defaultModel || DEFAULT_MODEL,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'text', text: question || "What's in this image?" },
-          { type: 'image_url', image_url: { url: imageUrl } },
-        ],
-      }] as any,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: question || "What's in this image?" },
+            { type: 'image_url', image_url: { url: imageUrl } },
+          ],
+        },
+      ] as ChatCompletionMessageParam[],
     });
 
     return { content: [{ type: 'text', text: completion.choices[0].message.content || '' }] };
-  } catch (error: any) {
-    return { content: [{ type: 'text', text: `Error: ${error.message}` }], isError: true };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { content: [{ type: 'text', text: `Error: ${msg}` }], isError: true };
   }
 }

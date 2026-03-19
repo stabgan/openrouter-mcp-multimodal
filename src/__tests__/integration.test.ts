@@ -27,7 +27,11 @@ describeIf('Integration: chat_completion', () => {
 
   it('should complete a simple text chat', async () => {
     const result = await handleChatCompletion(
-      { params: { arguments: { messages: [{ role: 'user', content: 'Say "hello" and nothing else.' }] } } },
+      {
+        params: {
+          arguments: { messages: [{ role: 'user', content: 'Say "hello" and nothing else.' }] },
+        },
+      },
       openai,
       DEFAULT_MODEL,
     );
@@ -68,7 +72,8 @@ describeIf('Integration: analyze_image', () => {
       {
         params: {
           arguments: {
-            image_path: 'https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png',
+            image_path:
+              'https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png',
             question: 'What do you see?',
           },
         },
@@ -118,7 +123,11 @@ describeIf('Integration: search_models', () => {
       cache,
     );
     const models = JSON.parse(result.content[0].text);
-    expect(models.every((m: any) => m.architecture?.input_modalities?.includes('image'))).toBe(true);
+    expect(
+      models.every((m: { architecture?: { input_modalities?: string[] } }) =>
+        m.architecture?.input_modalities?.includes('image'),
+      ),
+    ).toBe(true);
   });
 });
 

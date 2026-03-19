@@ -1,5 +1,6 @@
 import { promises as fs } from 'fs';
 import { dirname } from 'path';
+import OpenAI from 'openai';
 
 export interface GenerateImageToolRequest {
   prompt: string;
@@ -11,7 +12,7 @@ const DEFAULT_MODEL = 'google/gemini-2.5-flash-image';
 
 export async function handleGenerateImage(
   request: { params: { arguments: GenerateImageToolRequest } },
-  apiKey: string,
+  openai: OpenAI,
 ) {
   const { prompt, model, save_path } = request.params.arguments;
 
@@ -20,62 +21,69 @@ export async function handleGenerateImage(
   }
 
   try {
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: model || DEFAULT_MODEL, messages: [{ role: 'user', content: `Generate an image: ${prompt}` }] }),
-      signal: AbortSignal.timeout(120000),
+    const completion = await openai.chat.completions.create({
+      model: model || DEFAULT_MODEL,
+      messages: [{ role: 'user', content: `Generate an image: ${prompt}` }],
     });
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error((err as any).error?.message || `HTTP ${res.status}`);
-    }
-
-    const data = await res.json() as any;
-    const message = data.choices?.[0]?.message;
+    const message = completion.choices[0]?.message;
     if (!message) {
       return { content: [{ type: 'text', text: 'No response from model.' }], isError: true };
     }
 
-    const base64 = extractBase64(message);
+    const base64 = extractBase64(message as unknown as Record<string, unknown>);
     if (base64) {
       if (save_path) {
         const dir = dirname(save_path);
         await fs.mkdir(dir, { recursive: true });
         await fs.writeFile(save_path, Buffer.from(base64.data, 'base64'));
-        return { content: [{ type: 'text', text: `Image saved to: ${save_path}` }, { type: 'image', mimeType: base64.mime, data: base64.data }] };
+        return {
+          content: [
+            { type: 'text', text: `Image saved to: ${save_path}` },
+            { type: 'image', mimeType: base64.mime, data: base64.data },
+          ],
+        };
       }
       return { content: [{ type: 'image', mimeType: base64.mime, data: base64.data }] };
     }
 
-    const text = typeof message.content === 'string' ? message.content : JSON.stringify(message.content);
+    const content = message.content;
+    const text = typeof content === 'string' ? content : JSON.stringify(content);
     return { content: [{ type: 'text', text }] };
-  } catch (error: any) {
-    return { content: [{ type: 'text', text: `Error: ${error.message}` }], isError: true };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { content: [{ type: 'text', text: `Error: ${msg}` }], isError: true };
   }
 }
 
-function extractBase64(message: any): { data: string; mime: string } | null {
-  // Check images array (OpenRouter/Gemini style)
-  if (message.images?.length) {
-    for (const img of message.images) {
-      const result = parseDataUrl(img.image_url?.url || img.url);
+function extractBase64(message: Record<string, unknown>): { data: string; mime: string } | null {
+  const images = message.images;
+  if (Array.isArray(images) && images.length) {
+    for (const img of images as Record<string, unknown>[]) {
+      const imageUrl = img.image_url as { url?: string } | undefined;
+      const result = parseDataUrl((imageUrl?.url as string) || (img.url as string | undefined));
       if (result) return result;
     }
   }
 
-  // Check content array
   if (Array.isArray(message.content)) {
-    for (const part of message.content) {
-      const url = part.image_url?.url || part.url;
-      if (url) { const r = parseDataUrl(url); if (r) return r; }
-      if (part.inline_data?.data) return { data: part.inline_data.data, mime: part.inline_data.mime_type || 'image/png' };
-      if (part.type === 'image' && part.data) return { data: part.data, mime: part.mime_type || 'image/png' };
+    for (const part of message.content as Record<string, unknown>[]) {
+      const iu = part.image_url as { url?: string } | undefined;
+      const url = iu?.url || (part.url as string | undefined);
+      if (url) {
+        const r = parseDataUrl(url);
+        if (r) return r;
+      }
+      const inline = part.inline_data as { data?: string; mime_type?: string } | undefined;
+      if (inline?.data) {
+        return { data: inline.data, mime: inline.mime_type || 'image/png' };
+      }
+      if (part.type === 'image' && typeof part.data === 'string') {
+        return { data: part.data, mime: (part.mime_type as string) || 'image/png' };
+      }
     }
   }
 
-  // Check string content for embedded base64
   if (typeof message.content === 'string') {
     const match = message.content.match(/data:image\/([^;]+);base64,([A-Za-z0-9+/=]+)/);
     if (match) return { data: match[2], mime: `image/${match[1]}` };

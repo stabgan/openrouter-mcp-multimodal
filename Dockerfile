@@ -5,7 +5,7 @@ RUN apk add --no-cache g++ make python3 vips-dev
 
 COPY package*.json ./
 RUN node -e "const p=require('./package.json');delete p.scripts.prepare;require('fs').writeFileSync('./package.json',JSON.stringify(p,null,2));"
-RUN npm ci --legacy-peer-deps
+RUN npm ci
 
 COPY tsconfig.json ./
 COPY src/ ./src/

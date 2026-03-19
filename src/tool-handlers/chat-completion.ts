@@ -28,7 +28,8 @@ export async function handleChatCompletion(
     });
 
     return { content: [{ type: 'text', text: completion.choices[0].message.content || '' }] };
-  } catch (error: any) {
-    return { content: [{ type: 'text', text: `API error: ${error.message}` }], isError: true };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { content: [{ type: 'text', text: `API error: ${msg}` }], isError: true };
   }
 }

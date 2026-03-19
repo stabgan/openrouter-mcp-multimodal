@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { getMimeType, fetchImage, optimizeImage, prepareImageUrl } from '../tool-handlers/image-utils.js';
+import {
+  getMimeType,
+  fetchImage,
+  optimizeImage,
+  prepareImageUrl,
+  isBlockedIPv4,
+  assertUrlSafeForFetch,
+} from '../tool-handlers/image-utils.js';
 import path from 'path';
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
+import { writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 
 describe('getMimeType', () => {
@@ -40,6 +47,23 @@ describe('fetchImage', () => {
 
   it('should throw on missing files', async () => {
     await expect(fetchImage('/nonexistent/path/image.png')).rejects.toThrow();
+  });
+
+  it('should reject private IPv4 URLs', async () => {
+    await expect(fetchImage('http://127.0.0.1:8080/x')).rejects.toThrow();
+    await expect(fetchImage('http://192.168.1.1/x')).rejects.toThrow();
+  });
+
+  it('should reject localhost hostnames', async () => {
+    await expect(assertUrlSafeForFetch('http://localhost/foo')).rejects.toThrow();
+  });
+});
+
+describe('isBlockedIPv4', () => {
+  it('identifies loopback and RFC1918', () => {
+    expect(isBlockedIPv4('127.0.0.1')).toBe(true);
+    expect(isBlockedIPv4('10.0.0.1')).toBe(true);
+    expect(isBlockedIPv4('8.8.8.8')).toBe(false);
   });
 });
 

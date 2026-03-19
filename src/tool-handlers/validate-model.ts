@@ -14,5 +14,12 @@ export async function handleValidateModel(
     return { content: [{ type: 'text', text: 'No model data available.' }], isError: true };
   }
 
-  return { content: [{ type: 'text', text: JSON.stringify({ valid: modelCache.has(request.params.arguments.model) }) }] };
+  return {
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify({ valid: modelCache.has(request.params.arguments.model) }),
+      },
+    ],
+  };
 }

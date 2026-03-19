@@ -1,31 +1,54 @@
 {
   "name": "@stabgan/openrouter-mcp-multimodal",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "MCP server for OpenRouter with text chat, image analysis, and image generation",
   "type": "module",
   "main": "dist/index.js",
-  "bin": { "openrouter-multimodal": "dist/index.js" },
-  "files": ["dist", "README.md"],
+  "bin": {
+    "openrouter-multimodal": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc && shx chmod +x dist/*.js",
     "prepare": "npm run build",
     "start": "node dist/index.js",
-    "test": "node --experimental-vm-modules node_modules/.bin/vitest run"
+    "lint": "eslint src",
+    "format": "prettier --write \"src/**/*.ts\" *.json \"*.md\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "test": "node --experimental-vm-modules node_modules/.bin/vitest run",
+    "test:integration": "node --experimental-vm-modules node_modules/.bin/vitest run src/__tests__/integration.test.ts"
   },
-  "keywords": ["mcp", "openrouter", "ai", "llm", "vision", "image-analysis"],
+  "keywords": [
+    "mcp",
+    "openrouter",
+    "ai",
+    "llm",
+    "vision",
+    "image-analysis"
+  ],
   "author": "stabgan",
   "license": "MIT",
-  "engines": { "node": ">=18.0.0" },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
     "openai": "^4.89.1",
     "sharp": "^0.33.5"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@types/node": "^22.13.14",
     "dotenv": "^16.4.7",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.7.4",
     "shx": "^0.3.4",
     "typescript": "^5.8.2",
+    "typescript-eslint": "^8.53.0",
     "vitest": "^3.1.1"
   }
 }

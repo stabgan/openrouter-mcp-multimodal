@@ -1,5 +1,10 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError } from '@modelcontextprotocol/sdk/types.js';
+import {
+  CallToolRequestSchema,
+  ErrorCode,
+  ListToolsRequestSchema,
+  McpError,
+} from '@modelcontextprotocol/sdk/types.js';
 import OpenAI from 'openai';
 import { ModelCache } from './model-cache.js';
 import { OpenRouterAPIClient } from './openrouter-api.js';
@@ -9,16 +14,22 @@ import { handleSearchModels } from './tool-handlers/search-models.js';
 import { handleGetModelInfo } from './tool-handlers/get-model-info.js';
 import { handleValidateModel } from './tool-handlers/validate-model.js';
 import { handleGenerateImage } from './tool-handlers/generate-image.js';
+import type { ChatCompletionToolRequest } from './tool-handlers/chat-completion.js';
+import type { AnalyzeImageToolRequest } from './tool-handlers/analyze-image.js';
+import type { SearchModelsArgs } from './tool-handlers/search-models.js';
+import type { GenerateImageToolRequest } from './tool-handlers/generate-image.js';
+
+function wrapToolArgs<T extends object>(a: T | undefined): { params: { arguments: T } } {
+  return { params: { arguments: a ?? ({} as T) } };
+}
 
 export class ToolHandlers {
   private openai: OpenAI;
   private modelCache = ModelCache.getInstance();
   private apiClient: OpenRouterAPIClient;
-  private apiKey: string;
   private defaultModel?: string;
 
   constructor(server: Server, apiKey: string, defaultModel?: string) {
-    this.apiKey = apiKey;
     this.defaultModel = defaultModel;
     this.apiClient = new OpenRouterAPIClient(apiKey);
     this.openai = new OpenAI({
@@ -40,12 +51,15 @@ export class ToolHandlers {
             properties: {
               model: { type: 'string', description: 'Model ID (optional, uses default)' },
               messages: {
-                type: 'array', minItems: 1,
+                type: 'array',
+                minItems: 1,
                 items: {
                   type: 'object',
                   properties: {
                     role: { type: 'string', enum: ['system', 'user', 'assistant'] },
-                    content: { oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'object' } }] },
+                    content: {
+                      oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'object' } }],
+                    },
                   },
                   required: ['role', 'content'],
                 },
@@ -118,21 +132,42 @@ export class ToolHandlers {
 
     server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
-      const wrap = (a: any) => ({ params: { arguments: a } });
-
       switch (name) {
         case 'chat_completion':
-          return handleChatCompletion(wrap(args), this.openai, this.defaultModel);
+          return handleChatCompletion(
+            wrapToolArgs(args as ChatCompletionToolRequest | undefined),
+            this.openai,
+            this.defaultModel,
+          );
         case 'analyze_image':
-          return handleAnalyzeImage(wrap(args), this.openai, this.defaultModel);
+          return handleAnalyzeImage(
+            wrapToolArgs(args as AnalyzeImageToolRequest | undefined),
+            this.openai,
+            this.defaultModel,
+          );
         case 'search_models':
-          return handleSearchModels(wrap(args), this.apiClient, this.modelCache);
+          return handleSearchModels(
+            wrapToolArgs(args as SearchModelsArgs | undefined),
+            this.apiClient,
+            this.modelCache,
+          );
         case 'get_model_info':
-          return handleGetModelInfo(wrap(args), this.modelCache, this.apiClient);
+          return handleGetModelInfo(
+            wrapToolArgs(args as { model: string } | undefined),
+            this.modelCache,
+            this.apiClient,
+          );
         case 'validate_model':
-          return handleValidateModel(wrap(args), this.modelCache, this.apiClient);
+          return handleValidateModel(
+            wrapToolArgs(args as { model: string } | undefined),
+            this.modelCache,
+            this.apiClient,
+          );
         case 'generate_image':
-          return handleGenerateImage(wrap(args), this.apiKey);
+          return handleGenerateImage(
+            wrapToolArgs(args as GenerateImageToolRequest | undefined),
+            this.openai,
+          );
         default:
           throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
       }

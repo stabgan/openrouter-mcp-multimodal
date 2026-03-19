@@ -7,33 +7,33 @@
 [![Build Status](https://github.com/stabgan/openrouter-mcp-multimodal/actions/workflows/publish.yml/badge.svg)](https://github.com/stabgan/openrouter-mcp-multimodal/actions/workflows/publish.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-The **only** OpenRouter MCP server with native vision, image generation, and smart image optimization — all in one package.
+An OpenRouter MCP server with native vision, image generation, and smart image optimization in one package.
 
 Access 300+ LLMs through [OpenRouter](https://openrouter.ai) via the [Model Context Protocol](https://modelcontextprotocol.io), with first-class support for multimodal workflows: analyze images, generate images, and chat — using free or paid models.
 
 ## Why This One?
 
-| Feature | This Server | Other OpenRouter MCP Servers |
-|---|---|---|
-| Text chat with 300+ models | ✅ | ✅ |
-| Image analysis (vision) | ✅ Native with sharp optimization | ❌ |
-| Image generation | ✅ | ❌ |
-| Auto image resize & compress | ✅ (800px max, JPEG 80%) | ❌ |
-| Model search & validation | ✅ | Partial |
-| Free model support | ✅ (default: free Nemotron VL) | Varies |
-| Docker support | ✅ (345MB Alpine image) | ❌ |
-| Zero external HTTP deps | ✅ (native fetch only) | ❌ (axios, node-fetch) |
+| Feature                      | This Server                                                       |
+| ---------------------------- | ----------------------------------------------------------------- |
+| Text chat with 300+ models   | ✅                                                                |
+| Image analysis (vision)      | ✅ Native with sharp optimization                                 |
+| Image generation             | ✅                                                                |
+| Auto image resize & compress | ✅ (configurable; defaults 800px max, JPEG 80%)                   |
+| Model search & validation    | ✅                                                                |
+| Free model support           | ✅ (default: free Nemotron VL)                                    |
+| Docker support               | ✅ (~345MB Alpine image)                                          |
+| HTTP client                  | ✅ Node.js native `fetch` (no axios / node-fetch in this package) |
 
 ## Tools
 
-| Tool | Description |
-|---|---|
-| `chat_completion` | Send messages to any OpenRouter model. Supports text and multimodal content. |
-| `analyze_image` | Analyze images from local files, URLs, or data URIs. Auto-optimized with sharp. |
-| `generate_image` | Generate images from text prompts. Optionally save to disk. |
-| `search_models` | Search/filter models by name, provider, or capabilities (e.g. vision-only). |
-| `get_model_info` | Get pricing, context length, and capabilities for any model. |
-| `validate_model` | Check if a model ID exists on OpenRouter. |
+| Tool              | Description                                                                     |
+| ----------------- | ------------------------------------------------------------------------------- |
+| `chat_completion` | Send messages to any OpenRouter model. Supports text and multimodal content.    |
+| `analyze_image`   | Analyze images from local files, URLs, or data URIs. Auto-optimized with sharp. |
+| `generate_image`  | Generate images from text prompts. Optionally save to disk.                     |
+| `search_models`   | Search/filter models by name, provider, or capabilities (e.g. vision-only).     |
+| `get_model_info`  | Get pricing, context length, and capabilities for any model.                    |
+| `validate_model`  | Check if a model ID exists on OpenRouter.                                       |
 
 ## Quick Start
 
@@ -65,8 +65,11 @@ Get a free API key from [openrouter.ai/keys](https://openrouter.ai/keys).
     "openrouter": {
       "command": "docker",
       "args": [
-        "run", "--rm", "-i",
-        "-e", "OPENROUTER_API_KEY=sk-or-v1-...",
+        "run",
+        "--rm",
+        "-i",
+        "-e",
+        "OPENROUTER_API_KEY=sk-or-v1-...",
         "stabgandocker/openrouter-mcp-multimodal:latest"
       ]
     }
@@ -103,10 +106,23 @@ npx -y @smithery/cli install @stabgan/openrouter-mcp-multimodal --client claude
 
 ## Configuration
 
-| Environment Variable | Required | Default | Description |
-|---|---|---|---|
-| `OPENROUTER_API_KEY` | Yes | — | Your OpenRouter API key |
-| `OPENROUTER_DEFAULT_MODEL` | No | `nvidia/nemotron-nano-12b-v2-vl:free` | Default model for all tools |
+| Environment Variable                  | Required | Default                               | Description                                           |
+| ------------------------------------- | -------- | ------------------------------------- | ----------------------------------------------------- |
+| `OPENROUTER_API_KEY`                  | Yes      | —                                     | Your OpenRouter API key                               |
+| `OPENROUTER_DEFAULT_MODEL`            | No       | `nvidia/nemotron-nano-12b-v2-vl:free` | Default model for chat, analyze, and similar tools    |
+| `DEFAULT_MODEL`                       | No       | —                                     | Alias for `OPENROUTER_DEFAULT_MODEL`                  |
+| `OPENROUTER_MODEL_CACHE_TTL_MS`       | No       | `3600000`                             | How long cached `/models` data is valid (ms)          |
+| `OPENROUTER_IMAGE_MAX_DIMENSION`      | No       | `800`                                 | Longest edge for resize before vision requests (px)   |
+| `OPENROUTER_IMAGE_JPEG_QUALITY`       | No       | `80`                                  | JPEG quality after optimization (1–100)               |
+| `OPENROUTER_IMAGE_FETCH_TIMEOUT_MS`   | No       | `30000`                               | Per-request timeout for image URLs                    |
+| `OPENROUTER_IMAGE_MAX_DOWNLOAD_BYTES` | No       | `26214400`                            | Max bytes when downloading an image URL (~25 MB)      |
+| `OPENROUTER_IMAGE_MAX_REDIRECTS`      | No       | `8`                                   | Max HTTP redirects when fetching an image URL         |
+| `OPENROUTER_IMAGE_MAX_DATA_URL_BYTES` | No       | `20971520`                            | Approx max decoded size for base64 data URLs (~20 MB) |
+
+### Security notes
+
+- **`analyze_image`** can read **local files** the Node process can read and can **fetch HTTP(S) URLs**. URL fetches block private/link-local/reserved IPv4 and IPv6 targets (SSRF mitigation) and cap response size; they are still **server-side** requests—avoid pointing at internal-only hosts you rely on staying private.
+- **`generate_image`** `save_path` writes to disk wherever the process has permission; treat prompts and paths like shell input from the MCP client user.
 
 ## Usage Examples
 
@@ -153,11 +169,13 @@ src/
 ```
 
 Key design decisions:
-- **Zero HTTP dependencies** — uses Node.js native `fetch` (no axios, no node-fetch)
+
+- **Native `fetch`** for OpenRouter and image URLs (no axios / node-fetch dependency in this package)
 - **Lazy sharp loading** — `sharp` is loaded on first image operation, not at startup
-- **Singleton model cache** — fetched once, shared across all tool handlers, 1-hour TTL
-- **Graceful error handling** — every tool returns structured errors, never crashes the server
-- **Process safety** — uncaught exceptions and unhandled rejections trigger clean exit (no zombie processes)
+- **Singleton model cache** — shared across tool handlers with configurable TTL (default 1 hour)
+- **Bounded URL fetches** — timeouts, size limits, redirect cap, and blocked private networks for image URLs
+- **Graceful error handling** — tools return structured errors instead of crashing the server
+- **Process safety** — uncaught exceptions and unhandled rejections exit the process (no zombie servers)
 
 ## Development
 
@@ -176,7 +194,12 @@ npm start
 npm test
 ```
 
-29 unit tests covering model cache, image utilities, and tool handlers.
+Default `npm test` runs **unit tests** (model cache, image utilities, etc.). With `OPENROUTER_API_KEY` set in `.env`, `npm run test:integration` runs live OpenRouter tests. CI runs integration only when the `OPENROUTER_API_KEY` repository secret is configured.
+
+```bash
+npm run lint
+npm run format:check
+```
 
 ### Docker Build
 
@@ -190,6 +213,7 @@ Multi-stage build: 345MB final image (Alpine + vips runtime only).
 ## Compatibility
 
 Works with any MCP client:
+
 - [Claude Desktop](https://claude.ai/download)
 - [Cursor](https://cursor.sh)
 - [Kiro](https://kiro.dev)
