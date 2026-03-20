@@ -19,7 +19,7 @@
     "format": "prettier --write \"src/**/*.ts\" *.json \"*.md\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
     "test": "node --experimental-vm-modules node_modules/.bin/vitest run",
-    "test:integration": "node --experimental-vm-modules node_modules/.bin/vitest run src/__tests__/integration.test.ts"
+    "test:integration": "node --experimental-vm-modules node_modules/.bin/vitest run --config vitest.integration.config.ts"
   },
   "keywords": [
     "mcp",
@@ -30,6 +30,14 @@
     "image-analysis"
   ],
   "author": "stabgan",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stabgan/openrouter-mcp-multimodal"
+  },
+  "bugs": {
+    "url": "https://github.com/stabgan/openrouter-mcp-multimodal/issues"
+  },
+  "homepage": "https://github.com/stabgan/openrouter-mcp-multimodal#readme",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
