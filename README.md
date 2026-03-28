@@ -3,7 +3,7 @@
 # OpenRouter MCP Multimodal Server
 
 [![npm version](https://img.shields.io/npm/v/@stabgan/openrouter-mcp-multimodal.svg)](https://www.npmjs.com/package/@stabgan/openrouter-mcp-multimodal)
-[![Docker Pulls](https://img.shields.io/docker/pulls/stabgandocker/openrouter-mcp-multimodal.svg)](https://hub.docker.com/r/stabgandocker/openrouter-mcp-multimodal)
+[![Docker Pulls](https://img.shields.io/docker/pulls/stabgan/openrouter-mcp-multimodal.svg)](https://hub.docker.com/r/stabgan/openrouter-mcp-multimodal)
 [![Build Status](https://github.com/stabgan/openrouter-mcp-multimodal/actions/workflows/publish.yml/badge.svg)](https://github.com/stabgan/openrouter-mcp-multimodal/actions/workflows/publish.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -70,7 +70,7 @@ Get a free API key from [openrouter.ai/keys](https://openrouter.ai/keys).
         "-i",
         "-e",
         "OPENROUTER_API_KEY=sk-or-v1-...",
-        "stabgandocker/openrouter-mcp-multimodal:latest"
+        "stabgan/openrouter-mcp-multimodal:latest"
       ]
     }
   }
