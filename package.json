@@ -1,6 +1,7 @@
 {
   "name": "@stabgan/openrouter-mcp-multimodal",
-  "version": "1.8.0",
+  "version": "1.8.1",
+  "mcpName": "io.github.stabgan/openrouter-multimodal",
   "description": "MCP server for OpenRouter with text chat, image analysis, and image generation",
   "type": "module",
   "main": "dist/index.js",
