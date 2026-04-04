@@ -15,11 +15,13 @@ import { handleGetModelInfo } from './tool-handlers/get-model-info.js';
 import { handleValidateModel } from './tool-handlers/validate-model.js';
 import { handleGenerateImage } from './tool-handlers/generate-image.js';
 import { handleAnalyzeAudio } from './tool-handlers/analyze-audio.js';
+import { handleGenerateAudio } from './tool-handlers/generate-audio.js';
 import type { ChatCompletionToolRequest } from './tool-handlers/chat-completion.js';
 import type { AnalyzeImageToolRequest } from './tool-handlers/analyze-image.js';
 import type { SearchModelsArgs } from './tool-handlers/search-models.js';
 import type { GenerateImageToolRequest } from './tool-handlers/generate-image.js';
 import type { AnalyzeAudioToolRequest } from './tool-handlers/analyze-audio.js';
+import type { GenerateAudioToolRequest } from './tool-handlers/generate-audio.js';
 
 function wrapToolArgs<T extends object>(a: T | undefined): { params: { arguments: T } } {
   return { params: { arguments: a ?? ({} as T) } };
@@ -142,6 +144,21 @@ export class ToolHandlers {
             required: ['audio_path'],
           },
         },
+        {
+          name: 'generate_audio',
+          description: 'Generate audio (text-to-speech) from a text prompt. Requires a model with audio output capability (e.g., openai/gpt-audio). Use search_models or get_model_info to find audio-capable models. If voice is invalid, the API returns an error listing valid voices for the model.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              prompt: { type: 'string', description: 'Text to convert to speech' },
+              model: { type: 'string', description: 'Model ID (default: openai/gpt-audio)' },
+              voice: { type: 'string', description: 'Voice name (provider-specific). OpenAI voices: alloy, ash, ballad, coral, echo, sage, shimmer, verse. Other providers may have different voices.' },
+              format: { type: 'string', description: 'Audio format: wav, mp3, flac, opus, pcm16' },
+              save_path: { type: 'string', description: 'Optional path to save audio file' },
+            },
+            required: ['prompt'],
+          },
+        },
       ],
     }));
 
@@ -188,6 +205,11 @@ export class ToolHandlers {
             wrapToolArgs(args as AnalyzeAudioToolRequest | undefined),
             this.openai,
             this.defaultModel,
+          );
+        case 'generate_audio':
+          return handleGenerateAudio(
+            wrapToolArgs(args as GenerateAudioToolRequest | undefined),
+            this.openai,
           );
         default:
           throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);

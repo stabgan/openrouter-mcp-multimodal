@@ -18,6 +18,7 @@ Access 300+ LLMs through [OpenRouter](https://openrouter.ai) via the [Model Cont
 | Text chat with 300+ models   | ✅                                                                |
 | Image analysis (vision)      | ✅ Native with sharp optimization                                 |
 | Audio analysis               | ✅ Transcription and analysis with base64 encoding                |
+| Audio generation (TTS)       | ✅ Text-to-speech with multiple voices and formats               |
 | Image generation             | ✅                                                                |
 | Auto image resize & compress | ✅ (configurable; defaults 800px max, JPEG 80%)                   |
 | Model search & validation    | ✅                                                                |
@@ -32,6 +33,7 @@ Access 300+ LLMs through [OpenRouter](https://openrouter.ai) via the [Model Cont
 | `chat_completion` | Send messages to any OpenRouter model. Supports text and multimodal content.                         |
 | `analyze_image`   | Analyze images from local files, URLs, or data URIs. Auto-optimized with sharp.                      |
 | `analyze_audio`   | Analyze/transcribe audio from local files, URLs, or data URIs. Supports WAV, MP3, FLAC, OGG, etc.    |
+| `generate_audio`  | Generate audio (text-to-speech) from text. Supports multiple voices and formats. Optionally save.   |
 | `generate_image`  | Generate images from text prompts. Optionally save to disk.                                          |
 | `search_models`   | Search/filter models by name, provider, or capabilities (e.g. vision, audio).                         |
 | `get_model_info`  | Get pricing, context length, and capabilities for any model.                                         |
@@ -129,6 +131,7 @@ npx -y @smithery/cli install @stabgan/openrouter-mcp-multimodal --client claude
 
 - **`analyze_image`** can read **local files** the Node process can read and can **fetch HTTP(S) URLs**. URL fetches block private/link-local/reserved IPv4 and IPv6 targets (SSRF mitigation) and cap response size; they are still **server-side** requests—avoid pointing at internal-only hosts you rely on staying private.
 - **`analyze_audio`** can read **local audio files** and **fetch HTTP(S) URLs**. Same SSRF protections apply. Audio must be base64-encoded before sending to OpenRouter (handled automatically).
+- **`generate_audio`** can **save audio files** to disk wherever the process has permission. Uses streaming to receive audio chunks from the model.
 - **`generate_image`** `save_path` writes to disk wherever the process has permission; treat prompts and paths like shell input from the MCP client user.
 
 ## Usage Examples
@@ -163,6 +166,12 @@ Use generate_image with prompt "a cat astronaut on mars, digital art" and save t
 Use analyze_audio on /path/to/recording.mp3 with model "google/gemini-2.5-flash" to transcribe it.
 ```
 
+### Generate Audio (Text-to-Speech)
+
+```
+Use generate_audio with prompt "Hello, this is a test message" and save to ./output.wav
+```
+
 ### Find Audio-Capable Models
 
 ```
@@ -181,7 +190,7 @@ src/
     ├── chat-completion.ts   # Text & multimodal chat
     ├── analyze-image.ts     # Vision analysis pipeline
     ├── analyze-audio.ts     # Audio transcription and analysis
-    ├── generate-image.ts    # Image generation
+    ├── generate-audio.ts    # Text-to-speech generation
     ├── image-utils.ts       # Sharp optimization, format detection, fetch
     ├── audio-utils.ts       # Audio format detection, base64 encoding, fetch
     ├── search-models.ts     # Model search with filtering
