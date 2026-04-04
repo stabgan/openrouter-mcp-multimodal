@@ -14,10 +14,12 @@ import { handleSearchModels } from './tool-handlers/search-models.js';
 import { handleGetModelInfo } from './tool-handlers/get-model-info.js';
 import { handleValidateModel } from './tool-handlers/validate-model.js';
 import { handleGenerateImage } from './tool-handlers/generate-image.js';
+import { handleAnalyzeAudio } from './tool-handlers/analyze-audio.js';
 import type { ChatCompletionToolRequest } from './tool-handlers/chat-completion.js';
 import type { AnalyzeImageToolRequest } from './tool-handlers/analyze-image.js';
 import type { SearchModelsArgs } from './tool-handlers/search-models.js';
 import type { GenerateImageToolRequest } from './tool-handlers/generate-image.js';
+import type { AnalyzeAudioToolRequest } from './tool-handlers/analyze-audio.js';
 
 function wrapToolArgs<T extends object>(a: T | undefined): { params: { arguments: T } } {
   return { params: { arguments: a ?? ({} as T) } };
@@ -127,6 +129,19 @@ export class ToolHandlers {
             required: ['prompt'],
           },
         },
+        {
+          name: 'analyze_audio',
+          description: 'Analyze or transcribe an audio file using a multimodal model',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              audio_path: { type: 'string', description: 'File path, URL, or data URL (base64-encoded audio)' },
+              question: { type: 'string', description: 'Question or instruction about the audio (default: transcribe)' },
+              model: { type: 'string' },
+            },
+            required: ['audio_path'],
+          },
+        },
       ],
     }));
 
@@ -167,6 +182,12 @@ export class ToolHandlers {
           return handleGenerateImage(
             wrapToolArgs(args as GenerateImageToolRequest | undefined),
             this.openai,
+          );
+        case 'analyze_audio':
+          return handleAnalyzeAudio(
+            wrapToolArgs(args as AnalyzeAudioToolRequest | undefined),
+            this.openai,
+            this.defaultModel,
           );
         default:
           throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
