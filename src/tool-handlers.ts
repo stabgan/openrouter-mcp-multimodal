@@ -146,7 +146,7 @@ export class ToolHandlers {
         },
         {
           name: 'generate_audio',
-          description: 'Generate audio from a text prompt using a (conversational) audio model (e.g., openai/gpt-audio). Available models may either be conversational or speech generation models. Use search_models to find audio-capable models. If voice is invalid, the API returns an error listing valid voices.',
+          description: 'Generate audio from a text prompt using a conversational, speech, or music generation model. Conversational models (e.g., openai/gpt-audio) respond in spoken audio rather than just reading back the text. Music models (e.g., google/lyria-3-clip-preview) require a structured prompt (Caption/BPM/style). Tip: use chat_completion on the same model with a brief informal music description to get a valid structured prompt for music generation models. Output format is auto-detected from the response (MP3, WAV, PCM) and the file extension is corrected automatically. Use search_models to find audio-capable models.',
           inputSchema: {
             type: 'object',
             properties: {

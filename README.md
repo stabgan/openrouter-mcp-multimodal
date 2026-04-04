@@ -7,9 +7,9 @@
 [![Build Status](https://github.com/stabgan/openrouter-mcp-multimodal/actions/workflows/publish.yml/badge.svg)](https://github.com/stabgan/openrouter-mcp-multimodal/actions/workflows/publish.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-An OpenRouter MCP server with native vision, image generation, audio analysis, and smart image optimization in one package.
+An OpenRouter MCP server with native vision, image generation, audio analysis, audio generation, and smart image optimization in one package.
 
-Access 300+ LLMs through [OpenRouter](https://openrouter.ai) via the [Model Context Protocol](https://modelcontextprotocol.io), with first-class support for multimodal workflows: analyze images, analyze audio, generate images, and chat — using free or paid models.
+Access 300+ LLMs through [OpenRouter](https://openrouter.ai) via the [Model Context Protocol](https://modelcontextprotocol.io), with first-class support for multimodal workflows: analyze images, analyze audio, generate images, generate audio (conversational, speech, or music), and chat — using free or paid models.
 
 ## Why This One?
 
@@ -18,7 +18,7 @@ Access 300+ LLMs through [OpenRouter](https://openrouter.ai) via the [Model Cont
 | Text chat with 300+ models   | ✅                                                                |
 | Image analysis (vision)      | ✅ Native with sharp optimization                                 |
 | Audio analysis               | ✅ Transcription and analysis with base64 encoding                |
-| Audio generation (TTS)       | ✅ Text-to-speech with multiple voices and formats               |
+| Audio generation             | ✅ Conversational audio, speech, and music generation with format auto-detection |
 | Image generation             | ✅                                                                |
 | Auto image resize & compress | ✅ (configurable; defaults 800px max, JPEG 80%)                   |
 | Model search & validation    | ✅                                                                |
@@ -33,7 +33,7 @@ Access 300+ LLMs through [OpenRouter](https://openrouter.ai) via the [Model Cont
 | `chat_completion` | Send messages to any OpenRouter model. Supports text and multimodal content.                         |
 | `analyze_image`   | Analyze images from local files, URLs, or data URIs. Auto-optimized with sharp.                      |
 | `analyze_audio`   | Analyze/transcribe audio from local files, URLs, or data URIs. Supports WAV, MP3, FLAC, OGG, etc.    |
-| `generate_audio`  | Generate audio (text-to-speech) from text. Supports multiple voices and formats. Optionally save.   |
+| `generate_audio`  | Generate audio from text using conversational (e.g. `openai/gpt-audio`) or music generation models (e.g. `google/lyria-3-clip-preview`). Auto-detects output format (MP3/WAV/FLAC) from response and corrects file extension automatically. Optionally save to disk. |
 | `generate_image`  | Generate images from text prompts. Optionally save to disk.                                          |
 | `search_models`   | Search/filter models by name, provider, or capabilities (e.g. vision, audio).                         |
 | `get_model_info`  | Get pricing, context length, and capabilities for any model.                                         |
@@ -131,7 +131,7 @@ npx -y @smithery/cli install @stabgan/openrouter-mcp-multimodal --client claude
 
 - **`analyze_image`** can read **local files** the Node process can read and can **fetch HTTP(S) URLs**. URL fetches block private/link-local/reserved IPv4 and IPv6 targets (SSRF mitigation) and cap response size; they are still **server-side** requests—avoid pointing at internal-only hosts you rely on staying private.
 - **`analyze_audio`** can read **local audio files** and **fetch HTTP(S) URLs**. Same SSRF protections apply. Audio must be base64-encoded before sending to OpenRouter (handled automatically).
-- **`generate_audio`** can **save audio files** to disk wherever the process has permission. Uses streaming to receive audio chunks from the model.
+- **`generate_audio`** can **save audio files** to disk wherever the process has permission. Uses streaming to receive audio chunks from the model. Output format (MP3, WAV, PCM) depends on the model — conversational models like `openai/gpt-audio` return raw PCM16 (wrapped as WAV), music models like `google/lyria-3-clip-preview` return MP3. File extension is auto-corrected to match.
 - **`generate_image`** `save_path` writes to disk wherever the process has permission; treat prompts and paths like shell input from the MCP client user.
 
 ## Usage Examples
@@ -166,11 +166,31 @@ Use generate_image with prompt "a cat astronaut on mars, digital art" and save t
 Use analyze_audio on /path/to/recording.mp3 with model "google/gemini-2.5-flash" to transcribe it.
 ```
 
-### Generate Audio (Text-to-Speech)
+### Generate Conversational Audio
 
 ```
-Use generate_audio with prompt "Hello, this is a test message" and save to ./output.wav
+Use generate_audio with prompt "Explain what a neural network is" and voice "alloy", save to ./response.wav
 ```
+
+The model (e.g. `openai/gpt-audio`) will respond conversationally in audio — not just read the text back.
+
+### Generate Speech (TTS-style)
+
+```
+Use generate_audio with prompt "Hello, this is a test message" and voice "alloy", save to ./output.wav
+```
+
+### Generate Music (Lyria)
+
+```
+Use generate_audio with model "google/lyria-3-clip-preview" and prompt:
+"upbeat jazz piano trio with walking bass and brushed snare"
+Save to ./jazz.wav
+```
+
+The file will be auto-saved as `jazz.mp3` since Lyria always returns MP3.
+
+> **Tip:** Music generation models like Lyria require a structured prompt (Caption, BPM, style notes). You can use `chat_completion` with a brief informal description to obtain a valid structured prompt — e.g. ask the model *"Give me a Lyria prompt for an upbeat jazz piano trio"* and pass the result to `generate_audio`.
 
 ### Find Audio-Capable Models
 
