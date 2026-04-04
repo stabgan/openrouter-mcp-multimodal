@@ -146,14 +146,14 @@ export class ToolHandlers {
         },
         {
           name: 'generate_audio',
-          description: 'Generate audio (text-to-speech) from a text prompt. Requires a model with audio output capability (e.g., openai/gpt-audio). Use search_models or get_model_info to find audio-capable models. If voice is invalid, the API returns an error listing valid voices for the model.',
+          description: 'Generate audio from a text prompt using a (conversational) audio model (e.g., openai/gpt-audio). Available models may either be conversational or speech generation models. Use search_models to find audio-capable models. If voice is invalid, the API returns an error listing valid voices.',
           inputSchema: {
             type: 'object',
             properties: {
-              prompt: { type: 'string', description: 'Text to convert to speech' },
+              prompt: { type: 'string', description: 'Text input' },
               model: { type: 'string', description: 'Model ID (default: openai/gpt-audio)' },
               voice: { type: 'string', description: 'Voice name (provider-specific). OpenAI voices: alloy, ash, ballad, coral, echo, sage, shimmer, verse. Other providers may have different voices.' },
-              format: { type: 'string', description: 'Audio format: wav, mp3, flac, opus, pcm16' },
+              format: { type: 'string', description: 'Audio format: pcm16 (required for streaming), wav, mp3, flac, opus. Note: OpenAI models only support pcm16 for audio output.' },
               save_path: { type: 'string', description: 'Optional path to save audio file' },
             },
             required: ['prompt'],

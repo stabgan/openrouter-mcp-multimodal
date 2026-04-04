@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs';
-import { dirname } from 'path';
+import { dirname, extname } from 'path';
 import OpenAI from 'openai';
 
 export interface GenerateAudioToolRequest {
@@ -13,11 +13,16 @@ export interface GenerateAudioToolRequest {
 // Default model with audio output support
 const DEFAULT_MODEL = 'openai/gpt-audio';
 const DEFAULT_VOICE = 'alloy';
-const DEFAULT_FORMAT = 'wav';
+const DEFAULT_FORMAT = 'pcm16'; // pcm16 is required for streaming audio output
 
-// Valid audio formats (common across providers)
+// Valid audio formats for output (note: streaming only supports pcm16)
 const VALID_FORMATS = ['wav', 'mp3', 'flac', 'opus', 'pcm16'] as const;
 type AudioFormat = typeof VALID_FORMATS[number];
+
+// PCM16 audio parameters (OpenAI defaults)
+const PCM_SAMPLE_RATE = 24000;
+const PCM_BITS_PER_SAMPLE = 16;
+const PCM_NUM_CHANNELS = 1;
 
 interface AudioDelta {
   data?: string;
@@ -30,6 +35,46 @@ interface StreamChunk {
       audio?: AudioDelta;
     };
   }>;
+}
+
+/**
+ * Create a WAV file header for PCM16 audio data
+ */
+function createWavHeader(dataLength: number, sampleRate: number = PCM_SAMPLE_RATE): Buffer {
+  const header = Buffer.alloc(44);
+  const numChannels = PCM_NUM_CHANNELS;
+  const bitsPerSample = PCM_BITS_PER_SAMPLE;
+  const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+  const blockAlign = numChannels * (bitsPerSample / 8);
+
+  // RIFF chunk descriptor
+  header.write('RIFF', 0);
+  header.writeUInt32LE(36 + dataLength, 4); // File size - 8
+  header.write('WAVE', 8);
+
+  // fmt sub-chunk
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16); // Sub-chunk size (16 for PCM)
+  header.writeUInt16LE(1, 20); // Audio format (1 = PCM)
+  header.writeUInt16LE(numChannels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitsPerSample, 34);
+
+  // data sub-chunk
+  header.write('data', 36);
+  header.writeUInt32LE(dataLength, 40);
+
+  return header;
+}
+
+/**
+ * Wrap PCM16 audio data in a WAV container
+ */
+function wrapPcmInWav(pcmData: Buffer): Buffer {
+  const wavHeader = createWavHeader(pcmData.length);
+  return Buffer.concat([wavHeader, pcmData]);
 }
 
 export async function handleGenerateAudio(
@@ -89,7 +134,15 @@ export async function handleGenerateAudio(
     if (save_path) {
       const dir = dirname(save_path);
       await fs.mkdir(dir, { recursive: true });
-      await fs.writeFile(save_path, Buffer.from(fullAudioBase64, 'base64'));
+      
+      // Decode PCM16 audio data
+      const pcmData = Buffer.from(fullAudioBase64, 'base64');
+      
+      // If saving as .wav, wrap PCM data in WAV container
+      const fileExt = extname(save_path).toLowerCase();
+      const audioData = fileExt === '.wav' ? wrapPcmInWav(pcmData) : pcmData;
+      
+      await fs.writeFile(save_path, audioData);
       
       const result = transcript
         ? `Audio saved to: ${save_path}\nTranscript: ${transcript}`
@@ -112,7 +165,18 @@ export async function handleGenerateAudio(
       ],
     };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
+    // Extract full error details from OpenAI SDK error
+    let msg: string;
+    if (error instanceof Error) {
+      msg = error.message;
+      // Try to get more details from OpenAI error structure
+      const openaiError = error as Error & { status?: number; error?: { message?: string } };
+      if (openaiError.error?.message) {
+        msg = `${msg} - ${openaiError.error.message}`;
+      }
+    } else {
+      msg = String(error);
+    }
     return { content: [{ type: 'text', text: `Error: ${msg}` }], isError: true };
   }
 }
