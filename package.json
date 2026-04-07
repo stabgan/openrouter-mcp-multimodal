@@ -45,13 +45,13 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
+    "dotenv": "^16.4.7",
     "openai": "^4.89.1",
     "sharp": "^0.33.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "@types/node": "^22.13.14",
-    "dotenv": "^16.4.7",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.7.4",

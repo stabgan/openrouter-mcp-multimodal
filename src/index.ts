@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 import { Readable } from 'node:stream';
+import { config } from 'dotenv';
+
+config(); // Load .env file if present
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { ToolHandlers } from './tool-handlers.js';
