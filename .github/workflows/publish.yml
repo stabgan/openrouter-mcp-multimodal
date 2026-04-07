@@ -78,7 +78,7 @@ jobs:
           path: dist/
 
       - name: npm CLI for OIDC trusted publishing
-        run: npm install -g npm@^11.5.1
+        run: npm install -g npm@latest
 
       # OpenID Connect (package → Trusted publisher → this workflow). Do not set NODE_AUTH_TOKEN here.
       - name: Publish to npm (trusted publisher)
