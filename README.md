@@ -23,7 +23,7 @@
   <a href="https://github.com/stabgan/openrouter-mcp-multimodal/stargazers"><img src="https://img.shields.io/github/stars/stabgan/openrouter-mcp-multimodal.svg?style=social" alt="GitHub stars" /></a>
   <a href="https://github.com/stabgan/openrouter-mcp-multimodal/network/members"><img src="https://img.shields.io/github/forks/stabgan/openrouter-mcp-multimodal.svg?style=social" alt="GitHub forks" /></a>
 </p>
-
+[![Verified on MseeP](https://mseep.ai/badge.svg)](https://mseep.ai/app/8f27d6d4-0877-4b86-b377-8a33f451e755)
 <p align="center">
   <sub>3,800+ installs across npm + Docker Hub &middot; ~950 npm installs/month and accelerating</sub>
 </p>
@@ -42,7 +42,7 @@
 
 Access 300+ LLMs through [OpenRouter](https://openrouter.ai) via the [Model Context Protocol](https://modelcontextprotocol.io). Analyze images, audio, and video. Generate images, audio, and video. Chat with any model. Every tool returns structured `_meta.code` errors so MCP clients can switch on failure modes without parsing strings.
 
-[![Verified on MseeP](https://mseep.ai/badge.svg)](https://mseep.ai/app/8f27d6d4-0877-4b86-b377-8a33f451e755)
+
 
 ## One-Click Install
 
