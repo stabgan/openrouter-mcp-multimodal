@@ -47,6 +47,13 @@ async function fetchWithRetry(
       if (res.status === 429 || res.status >= 500) {
         if (attempt < retries) {
           const retryAfter = parseRetryAfter(res.headers.get('retry-after'));
+          // Release the connection before retrying so undici/pool doesn't
+          // keep it open while we sleep.
+          try {
+            await res.body?.cancel();
+          } catch {
+            /* ignore */
+          }
           await sleep(backoffWithJitter(attempt, retryAfter));
           continue;
         }

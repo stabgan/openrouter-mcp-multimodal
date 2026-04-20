@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import OpenAI from 'openai';
 import { resolveSafeOutputPath, UnsafeOutputPathError } from './path-safety.js';
+import { parseBase64DataUrl } from './fetch-utils.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
 
@@ -141,8 +142,19 @@ function extractBase64(message: Record<string, unknown>): { data: string; mime: 
   }
 
   if (typeof message.content === 'string') {
-    const match = message.content.match(/data:image\/([^;]+);base64,([A-Za-z0-9+/=]+)/);
-    if (match) return { data: match[2]!, mime: `image/${match[1]}` };
+    // Scan the string for an embedded data URL. We deliberately don't use
+    // a single regex here because data URLs may carry MIME parameters
+    // (e.g. `data:image/png;charset=binary;base64,...`) which trips the
+    // naive `data:([^;]+);base64,(.+)` form.
+    const start = message.content.indexOf('data:image/');
+    if (start >= 0) {
+      // Find the end of the data URL: a whitespace or closing quote/paren.
+      const tail = message.content.slice(start);
+      const end = tail.search(/[\s)"']/);
+      const url = end === -1 ? tail : tail.slice(0, end);
+      const parsed = parseDataUrl(url);
+      if (parsed) return parsed;
+    }
   }
 
   return null;
@@ -150,6 +162,7 @@ function extractBase64(message: Record<string, unknown>): { data: string; mime: 
 
 function parseDataUrl(url?: string): { data: string; mime: string } | null {
   if (!url?.startsWith('data:')) return null;
-  const match = url.match(/^data:([^;]+);base64,(.+)$/);
-  return match ? { data: match[2]!, mime: match[1]! } : null;
+  const parsed = parseBase64DataUrl(url);
+  if (!parsed) return null;
+  return { data: parsed.base64, mime: parsed.mediaType };
 }

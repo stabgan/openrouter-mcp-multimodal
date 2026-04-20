@@ -1,30 +1,35 @@
 import { ModelCache } from '../model-cache.js';
 import { OpenRouterAPIClient } from '../openrouter-api.js';
+import { ErrorCode, toolError } from '../errors.js';
+import { classifyUpstreamError } from './openrouter-errors.js';
 
 export async function handleGetModelInfo(
   request: { params: { arguments: { model: string } } },
   modelCache: ModelCache,
   apiClient?: OpenRouterAPIClient,
 ) {
-  const { model } = request.params.arguments;
+  const { model } = request.params.arguments ?? { model: '' };
+
+  if (!model || typeof model !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'model is required.');
+  }
 
   if (apiClient) {
     try {
       await modelCache.ensureFresh(() => apiClient.getModels());
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error);
-      return { content: [{ type: 'text', text: `Error: ${msg}` }], isError: true };
+      return classifyUpstreamError(error, 'get_model_info');
     }
   }
 
   if (!modelCache.isValid()) {
-    return { content: [{ type: 'text', text: 'No model data available.' }], isError: true };
+    return toolError(ErrorCode.INTERNAL, 'No model data available.');
   }
 
   const info = modelCache.get(model);
   if (!info) {
-    return { content: [{ type: 'text', text: `Model '${model}' not found.` }], isError: true };
+    return toolError(ErrorCode.MODEL_NOT_FOUND, `Model '${model}' not found.`);
   }
 
-  return { content: [{ type: 'text', text: JSON.stringify(info, null, 2) }] };
+  return { content: [{ type: 'text' as const, text: JSON.stringify(info, null, 2) }] };
 }

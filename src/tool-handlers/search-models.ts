@@ -1,5 +1,7 @@
 import { ModelCache } from '../model-cache.js';
 import { OpenRouterAPIClient } from '../openrouter-api.js';
+import { ErrorCode, toolErrorFrom } from '../errors.js';
+import { classifyUpstreamError } from './openrouter-errors.js';
 
 export interface SearchModelsArgs {
   query?: string;
@@ -15,10 +17,13 @@ export async function handleSearchModels(
 ) {
   try {
     await modelCache.ensureFresh(() => apiClient.getModels());
-    const results = modelCache.search(request.params.arguments);
-    return { content: [{ type: 'text', text: JSON.stringify(results, null, 2) }] };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
-    return { content: [{ type: 'text', text: `Error: ${msg}` }], isError: true };
+    return classifyUpstreamError(error, 'search_models');
+  }
+  try {
+    const results = modelCache.search(request.params.arguments ?? {});
+    return { content: [{ type: 'text' as const, text: JSON.stringify(results, null, 2) }] };
+  } catch (error: unknown) {
+    return toolErrorFrom(ErrorCode.INTERNAL, error, 'search_models');
   }
 }
