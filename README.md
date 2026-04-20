@@ -42,7 +42,7 @@
 
 Access 300+ LLMs through [OpenRouter](https://openrouter.ai) via the [Model Context Protocol](https://modelcontextprotocol.io). Analyze images, audio, and video. Generate images, audio, and video. Chat with any model. Every tool returns structured `_meta.code` errors so MCP clients can switch on failure modes without parsing strings.
 
-[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/stabgan-openrouter-mcp-multimodal-badge.png)](https://mseep.ai/app/stabgan-openrouter-mcp-multimodal)
+[![Verified on MseeP](https://mseep.ai/badge.svg)](https://mseep.ai/app/8f27d6d4-0877-4b86-b377-8a33f451e755)
 
 ## One-Click Install
 
