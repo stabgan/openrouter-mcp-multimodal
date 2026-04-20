@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="100%" style="stop-color:#16213e"/>
+    </linearGradient>
+    <linearGradient id="core" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#8b5cf6"/>
+    </linearGradient>
+  </defs>
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="96" fill="url(#bg)" stroke="#2d2d5e" stroke-width="2"/>
+  <!-- Central hub -->
+  <circle cx="100" cy="100" r="24" fill="url(#core)" opacity="0.95"/>
+  <circle cx="100" cy="100" r="16" fill="none" stroke="#fff" stroke-width="1.5" opacity="0.3"/>
+  <!-- Text modality (top) -->
+  <line x1="100" y1="76" x2="100" y2="42" stroke="#60a5fa" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
+  <circle cx="100" cy="36" r="10" fill="none" stroke="#60a5fa" stroke-width="2" opacity="0.9"/>
+  <text x="100" y="40" text-anchor="middle" fill="#60a5fa" font-size="12" font-family="system-ui" font-weight="bold">T</text>
+  <!-- Image modality (right) -->
+  <line x1="124" y1="100" x2="158" y2="100" stroke="#f472b6" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
+  <rect x="154" y="88" width="20" height="20" rx="4" fill="none" stroke="#f472b6" stroke-width="2" opacity="0.9"/>
+  <circle cx="160" cy="95" r="2.5" fill="#f472b6" opacity="0.7"/>
+  <polyline points="155,105 162,98 170,105" fill="none" stroke="#f472b6" stroke-width="1.5" opacity="0.7"/>
+  <!-- Audio modality (bottom) -->
+  <line x1="100" y1="124" x2="100" y2="158" stroke="#fbbf24" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
+  <path d="M88,158 Q94,148 100,158 Q106,168 112,158" fill="none" stroke="#fbbf24" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+  <!-- Video modality (left) -->
+  <line x1="76" y1="100" x2="42" y2="100" stroke="#34d399" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
+  <rect x="24" y="90" width="20" height="16" rx="3" fill="none" stroke="#34d399" stroke-width="2" opacity="0.9"/>
+  <polygon points="31,95 31,103 38,99" fill="#34d399" opacity="0.8"/>
+  <!-- Outer ring -->
+  <circle cx="100" cy="100" r="88" fill="none" stroke="#4338ca" stroke-width="1" opacity="0.2" stroke-dasharray="4 6"/>
+  <!-- Label -->
+  <text x="100" y="190" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="system-ui" letter-spacing="2">OPENROUTER MCP</text>
+</svg>
