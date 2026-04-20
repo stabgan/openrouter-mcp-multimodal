@@ -52,7 +52,9 @@ jobs:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    # Trusted publishing (OIDC): package must link this repo + publish.yml on npmjs.com
+    # Token-based publish using NPMJS_TOKEN secret. We keep the id-token
+    # permission available so we can flip to OIDC once the npm-side
+    # trusted-publisher binding is configured — see
     # https://docs.npmjs.com/trusted-publishers/
     permissions:
       id-token: write
@@ -78,8 +80,10 @@ jobs:
           name: dist
           path: dist/
 
-      - name: Publish to npm (trusted publisher)
-        run: npm publish --access=public
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPMJS_TOKEN }}
+        run: npm publish --access=public --provenance
 
   docker:
     needs: build
