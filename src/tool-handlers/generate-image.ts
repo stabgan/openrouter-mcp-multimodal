@@ -24,6 +24,14 @@ export interface GenerateImageToolRequest {
    * `2K`, `4K`. Model-dependent.
    */
   image_size?: string;
+  /**
+   * Upper bound on the completion budget. Without this OpenRouter
+   * reserves the model's full context window (~29k for Gemini
+   * image models), which can trigger a 402 on low-credit accounts even
+   * though the actual generation uses far fewer tokens. 4096 is plenty
+   * for the image payload + any caption.
+   */
+  max_tokens?: number;
 }
 
 const DEFAULT_MODEL = 'google/gemini-2.5-flash-image';
@@ -54,7 +62,7 @@ export async function handleGenerateImage(
   request: { params: { arguments: GenerateImageToolRequest } },
   openai: OpenAI,
 ) {
-  const { prompt, model, save_path, aspect_ratio, image_size } =
+  const { prompt, model, save_path, aspect_ratio, image_size, max_tokens } =
     request.params.arguments ?? { prompt: '' };
 
   if (!prompt?.trim()) {
@@ -105,6 +113,7 @@ export async function handleGenerateImage(
     modalities: ['image', 'text'],
   };
   if (Object.keys(imageConfig).length > 0) body.image_config = imageConfig;
+  if (typeof max_tokens === 'number' && max_tokens > 0) body.max_tokens = max_tokens;
 
   let completion: ChatCompletion;
   try {

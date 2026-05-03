@@ -251,6 +251,12 @@ export class ToolHandlers {
                   'Output resolution bucket. 1K is the default; 0.5K / 2K / 4K are model-dependent.',
                 enum: ['0.5K', '1K', '2K', '4K'],
               },
+              max_tokens: {
+                type: 'number',
+                minimum: 1,
+                description:
+                  'Cap on completion tokens. Defaults to the model context window, which can trip free-tier quotas; set e.g. 4096 on low-credit accounts.',
+              },
               save_path: {
                 type: 'string',
                 description:
