@@ -1,5 +1,6 @@
 import { promises as fs } from 'fs';
 import OpenAI from 'openai';
+import type { ChatCompletion } from 'openai/resources/chat/completions.js';
 import { resolveSafeOutputPath, UnsafeOutputPathError } from './path-safety.js';
 import { parseBase64DataUrl } from './fetch-utils.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
@@ -9,18 +10,70 @@ export interface GenerateImageToolRequest {
   prompt: string;
   model?: string;
   save_path?: string;
+  /**
+   * Output aspect ratio. Passed through as `image_config.aspect_ratio`.
+   * Supported by OpenRouter image models (e.g. `1:1`, `16:9`, `9:16`,
+   * `4:3`, `3:4`, `21:9`). Model-dependent — unsupported values fall back
+   * to the model's default. See
+   * https://openrouter.ai/docs/guides/overview/multimodal/image-generation
+   */
+  aspect_ratio?: string;
+  /**
+   * Output image resolution bucket. Passed through as
+   * `image_config.image_size`. Typical values: `0.5K`, `1K` (default),
+   * `2K`, `4K`. Model-dependent.
+   */
+  image_size?: string;
 }
 
 const DEFAULT_MODEL = 'google/gemini-2.5-flash-image';
+
+// OpenRouter-documented aspect ratios (standard + extended). Extended are
+// only honored by models that support them (e.g. gemini-3.1-flash-image),
+// others fall back to the model's default.
+const VALID_ASPECT_RATIOS = new Set([
+  '1:1',
+  '2:3',
+  '3:2',
+  '3:4',
+  '4:3',
+  '4:5',
+  '5:4',
+  '9:16',
+  '16:9',
+  '21:9',
+  '1:4',
+  '4:1',
+  '1:8',
+  '8:1',
+]);
+
+const VALID_IMAGE_SIZES = new Set(['0.5K', '1K', '2K', '4K']);
 
 export async function handleGenerateImage(
   request: { params: { arguments: GenerateImageToolRequest } },
   openai: OpenAI,
 ) {
-  const { prompt, model, save_path } = request.params.arguments ?? { prompt: '' };
+  const { prompt, model, save_path, aspect_ratio, image_size } =
+    request.params.arguments ?? { prompt: '' };
 
   if (!prompt?.trim()) {
     return toolError(ErrorCode.INVALID_INPUT, 'prompt is required.');
+  }
+
+  // Validate optional shape fields early so callers get a clear error
+  // instead of a cryptic upstream 400.
+  if (aspect_ratio !== undefined && !VALID_ASPECT_RATIOS.has(aspect_ratio)) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `aspect_ratio '${aspect_ratio}' is not supported. Valid values: ${[...VALID_ASPECT_RATIOS].join(', ')}.`,
+    );
+  }
+  if (image_size !== undefined && !VALID_IMAGE_SIZES.has(image_size)) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `image_size '${image_size}' is not supported. Valid values: ${[...VALID_IMAGE_SIZES].join(', ')}.`,
+    );
   }
 
   // Fail-fast on unsafe paths BEFORE spending tokens.
@@ -36,12 +89,32 @@ export async function handleGenerateImage(
     }
   }
 
-  let completion;
+  // Assemble the request body. OpenRouter's image-generation guide requires
+  //   - `modalities: ["image", "text"]` so multimodal models (like Gemini)
+  //     know to emit an image, not just text;
+  //   - `image_config.{aspect_ratio, image_size}` for shape control.
+  // The OpenAI SDK doesn't type these fields, but passes unknown members
+  // through to the server, so we attach them via a typed cast.
+  const imageConfig: Record<string, string> = {};
+  if (aspect_ratio) imageConfig.aspect_ratio = aspect_ratio;
+  if (image_size) imageConfig.image_size = image_size;
+
+  const body: Record<string, unknown> = {
+    model: model || DEFAULT_MODEL,
+    messages: [{ role: 'user', content: `Generate an image: ${prompt}` }],
+    modalities: ['image', 'text'],
+  };
+  if (Object.keys(imageConfig).length > 0) body.image_config = imageConfig;
+
+  let completion: ChatCompletion;
   try {
-    completion = await openai.chat.completions.create({
-      model: model || DEFAULT_MODEL,
-      messages: [{ role: 'user', content: `Generate an image: ${prompt}` }],
-    });
+    // OpenRouter-specific `image_config` isn't in the OpenAI SDK's typings,
+    // but the SDK passes unknown fields straight through to the server.
+    // We never pass `stream: true`, so the response is always
+    // ChatCompletion.
+    completion = (await openai.chat.completions.create(
+      body as unknown as Parameters<typeof openai.chat.completions.create>[0],
+    )) as ChatCompletion;
   } catch (err) {
     return classifyUpstreamError(err, 'generate_image');
   }

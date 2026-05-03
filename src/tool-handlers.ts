@@ -224,6 +224,33 @@ export class ToolHandlers {
             properties: {
               prompt: { type: 'string' },
               model: { type: 'string' },
+              aspect_ratio: {
+                type: 'string',
+                description:
+                  'Output aspect ratio (e.g. 1:1, 16:9, 9:16, 4:3, 3:4, 21:9). Model-dependent.',
+                enum: [
+                  '1:1',
+                  '2:3',
+                  '3:2',
+                  '3:4',
+                  '4:3',
+                  '4:5',
+                  '5:4',
+                  '9:16',
+                  '16:9',
+                  '21:9',
+                  '1:4',
+                  '4:1',
+                  '1:8',
+                  '8:1',
+                ],
+              },
+              image_size: {
+                type: 'string',
+                description:
+                  'Output resolution bucket. 1K is the default; 0.5K / 2K / 4K are model-dependent.',
+                enum: ['0.5K', '1K', '2K', '4K'],
+              },
               save_path: {
                 type: 'string',
                 description:
