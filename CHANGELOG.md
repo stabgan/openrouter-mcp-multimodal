@@ -2,13 +2,13 @@
 
 All notable changes to `@stabgan/openrouter-mcp-multimodal` are recorded here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.2.0] — 2026-05-03
 
 ### Added
-- **`generate_image` reference images.** New optional `input_images: string[]` field on `generate_image`. Each entry is a local file path, an `http(s)://` URL, or a `data:image/...;base64,...` URL. When provided, the user message becomes a multimodal `ChatCompletionContentPart[]`: a text preamble + one `image_url` block per ref, in input order. Enables character/style consistency, image-to-image, and iterative refinement on chat-image models (Gemini Nano Banana, `openai/gpt-5.4-image-2`).
+- **`generate_image` reference images** ([#15](https://github.com/stabgan/openrouter-mcp-multimodal/issues/15), [#16](https://github.com/stabgan/openrouter-mcp-multimodal/pull/16) by [@ahmadsl](https://github.com/ahmadsl)). New optional `input_images: string[]` field on `generate_image`. Each entry is a local file path, an `http(s)://` URL, or a `data:image/...;base64,...` URL. When provided, the user message becomes a multimodal `ChatCompletionContentPart[]`: a text preamble + one `image_url` block per ref, in input order. Enables character/style consistency, image-to-image, and iterative refinement on chat-image models (Gemini Nano Banana, `openai/gpt-5.4-image-2`).
 - **`generate_image` modalities override.** New optional `modalities: string[]` field on `generate_image`. Defaults to the `["image","text"]` value v3.1.0 hardcodes; provide e.g. `["text"]` to suppress image output for inspection / captioning.
 - **`OPENROUTER_INPUT_DIR` env var.** Sandbox root for `input_images` file paths. Falls back to `OPENROUTER_OUTPUT_DIR`, then `cwd`. Honors `OPENROUTER_ALLOW_UNSAFE_PATHS=1` for the legacy bypass, matching `save_path` semantics.
-- **`generate-image.test.ts`.** 18 unit tests covering `mimeFromExt`, `resolveInputImage` (data/http passthrough, file → base64, traversal rejection, symlink-aware sandbox, env-var fallback), and `buildUserContent` (text vs multimodal branches, preamble, order preservation).
+- **`generate-image.test.ts`.** 18 new unit tests covering `mimeFromExt`, `resolveInputImage` (data/http passthrough, file → base64, traversal rejection, symlink-aware sandbox, env-var fallback), and `buildUserContent` (text vs multimodal branches, preamble, order preservation). Total test count 181.
 
 ## [3.1.1] — 2026-05-03
 
