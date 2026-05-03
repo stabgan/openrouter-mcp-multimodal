@@ -20,7 +20,7 @@
   <a href="https://www.npmjs.com/package/@stabgan/openrouter-mcp-multimodal"><img src="https://img.shields.io/npm/dt/@stabgan/openrouter-mcp-multimodal.svg?label=npm%20downloads&color=cb3837&logo=npm" alt="npm downloads" /></a>
   <a href="https://www.npmjs.com/package/@stabgan/openrouter-mcp-multimodal"><img src="https://img.shields.io/npm/dm/@stabgan/openrouter-mcp-multimodal.svg?label=monthly&color=cb3837&logo=npm" alt="npm monthly" /></a>
   <a href="https://hub.docker.com/r/stabgan/openrouter-mcp-multimodal"><img src="https://img.shields.io/docker/pulls/stabgan/openrouter-mcp-multimodal.svg?label=docker%20pulls&color=2496ed&logo=docker&logoColor=white" alt="Docker pulls" /></a>
-  <a href="https://smithery.ai/servers/kg-ai-iitm/openrouter-mcp-multimodal"><img src="https://smithery.ai/badge/kg-ai-iitm/openrouter-mcp-multimodal" alt="Smithery" /></a>
+  <a href="https://smithery.ai/servers/stabgan/openrouter-mcp-multimodal"><img src="https://smithery.ai/badge/stabgan/openrouter-mcp-multimodal" alt="Smithery" /></a>
   <a href="https://github.com/stabgan/openrouter-mcp-multimodal/stargazers"><img src="https://img.shields.io/github/stars/stabgan/openrouter-mcp-multimodal.svg?style=social" alt="GitHub stars" /></a>
   <a href="https://github.com/stabgan/openrouter-mcp-multimodal/network/members"><img src="https://img.shields.io/github/forks/stabgan/openrouter-mcp-multimodal.svg?style=social" alt="GitHub forks" /></a>
 </p>
