@@ -4,6 +4,43 @@
  */
 import dns from 'node:dns/promises';
 import net from 'node:net';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+
+/**
+ * User-Agent we send on outbound fetches from `fetchHttpResource`. Some
+ * CDNs/WAFs (notably Wikimedia/Varnish) reject requests without a UA, so
+ * we identify ourselves with the package name + current version + a repo
+ * URL so origin operators can contact us if our traffic misbehaves.
+ *
+ * Version is read from package.json at module load so version bumps don't
+ * require hand-edits here. Falls back to `dev` if package.json can't be
+ * located (e.g. in certain bundled environments).
+ */
+export const FETCH_USER_AGENT: string = (() => {
+  const fallback = 'openrouter-mcp-multimodal/dev (+https://github.com/stabgan/openrouter-mcp-multimodal)';
+  try {
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    // Walk up a few levels looking for package.json (handles both
+    // dist/tool-handlers/… and src/tool-handlers/… layouts).
+    for (let hop = 0; hop < 5; hop++) {
+      const candidate = path.resolve(here, '../'.repeat(hop), 'package.json');
+      try {
+        const raw = readFileSync(candidate, 'utf8');
+        const pkg = JSON.parse(raw) as { name?: string; version?: string };
+        if (pkg?.version && pkg?.name?.includes('openrouter-mcp-multimodal')) {
+          return `openrouter-mcp-multimodal/${pkg.version} (+https://github.com/stabgan/openrouter-mcp-multimodal)`;
+        }
+      } catch {
+        /* keep walking */
+      }
+    }
+  } catch {
+    /* fall through */
+  }
+  return fallback;
+})();
 
 export function readEnvInt(name: string, fallback: number, min = 1): number {
   const raw = process.env[name];
@@ -307,8 +344,7 @@ export async function fetchHttpResource(
           // without a User-Agent with HTTP 400. Identify ourselves so
           // analyze_image / analyze_audio / analyze_video work against
           // those origins. See https://github.com/stabgan/openrouter-mcp-multimodal/issues/13
-          'User-Agent':
-            'openrouter-mcp-multimodal/3.0.0 (+https://github.com/stabgan/openrouter-mcp-multimodal)',
+          'User-Agent': FETCH_USER_AGENT,
           Accept: 'image/*, audio/*, video/*, */*;q=0.8',
         },
       });
