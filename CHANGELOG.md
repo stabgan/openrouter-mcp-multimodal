@@ -2,6 +2,20 @@
 
 All notable changes to `@stabgan/openrouter-mcp-multimodal` are recorded here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.1] — 2026-05-03
+
+### Added
+- **Published to the official [MCP Registry](https://registry.modelcontextprotocol.io)** as `io.github.stabgan/openrouter-multimodal`. The registry replaced the deprecated community list on `modelcontextprotocol/servers` and is now the upstream data source for `wong2/awesome-mcp-servers`, `mcp.so`, and most modern MCP aggregators.
+- **`llms.txt`** at the repo root — emerging standard for AI-agent crawlers indexing open-source projects. Condensed summary of install, tools, error taxonomy, and security posture.
+- **`server.json`** registry manifest covering the npm package (`@stabgan/openrouter-mcp-multimodal`) and Docker image (`docker.io/stabgan/openrouter-mcp-multimodal`), with environment variable schemas for `OPENROUTER_API_KEY`, `OPENROUTER_DEFAULT_MODEL`, and `OPENROUTER_OUTPUT_DIR`.
+- **Dockerfile labels** — `io.modelcontextprotocol.server.name` (required by the MCP Registry to verify OCI-package namespace ownership) plus the standard OCI `org.opencontainers.image.*` annotations so `docker inspect` and Docker Hub's listing surface pick up the metadata.
+
+### Changed
+- **README first paragraph** now names the six MCP-compatible clients (Claude Desktop, Cursor, Kiro, VS Code, Windsurf, Cline) and the six LLM families reached through OpenRouter (Claude, Gemini, GPT, Llama, Qwen, Grok) — high-intent search phrases that were previously buried in the doc.
+- **Repo topics** rebalanced to 20 high-traffic discovery tags: added `claude-desktop`, `cursor`, `gemini`, `ai-agent`, `tts`, `stt`, `vision`; dropped the low-traffic specific ones (`seedance`, `video-understanding`, `audio-transcription`, `audio-generation`, `nodejs`, `ai`, `image-analysis`). Kept irreplaceable specifics: `veo`, `sora`, `model-context-protocol`, `openrouter`, `multimodal`.
+- **GitHub repo description** leads with use case + named clients.
+- **Wiki disabled** — was empty and diluted search indexing.
+
 ## [3.1.0] — 2026-05-03
 
 ### Added

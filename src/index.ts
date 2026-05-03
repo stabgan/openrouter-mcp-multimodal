@@ -29,7 +29,7 @@ const defaultModel =
   process.env.OPENROUTER_DEFAULT_MODEL || process.env.DEFAULT_MODEL || DEFAULT_MODEL;
 
 const server = new Server(
-  { name: 'openrouter-multimodal-server', version: '3.1.0' },
+  { name: 'openrouter-multimodal-server', version: '3.1.1' },
   { capabilities: { tools: {} } },
 );
 

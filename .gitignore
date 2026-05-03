@@ -5,6 +5,9 @@ dist/
 *.tsbuildinfo
 .DS_Store
 
+# mcp-publisher CLI credentials (device-login tokens)
+.mcpregistry_*
+
 # Workspace-local Kiro artifacts (specs, agents, steering) — do not publish.
 .kiro/
 

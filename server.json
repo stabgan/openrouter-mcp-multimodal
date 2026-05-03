@@ -1,17 +1,17 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.stabgan/openrouter-multimodal",
-  "description": "Chat with 300+ LLMs (Claude, Gemini, GPT, Llama, Qwen, Grok) via OpenRouter; analyze images / audio / video; generate images, speech, music, and video (Veo 3.1, Sora 2 Pro, Seedance, Wan). Structured error taxonomy, IPv4+IPv6 SSRF guards, path sandbox, multi-arch Docker.",
+  "description": "Chat with 300+ LLMs via OpenRouter. Analyze and generate images, audio, and video from MCP.",
   "repository": {
     "url": "https://github.com/stabgan/openrouter-mcp-multimodal",
     "source": "github"
   },
-  "version": "3.1.0",
+  "version": "3.1.1",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@stabgan/openrouter-mcp-multimodal",
-      "version": "3.1.0",
+      "version": "3.1.1",
       "transport": {
         "type": "stdio"
       },
@@ -39,8 +39,7 @@
     },
     {
       "registryType": "oci",
-      "identifier": "docker.io/stabgan/openrouter-mcp-multimodal",
-      "version": "3.1.0",
+      "identifier": "docker.io/stabgan/openrouter-mcp-multimodal:3.1.1",
       "transport": {
         "type": "stdio"
       },
