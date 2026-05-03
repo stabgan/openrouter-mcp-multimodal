@@ -24,7 +24,7 @@
   <a href="https://github.com/stabgan/openrouter-mcp-multimodal/network/members"><img src="https://img.shields.io/github/forks/stabgan/openrouter-mcp-multimodal.svg?style=social" alt="GitHub forks" /></a>
 </p>
 <p align="center">
-  <sub>3,800+ installs across npm + Docker Hub &middot; ~950 npm installs/month and accelerating</sub>
+  <sub>4,700+ installs across npm + Docker Hub &middot; ~950 npm installs/month and accelerating</sub>
 </p>
 
 <p align="center">
@@ -109,7 +109,7 @@ Install-link audit (2026-04-20, round 4 — HTTPS redirectors only):
 | `analyze_image` | Analyze images from local files, URLs, or data URIs. Auto-optimized with sharp. |
 | `analyze_audio` | Analyze/transcribe audio (WAV, MP3, FLAC, OGG, etc.) from files, URLs, or data URIs. |
 | `analyze_video` | Analyze/transcribe video (mp4, mpeg, mov, webm) from files, URLs, or data URIs. |
-| `generate_image` | Generate images from text prompts. Optional path-sandboxed disk save. |
+| `generate_image` | Generate images from text prompts. Supports `aspect_ratio` (14 values), `image_size` (0.5K–4K), and `max_tokens`. Optional path-sandboxed disk save. |
 | `generate_audio` | Generate audio from text. Auto-detects format, wraps raw PCM in WAV. |
 | `generate_video` | Generate video via OpenRouter's async API (Veo 3.1 / Sora 2 Pro / Seedance / Wan). Submits, polls, downloads, saves. |
 | `get_video_status` | Resume polling a `generate_video` job by id. Download + save when complete. |
@@ -246,7 +246,7 @@ Use generate_audio with prompt "Explain neural networks" and voice "alloy", save
 Use generate_audio with model "google/lyria-3-clip-preview" and prompt "upbeat jazz piano trio"
 
 # Generate image
-Use generate_image with prompt "a cat astronaut on mars" and save to ./cat.png
+Use generate_image with prompt "a cat astronaut on mars", aspect_ratio "16:9", image_size "1K", save to ./cat.png
 
 # Generate video
 Use generate_video with model "google/veo-3.1", prompt "a calm river at sunrise",
