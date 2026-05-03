@@ -1,0 +1,44 @@
+# @stabgan/openrouter-mcp-multimodal
+
+> MCP (Model Context Protocol) server that gives any MCP client — Claude Desktop, Cursor, Kiro, VS Code, Windsurf, Cline — access to 300+ LLMs through OpenRouter. Covers text chat plus the full multimodal matrix: image / audio / video analysis and image / audio / video generation (Veo 3.1, Sora 2 Pro, Seedance, Wan).
+
+## Install
+
+- npm: `npx -y @stabgan/openrouter-mcp-multimodal`
+- Docker: `docker run --rm -i -e OPENROUTER_API_KEY=... stabgan/openrouter-mcp-multimodal:latest`
+- Smithery: `npx -y @smithery/cli install @stabgan/openrouter-mcp-multimodal --client claude`
+
+Get a free API key at https://openrouter.ai/keys.
+
+## Tools
+
+- `chat_completion` — send messages to any OpenRouter model
+- `analyze_image` — vision analysis of local files, URLs, or data URIs (sharp-optimized)
+- `analyze_audio` — transcribe / analyze audio (WAV, MP3, FLAC, OGG, …)
+- `analyze_video` — analyze video (mp4, mpeg, mov, webm)
+- `generate_image` — text-to-image with `aspect_ratio` (14 values), `image_size` (0.5K–4K), `max_tokens`
+- `generate_audio` — text-to-speech / conversational audio / music generation
+- `generate_video` — async text-to-video (Veo 3.1, Sora 2 Pro, Seedance, Wan)
+- `get_video_status` — resume a video-generation job by id
+- `search_models` — filter OpenRouter models by name, provider, or modality
+- `get_model_info` — pricing / context length / capabilities for any model
+- `validate_model` — check if a model id exists
+
+All error responses carry `_meta.code` from a closed taxonomy: `INVALID_INPUT`, `UNSAFE_PATH`, `UPSTREAM_HTTP`, `UPSTREAM_TIMEOUT`, `UPSTREAM_REFUSED`, `UNSUPPORTED_FORMAT`, `RESOURCE_TOO_LARGE`, `ZDR_INCOMPATIBLE`, `MODEL_NOT_FOUND`, `JOB_FAILED`, `JOB_STILL_RUNNING`, `INTERNAL`.
+
+## Security
+
+- IPv4 + IPv6 SSRF blocklist (loopback, private, mapped, compat, multicast, 6to4, Teredo, ORCHID)
+- Output path sandbox for `save_path`, overridable with `OPENROUTER_ALLOW_UNSAFE_PATHS=1`
+- Retry-After-aware HTTP retries with jitter
+- MCP 2025 tool annotations (`readOnlyHint` / `destructiveHint` / `idempotentHint`)
+
+## Links
+
+- Repository: https://github.com/stabgan/openrouter-mcp-multimodal
+- Issues: https://github.com/stabgan/openrouter-mcp-multimodal/issues
+- Changelog: https://github.com/stabgan/openrouter-mcp-multimodal/blob/main/CHANGELOG.md
+- npm: https://www.npmjs.com/package/@stabgan/openrouter-mcp-multimodal
+- Docker Hub: https://hub.docker.com/r/stabgan/openrouter-mcp-multimodal
+- GHCR: https://github.com/stabgan/openrouter-mcp-multimodal/pkgs/container/openrouter-mcp-multimodal
+- License: MIT

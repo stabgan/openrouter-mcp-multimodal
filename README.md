@@ -40,7 +40,7 @@
 ---
 [![Verified on MseeP](https://mseep.ai/badge.svg)](https://mseep.ai/app/8f27d6d4-0877-4b86-b377-8a33f451e755)
 
-Access 300+ LLMs through [OpenRouter](https://openrouter.ai) via the [Model Context Protocol](https://modelcontextprotocol.io). Analyze images, audio, and video. Generate images, audio, and video. Chat with any model. Every tool returns structured `_meta.code` errors so MCP clients can switch on failure modes without parsing strings.
+Access 300+ LLMs — Claude, Gemini, GPT, Llama, Qwen, Grok, and more — through [OpenRouter](https://openrouter.ai) via the [Model Context Protocol](https://modelcontextprotocol.io). Analyze images, audio, and video. Generate images, speech, music, and video (Veo 3.1, Sora 2 Pro, Seedance, Wan). Chat with any model. Works with **Claude Desktop**, **Cursor**, **Kiro**, **VS Code**, **Windsurf**, **Cline**, and any MCP-compatible client. Every tool returns structured `_meta.code` errors so MCP clients can switch on failure modes without parsing strings.
 
 
 
