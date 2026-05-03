@@ -299,7 +299,19 @@ export async function fetchHttpResource(
     const t = setTimeout(() => controller.abort(), opts.timeoutMs);
     let res: Response;
     try {
-      res = await fetch(target, { redirect: 'manual', signal: controller.signal });
+      res = await fetch(target, {
+        redirect: 'manual',
+        signal: controller.signal,
+        headers: {
+          // Some CDNs/WAFs (notably Wikimedia/Varnish) reject requests
+          // without a User-Agent with HTTP 400. Identify ourselves so
+          // analyze_image / analyze_audio / analyze_video work against
+          // those origins. See https://github.com/stabgan/openrouter-mcp-multimodal/issues/13
+          'User-Agent':
+            'openrouter-mcp-multimodal/3.0.0 (+https://github.com/stabgan/openrouter-mcp-multimodal)',
+          Accept: 'image/*, audio/*, video/*, */*;q=0.8',
+        },
+      });
     } finally {
       clearTimeout(t);
     }
