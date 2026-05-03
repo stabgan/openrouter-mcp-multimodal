@@ -213,7 +213,11 @@ export class ToolHandlers {
         },
         {
           name: 'generate_image',
-          description: 'Generate an image from a text prompt',
+          description:
+            'Generate an image from a text prompt. Optionally conditioned on one or more ' +
+            'reference images (file paths, http(s) URLs, or data URLs) for character / style ' +
+            'consistency. Sends `modalities: ["image","text"]` by default; override via the ' +
+            '`modalities` field if needed.',
           annotations: {
             readOnlyHint: false,
             destructiveHint: false,
@@ -261,6 +265,23 @@ export class ToolHandlers {
                 type: 'string',
                 description:
                   'Optional path to save the image. Routed through the OPENROUTER_OUTPUT_DIR sandbox.',
+              },
+              input_images: {
+                type: 'array',
+                items: { type: 'string' },
+                description:
+                  'Optional reference images for visual consistency. Each entry may be a ' +
+                  'local file path (sandboxed to OPENROUTER_INPUT_DIR / OPENROUTER_OUTPUT_DIR / ' +
+                  'cwd), an http(s) URL, or a `data:image/...;base64,...` URL. Inlined as ' +
+                  'multimodal user content in the order given.',
+              },
+              modalities: {
+                type: 'array',
+                items: { type: 'string' },
+                description:
+                  'Override the default `modalities: ["image","text"]` sent to OpenRouter. ' +
+                  'Most callers should leave this unset. Provide e.g. ["text"] to suppress ' +
+                  'image output for inspection / captioning.',
               },
             },
             required: ['prompt'],
