@@ -1,4 +1,5 @@
 import { promises as fs } from 'fs';
+import path from 'node:path';
 import OpenAI from 'openai';
 import type { ChatCompletion } from 'openai/resources/chat/completions.js';
 import { resolveSafeOutputPath, UnsafeOutputPathError } from './path-safety.js';
@@ -13,7 +14,7 @@ export interface GenerateImageToolRequest {
   /**
    * Output aspect ratio. Passed through as `image_config.aspect_ratio`.
    * Supported by OpenRouter image models (e.g. `1:1`, `16:9`, `9:16`,
-   * `4:3`, `3:4`, `21:9`). Model-dependent — unsupported values fall back
+   * `4:3`, `3:4`, `21:9`). Model-dependent. Unsupported values fall back
    * to the model's default. See
    * https://openrouter.ai/docs/guides/overview/multimodal/image-generation
    */
@@ -32,6 +33,27 @@ export interface GenerateImageToolRequest {
    * for the image payload + any caption.
    */
   max_tokens?: number;
+  /**
+   * Optional reference images. Each entry is one of:
+   *   - a `data:image/...;base64,...` URL,
+   *   - an `http(s)://` URL (OpenRouter fetches it),
+   *   - a local file path (sandboxed to `OPENROUTER_INPUT_DIR` /
+   *     `OPENROUTER_OUTPUT_DIR` / cwd, read + base64-encoded by the server).
+   *
+   * When provided, the user message becomes multimodal: a text prompt
+   * plus one `image_url` block per reference, in array order. Enables
+   * character / style consistency and image-to-image refinement on
+   * chat-image models that accept image inputs (Gemini Nano Banana,
+   * `openai/gpt-5.4-image-2`).
+   */
+  input_images?: string[];
+  /**
+   * Override the default `modalities: ["image","text"]` sent to
+   * OpenRouter. Most callers should leave this unset. Provide e.g.
+   * `["text"]` to suppress image output for inspection / captioning,
+   * or other shapes for future model variants.
+   */
+  modalities?: string[];
 }
 
 const DEFAULT_MODEL = 'google/gemini-2.5-flash-image';
@@ -62,8 +84,16 @@ export async function handleGenerateImage(
   request: { params: { arguments: GenerateImageToolRequest } },
   openai: OpenAI,
 ) {
-  const { prompt, model, save_path, aspect_ratio, image_size, max_tokens } =
-    request.params.arguments ?? { prompt: '' };
+  const {
+    prompt,
+    model,
+    save_path,
+    aspect_ratio,
+    image_size,
+    max_tokens,
+    input_images,
+    modalities,
+  } = request.params.arguments ?? { prompt: '' };
 
   if (!prompt?.trim()) {
     return toolError(ErrorCode.INVALID_INPUT, 'prompt is required.');
@@ -97,9 +127,24 @@ export async function handleGenerateImage(
     }
   }
 
-  // Assemble the request body. OpenRouter's image-generation guide requires
-  //   - `modalities: ["image", "text"]` so multimodal models (like Gemini)
-  //     know to emit an image, not just text;
+  // Build the user message. With no `input_images`, this is the original
+  // string content; with refs, it becomes a multimodal
+  // ChatCompletionContentPart[] (text preamble + one image_url per ref).
+  let content: string | OpenAI.Chat.Completions.ChatCompletionContentPart[];
+  try {
+    content = await buildUserContent(prompt, input_images);
+  } catch (err) {
+    if (err instanceof UnsafeOutputPathError) {
+      return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
+    }
+    return toolErrorFrom(ErrorCode.INVALID_INPUT, err, 'input_images');
+  }
+
+  // Assemble the request body. OpenRouter's image-generation guide
+  // requires:
+  //   - `modalities: ["image", "text"]` so multimodal models (like
+  //     Gemini) know to emit an image, not just text. Caller can
+  //     override via the `modalities` field.
   //   - `image_config.{aspect_ratio, image_size}` for shape control.
   // The OpenAI SDK doesn't type these fields, but passes unknown members
   // through to the server, so we attach them via a typed cast.
@@ -109,8 +154,8 @@ export async function handleGenerateImage(
 
   const body: Record<string, unknown> = {
     model: model || DEFAULT_MODEL,
-    messages: [{ role: 'user', content: `Generate an image: ${prompt}` }],
-    modalities: ['image', 'text'],
+    messages: [{ role: 'user', content }],
+    modalities: modalities && modalities.length ? modalities : ['image', 'text'],
   };
   if (Object.keys(imageConfig).length > 0) body.image_config = imageConfig;
   if (typeof max_tokens === 'number' && max_tokens > 0) body.max_tokens = max_tokens;
@@ -137,8 +182,9 @@ export async function handleGenerateImage(
   if (!base64) {
     // Model talked but did not emit an image. Surface this as a distinct
     // condition so callers don't treat chatter as a successful image.
-    const content = message.content;
-    const text = typeof content === 'string' ? content : JSON.stringify(content);
+    const messageContent = message.content;
+    const text =
+      typeof messageContent === 'string' ? messageContent : JSON.stringify(messageContent);
     return toolError(
       ErrorCode.UPSTREAM_REFUSED,
       `Model returned no image. Text response: ${text.slice(0, 300)}`,
@@ -193,6 +239,109 @@ export async function handleGenerateImage(
         : {}),
     },
   };
+}
+
+/**
+ * Resolve a caller-supplied input image into a URL the chat-completions
+ * API accepts. Local file paths are sandboxed to the workspace root
+ * (`OPENROUTER_INPUT_DIR` or `OPENROUTER_OUTPUT_DIR` or cwd) and inlined
+ * as base64 data URLs.
+ */
+export async function resolveInputImage(ref: string): Promise<string> {
+  const trimmed = ref.trim();
+  if (!trimmed) throw new Error('empty input_images entry');
+
+  if (trimmed.startsWith('data:')) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+
+  const root = path.resolve(
+    process.env.OPENROUTER_INPUT_DIR || process.env.OPENROUTER_OUTPUT_DIR || process.cwd(),
+  );
+  const unsafe =
+    process.env.OPENROUTER_ALLOW_UNSAFE_PATHS === '1' ||
+    process.env.OPENROUTER_ALLOW_UNSAFE_PATHS?.toLowerCase() === 'true';
+
+  // Realpath the root first so absolute paths the caller already gave in
+  // canonical form (e.g. /private/var/...) and paths we resolve against
+  // the root (which may go through /var/... symlinks on macOS) live in
+  // the same namespace for the prefix check below.
+  const rootReal = await fs.realpath(root).catch(() => root);
+  const abs = path.isAbsolute(trimmed)
+    ? path.resolve(trimmed)
+    : path.resolve(rootReal, trimmed);
+
+  if (!unsafe) {
+    const withSep = rootReal.endsWith(path.sep) ? rootReal : rootReal + path.sep;
+
+    // Prefer realpath for the prefix check so callers can pass paths
+    // through symlinks (e.g. macOS `/var/...` → `/private/var/...`)
+    // without us rejecting them. If the file doesn't exist yet, fall
+    // back to a textual check on the resolved path so traversal
+    // (`../escape.png`) is still rejected with the right error type
+    // instead of leaking an ENOENT to the caller.
+    let canonical: string;
+    try {
+      canonical = await fs.realpath(abs);
+    } catch {
+      canonical = abs;
+    }
+
+    if (!(canonical === rootReal || canonical.startsWith(withSep))) {
+      throw new UnsafeOutputPathError(
+        `input_images entry resolves outside workspace root (${rootReal}): ${ref}`,
+      );
+    }
+  }
+
+  const buf = await fs.readFile(abs);
+  const mime = mimeFromExt(path.extname(abs)) || 'image/png';
+  return `data:${mime};base64,${buf.toString('base64')}`;
+}
+
+export function mimeFromExt(ext: string): string | null {
+  const e = ext.toLowerCase().replace(/^\./, '');
+  switch (e) {
+    case 'png':
+      return 'image/png';
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'webp':
+      return 'image/webp';
+    case 'gif':
+      return 'image/gif';
+    default:
+      return null;
+  }
+}
+
+export async function buildUserContent(
+  prompt: string,
+  inputImages?: string[],
+): Promise<string | OpenAI.Chat.Completions.ChatCompletionContentPart[]> {
+  if (!inputImages?.length) {
+    return `Generate an image: ${prompt}`;
+  }
+
+  const parts: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
+    {
+      type: 'text',
+      text:
+        `Generate an image based on this prompt, using the following reference image(s) ` +
+        `for visual consistency. Match the appearance, identity, and style of the references ` +
+        `closely; do not alter them.\n\nPrompt: ${prompt}`,
+    },
+  ];
+
+  for (const ref of inputImages) {
+    const url = await resolveInputImage(ref);
+    parts.push({
+      type: 'image_url',
+      image_url: { url, detail: 'high' },
+    });
+  }
+
+  return parts;
 }
 
 function extractBase64(message: Record<string, unknown>): { data: string; mime: string } | null {
