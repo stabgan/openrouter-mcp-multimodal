@@ -2,6 +2,22 @@
 
 All notable changes to `@stabgan/openrouter-mcp-multimodal` are recorded here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] — 2026-05-03
+
+### Added
+- **`generate_image` now accepts `aspect_ratio` and `image_size`** ([#8](https://github.com/stabgan/openrouter-mcp-multimodal/issues/8)). `aspect_ratio` supports all 14 OpenRouter-documented values (`1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `16:9`, `21:9`, plus the extended `1:4`, `4:1`, `1:8`, `8:1` honored by `google/gemini-3.1-flash-image-preview`). `image_size` supports `0.5K` / `1K` / `2K` / `4K`. Invalid values are rejected client-side with `INVALID_INPUT` before the request is sent — the local enum was verified against OpenRouter's own server-side schema by probing `POST /chat/completions` with an invalid ratio and cross-checking the returned `values` array. End-to-end verified: four images at 16:9, 9:16, 1:1, and 4:3 were generated through the full handler path and the PNG `IHDR` chunks confirmed aspect ratios within ~3% of the request (tiny delta is model-side rounding to OpenRouter's published resolution buckets).
+- **`generate_image` now accepts `max_tokens`.** Without this cap OpenRouter reserves the full model context window (~29k tokens for Gemini image models) up front, which 402s free-tier / low-credit accounts even when the actual image completion would cost pennies. `4096` works well in practice.
+- **`generate_image` now sends `modalities: ["image", "text"]`** per the current OpenRouter image-generation API. Some multimodal models (including the default `google/gemini-2.5-flash-image`) were already emitting images without this hint, but others reply with text-only refusals unless the modalities are declared explicitly. This removes a latent class of "model returned no image" false negatives.
+
+### Fixed
+- **[#13] `fetchHttpResource` now sends a `User-Agent` and `Accept` header.** Node's default `fetch()` ships no UA, and UA-screening CDNs (notably Wikimedia / Varnish) return HTTP 403/400 for such requests. That failure was bubbling to MCP callers through `analyze_image` / `analyze_audio` / `analyze_video` as a bare "HTTP 400" that looked like an OpenRouter / model failure. The UA is now `openrouter-mcp-multimodal/<version> (+<repo-url>)` with the version read from `package.json` at module load so future bumps stay in sync. Originally shipped by [@ZoneoutReal](https://github.com/ZoneoutReal) in [#14](https://github.com/stabgan/openrouter-mcp-multimodal/pull/14); refactored to read the version dynamically in [2843da4](https://github.com/stabgan/openrouter-mcp-multimodal/commit/2843da4).
+- **HTTP response body leak in `openrouter-api.ts::fetchWithRetry`.** On 429 / 5xx retries the previous response body was never consumed or cancelled before the backoff sleep, so undici held the pooled connection open until GC reclaimed the `ReadableStream`. Now calls `res.body?.cancel()` before retrying.
+- **`generate_image` silently dropped images with MIME parameters in their data URLs.** The old regex `^data:([^;]+);base64,(.+)$` only matched data URLs with zero MIME parameters. Models that emit `data:image/png;charset=binary;base64,...` (some Gemini builds do) were falling through and the tool reported "no image in response" even though the model delivered one. Fixed by delegating to the already-correct `parseBase64DataUrl` from `fetch-utils.ts`.
+- **Error shape inconsistency across `search_models` / `get_model_info` / `validate_model`.** These three handlers returned legacy `{ content, isError: true }` without the structured `_meta.code` that every other handler emits. Clients relying on `_meta.code` to branch on error types couldn't tell a `MODEL_NOT_FOUND` from an upstream HTTP failure. Now routed through `toolError` / `classifyUpstreamError`, with missing/invalid `model` input rejected up front.
+
+### Declined
+- **[#12]** Encrypted credential storage was declined. MCP servers run locally per-user, so plaintext env var / `.env` is the standard threat model. `.env` is gitignored; OS-level file permissions protect it. An encryption layer would shift complexity onto every user without materially reducing risk for the single-developer local usage that drives this project. Reopen if this ever moves to shared / team environments.
+
 ## [3.0.0] — 2026-04-20
 
 ### Added
@@ -54,10 +70,6 @@ All notable changes to `@stabgan/openrouter-mcp-multimodal` are recorded here. T
 - Streaming completions for `chat_completion` / `analyze_*`.
 - MCP resource attachments for generated media (let LLMs re-fetch outputs as MCP resources).
 - Per-model pricing × usage = `_meta.cost_usd` estimation.
-
-## [Unreleased]
-
-_(nothing yet)_
 
 ## [2.1.0] — Not released
 
