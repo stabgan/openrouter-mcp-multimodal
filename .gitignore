@@ -24,3 +24,6 @@ dist/
 
 # Local smoke/integration artifacts
 .mcp-smoke-output/
+
+# Local test harness scratch (metrics harvester smoke tests, etc.)
+.test-tmp/
