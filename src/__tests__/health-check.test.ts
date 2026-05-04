@@ -6,8 +6,7 @@ import { SERVER_VERSION, MCP_PROTOCOL_VERSION } from '../version.js';
 
 function resetCache(): ModelCache {
   const cache = ModelCache.getInstance();
-  cache.setModels([]);
-  (cache as unknown as { fetchedAt: number }).fetchedAt = 0;
+  cache.reset();
   return cache;
 }
 
@@ -43,6 +42,32 @@ describe('handleHealthCheck', () => {
     expect(sc.ok).toBe(false);
     expect(sc.api_key_valid).toBe(false);
     expect(sc.error).toMatch(/HTTP 401/);
+  });
+
+  it('returns ok=true with models_cached=0 on successful-but-empty catalog', async () => {
+    // v4.5.0 contract: `ok` tracks API reachability, not catalog size.
+    // A successful fetch that happens to return [] still counts as `ok: true`.
+    const cache = resetCache();
+    const apiClient = {
+      getModels: vi.fn().mockResolvedValue([]),
+    } as unknown as OpenRouterAPIClient;
+    const r = await handleHealthCheck({ params: { arguments: {} } }, apiClient, cache);
+    const sc = (r as { structuredContent: Record<string, unknown> }).structuredContent;
+    expect(sc.ok).toBe(true);
+    expect(sc.api_key_valid).toBe(true);
+    expect(sc.models_cached).toBe(0);
+  });
+
+  it('does not hot-loop re-fetching after a successful-but-empty response', async () => {
+    // Regression test for the "empty catalog → isValid() false → hot loop"
+    // bug found by the v4.5.0 bug-hunter audit.
+    const cache = resetCache();
+    const getModels = vi.fn().mockResolvedValue([]);
+    const apiClient = { getModels } as unknown as OpenRouterAPIClient;
+    await handleHealthCheck({ params: { arguments: {} } }, apiClient, cache);
+    await handleHealthCheck({ params: { arguments: {} } }, apiClient, cache);
+    await handleHealthCheck({ params: { arguments: {} } }, apiClient, cache);
+    expect(getModels).toHaveBeenCalledTimes(1);
   });
 
   it('emits structuredContent with required fields', async () => {

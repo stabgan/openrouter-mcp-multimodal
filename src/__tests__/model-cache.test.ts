@@ -7,7 +7,7 @@ describe('ModelCache', () => {
   beforeEach(() => {
     vi.unstubAllEnvs();
     cache = ModelCache.getInstance();
-    cache.setModels([]);
+    cache.reset();
   });
 
   afterEach(() => {

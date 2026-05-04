@@ -1,5 +1,5 @@
 name: openrouter-mcp-multimodal
-version: 4.5.0
+version: 4.5.1
 description: MCP server for OpenRouter — chat (with provider routing + :nitro/:floor variants), image / audio / video analysis, image / audio / video generation (Veo 3.1, Sora, Seedance, Wan). Apache 2.0.
 
 image:

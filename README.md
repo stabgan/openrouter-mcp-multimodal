@@ -313,7 +313,7 @@ Use get_video_status with video_id "vid_abc123" and save_path "./river.mp4"
 ```
 src/
 ├── index.ts                    # Entry, env validation, graceful shutdown
-├── tool-handlers.ts            # 11 tools (annotated) + dispatch
+├── tool-handlers.ts            # 14 tools (annotated) + dispatch
 ├── model-cache.ts              # TTL + in-flight coalescing
 ├── openrouter-api.ts           # REST client (chat + /videos)
 ├── errors.ts                   # Closed ErrorCode enum
@@ -337,6 +337,60 @@ src/
     ├── get-model-info.ts       # Model detail lookup
     └── validate-model.ts       # Model existence check
 ```
+
+## Design Principles & Research
+
+v4.5.0's design draws from three threads of research and industry guidance. Rather than building in isolation, every feature ties to a cited source so decisions can be re-examined later.
+
+### MCP-first design principles
+
+We follow [Phil Schmid's production guide for MCP servers](https://www.philschmid.de/mcp-best-practices) (Jan 2026), which argues that an MCP server is "a user interface for AI agents, not a REST API wrapper":
+
+- **Outcomes, not operations.** Our tools like `analyze_image` and `generate_video` encapsulate a whole workflow (fetch, validate, invoke, save) rather than exposing raw OpenRouter primitives.
+- **Flattened arguments.** Top-level primitives with enums (`aspect_ratio`, `image_size`), no deeply nested configuration blobs. The one nested object (`provider`) is required by OpenRouter's routing schema.
+- **Descriptions are context.** Every tool description includes "Fails when:" and "Works with:" sections (see next section for the research backing).
+- **Curated surface.** 14 tools total. Each is a distinct outcome; no "helper" tools that exist only for internal composition.
+
+Apigene's ["12 Rules for Production MCP Deployment"](https://apigene.ai/blog/mcp-best-practices) (March 2026) guided the error-handling posture: structured errors with `suggestions` and `retry_after_seconds` on `_meta` beat raw error strings the agent has to interpret.
+
+### MCP 2025-06-18 spec compliance
+
+- **Structured outputs.** `validate_model`, `get_model_info`, `search_models`, `rerank_documents`, and `health_check` emit [`structuredContent` with `outputSchema`](https://modelcontextprotocol.io/specification/2025-06-18/server/tools#output-schema), per §5.2.6-7. Agents can validate responses typefully.
+- **Progress notifications.** `generate_video` emits [`notifications/progress`](https://modelcontextprotocol.io/specification/2025-06-18/basic/utilities/progress) on every poll tick when the client passes a `progressToken` in `_meta`. Progress values are guaranteed strictly monotonic per spec.
+- **Tool annotations.** Every tool carries `title` + `readOnlyHint` + `destructiveHint` + `idempotentHint` + `openWorldHint` so clients can render appropriate UI affordances.
+
+### Research-backed tool-design decisions
+
+These papers shaped specific v4.5.0 choices:
+
+| Finding | Source | How it shaped v4.5.0 |
+| :--- | :--- | :--- |
+| Failure-mode docs and inter-tool relationships measurably improve tool-selection accuracy | [Schlapbach, *Convergence of SGD & MCP*](https://arxiv.org/abs/2602.18764) (Feb 2026) | Every tool description has explicit "Fails when:" (ErrorCode triggers) and "Works with:" (related tools). |
+| Tool-call success drops with parameter count and schema complexity | [Fu et al., *ROSBag MCP Server*](https://arxiv.org/abs/2511.03497) (Nov 2025) | `generate_video_from_image` is a narrower image-to-video wrapper around `generate_video` — fewer params, higher hit rate. |
+| Indirect prompt injection via tool-returned content is a real attack vector | [Zhao et al., *ClawGuard*](https://arxiv.org/abs/2604.11790) (Apr 2026) · [Yu et al., *Defense via Tool Result Parsing*](https://arxiv.org/abs/2601.04795) (Jan 2026) | `analyze_image` / `analyze_audio` / `analyze_video` tag their output `_meta.content_is_untrusted: true`. Downstream agents know to treat that text as data, not instructions. |
+| Provider-level tool-calling variance is large and persists across providers for the same model | [OpenRouter Auto Exacto announcement](https://openrouter.ai/announcements/auto-exacto) (Mar 2026) | `chat_completion` documents the `:exacto` model suffix alongside `:nitro` / `:floor`. 80-88% error reduction on top tool-calling models. |
+| LLM JSON defects compound at scale | [OpenRouter Response Healing](https://openrouter.ai/announcements/response-healing-reduce-json-defects-by-80percent) (Dec 2025) | Structured outputs + outputSchema declarations give clients a parseable contract. (Response-healing plugin itself is opt-in on OpenRouter's side.) |
+| MCP servers are vulnerable to preference-manipulation and tool-poisoning attacks | [Wang et al., *MPMA*](https://arxiv.org/abs/2505.11154) (May 2025) · [Turgut & Gümüş, *CASCADE*](https://arxiv.org/abs/2604.17125) (Apr 2026) | Tool descriptions audited for injection surface; audit logging (`logger.audit()`) captures every paid-op invocation with a prompt preview for forensics. |
+
+### OpenRouter platform parity
+
+v4.5.0 surfaces platform features shipped between Q4 2025 and Q2 2026:
+
+- [Response caching via `X-OpenRouter-Cache`](https://openrouter.ai/announcements/response-caching) (Apr 2026): zero tokens billed on identical request cache hits, 80-300ms latency.
+- [Web search plugin](https://openrouter.ai/announcements/introducing-web-search-via-the-api) (Jan 2025): Exa-backed, enabled via `online: true`.
+- [Reasoning tokens](https://openrouter.ai/announcements/reasoning-tokens-for-thinking-models) (Jan 2025): DeepSeek R1 / Gemini Thinking / Opus 4.7 chain-of-thought via `include_reasoning: true`.
+- [Auto Exacto](https://openrouter.ai/announcements/auto-exacto) (Mar 2026): on-by-default for tool-calling; `:exacto` suffix for all other requests.
+- [Rerank endpoint](https://openrouter.ai/announcements/april-release-spotlight) (Apr 2026): Cohere + Fireworks via the new `rerank_documents` tool.
+- [Prompt caching with `cache_control`](https://openrouter.ai/docs/guides/best-practices/prompt-caching): Anthropic Claude 10x / Gemini 2.5+ 4x savings on repeated input media via `cache_input: true` on analyze_* tools.
+- [Zero completion token insurance](https://openrouter.ai/announcements/never-pay-for-empty-ai-responses-again) (Mar 2025): automatic, no opt-in needed.
+
+### Security posture
+
+- **Path sandbox.** All file writes (`save_path`) and reads (`input_images`, frame images) go through `resolveSafeOutputPath` / `resolveSafeInputPath`, which reject traversal escapes. Legacy bypass: `OPENROUTER_ALLOW_UNSAFE_PATHS=1`.
+- **SSRF blocklist.** Loopback, private, link-local, multicast, 6to4, Teredo, ORCHID, and IPv4-mapped IPv6 all rejected at the fetch layer.
+- **Audit logging.** `logger.audit()` emits a JSON line at level=audit for every `generate_video`, `generate_audio`, and `generate_image` call. Bypasses `OPENROUTER_LOG_LEVEL` so unintended spend is always traceable. 80-char prompt preview is the hard PII boundary.
+- **Structured errors.** Closed `_meta.code` taxonomy means agents switch on failure modes without regex-parsing free text. Rate-limit errors include `retry_after_seconds` derived from `Retry-After` headers.
+- **No credential leakage.** `OPENROUTER_API_KEY` is read once at startup, passed to the SDK, and never echoed in logs, tool responses, or error messages. Fatal-error logging whitelists fields explicitly (name / message / trimmed stack) — no raw error objects. Verified by an independent bug-hunter audit (Apr 2026).
 
 ## Development
 

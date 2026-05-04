@@ -19,6 +19,13 @@ export class ModelCache {
   private static instance: ModelCache;
   private models: Record<string, OpenRouterModelRecord> = {};
   private fetchedAt = 0;
+  /**
+   * Separate from `fetchedAt`: set whenever we successfully CALL the
+   * fetcher (even if the response happens to be empty). Used by
+   * `isValid()` so a successful-but-empty fetch still counts as "fresh"
+   * and we don't hot-loop re-fetching the upstream.
+   */
+  private populatedAt = 0;
   private inflight: Promise<OpenRouterModelRecord[]> | null = null;
 
   static getInstance(): ModelCache {
@@ -26,12 +33,26 @@ export class ModelCache {
   }
 
   isValid(): boolean {
-    return Object.keys(this.models).length > 0 && Date.now() - this.fetchedAt < getCacheTtlMs();
+    const fresh = Date.now() - this.populatedAt < getCacheTtlMs();
+    return this.populatedAt > 0 && fresh;
   }
 
   setModels(models: OpenRouterModelRecord[]): void {
     this.models = Object.fromEntries(models.map((m) => [m.id, m]));
     this.fetchedAt = Date.now();
+    this.populatedAt = this.fetchedAt;
+  }
+
+  /**
+   * Force the cache back into an uninitialized state. Used by tests that
+   * need to assert `ensureFresh()` actually calls the fetcher. Also useful
+   * for ops (`health_check --reset`) if we ever expose such a knob.
+   */
+  reset(): void {
+    this.models = {};
+    this.fetchedAt = 0;
+    this.populatedAt = 0;
+    this.inflight = null;
   }
 
   /**

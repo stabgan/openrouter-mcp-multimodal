@@ -2,6 +2,26 @@
 
 All notable changes to `@stabgan/openrouter-mcp-multimodal` are recorded here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.5.1] — 2026-05-04
+
+Patch release fixing two HIGH-severity issues caught by a post-release bug-hunter audit, plus four MEDIUM documentation / correctness fixes. Fully backwards compatible with v4.5.0.
+
+### Fixed
+- **HIGH — MCP `initialize` handshake advertised stale version.** `src/index.ts` hardcoded `"4.0.1"` in the `Server` constructor, so every MCP client saw that string on connect regardless of our real version. Now imports `SERVER_VERSION` from `src/version.ts` (single source of truth).
+- **HIGH — `notifications/progress` could violate the monotonic-increase requirement.** When OpenRouter alternated numeric `progress: 75` with ticks that omitted the field, our fallback to `attempt` produced small integers (2, 3, …), so clients saw `75 → 2 → 3` — a decrease. MCP 2025-06-18 utilities/progress forbids this. Fix: closure-local `lastSent` counter, always emit `max(lastSent + 1, candidate)`. Regression test in `src/__tests__/progress-monotonic.test.ts`.
+- **MEDIUM — `classifyUpstreamError` silently dropped its `contextMessage` parameter.** The argument was prefixed with `_` but 12 call sites relied on it for triage. Now prefixed into the returned message. Covered by `src/__tests__/error-classification.test.ts`.
+- **MEDIUM — `suggestions` and `retry_after_seconds` were declared but never populated.** The v4.5.0 CHANGELOG advertised structured error metadata, but no handler wired it up. `classifyUpstreamError` now reads `Retry-After` headers on 429/5xx and attaches canonical suggestions for credits / rate-limit / content-policy / model-not-found / timeouts / 5xx.
+- **MEDIUM — `health_check` returned `ok: false` on a successful-but-empty catalog and caused a hot-loop.** `ModelCache.isValid()` tested `Object.keys(models).length > 0`, so a successful `/models` → `[]` response was treated as "not populated", re-fetching on every request. Split the timestamp into `fetchedAt` (legacy) + `populatedAt` (new) and use the latter for freshness. `health_check.ok` now tracks API reachability, not catalog size. Regression tests for both behaviors.
+- **MEDIUM — `generate_video` / `get_video_status` timeout contract mismatch.** Tool descriptions said "Fails when: JOB_STILL_RUNNING" but the implementation returns `isError: false` with a resume hint. Descriptions corrected to say "Returns successfully with `_meta.code: JOB_STILL_RUNNING` (NOT an error)".
+- **INFO — Fatal-error logging now whitelists fields.** Top-level `uncaughtException` / `unhandledRejection` / `server.onerror` handlers previously `console.error`'d the raw error object. If a future openai-node release changes `APIError.toString()` to include `Authorization`, we'd silently log Bearer tokens to stderr. Defense-in-depth: extract `name` / `message` / trimmed `stack` explicitly via `logger.error('fatal', …)`.
+
+### Added
+- `ModelCache.reset()` — test-friendly full invalidation (clears models + timestamps + inflight slot).
+- 2 new regression test files: `progress-monotonic.test.ts`, `error-classification.test.ts`. Test count 276 → 286.
+
+### Audit artifact
+Full report: 12 findings (0 CRITICAL, 2 HIGH, 4 MEDIUM, 4 LOW, 2 INFO). No credential leaks in source, history, or runtime paths. `.env` gitignored since v2; never committed. Dockerfile runs as unprivileged `app` user with `--chown` on COPYs. SSRF blocklist intact. Path sandbox intact.
+
 ## [4.5.0] — 2026-05-04
 
 Major feature release adding 18 enhancements across OpenRouter platform parity, MCP 2025-06-18 spec compliance, and research-driven improvements. Fully backwards compatible.

@@ -27,7 +27,10 @@ export async function handleHealthCheck(
   }
 
   const modelsCached = modelCache.isValid() ? modelCache.size() : 0;
-  const ok = apiKeyValid && modelsCached > 0;
+  // `ok` means the API was reachable and the key was accepted. An empty
+  // catalog counts as success (the API just returned no models) — callers
+  // branch on `models_cached` if they care about the count.
+  const ok = apiKeyValid;
 
   return buildStructuredResult({
     ok,

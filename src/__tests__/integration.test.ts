@@ -114,7 +114,13 @@ describeIf('Integration: search_models', () => {
       cache,
     );
     expect(result.isError).toBeFalsy();
-    const models = JSON.parse(result.content[0].text);
+    // v4.5: search_models now emits structured output with pagination.
+    // Prefer structuredContent; fall back to parsing the text block.
+    const payload =
+      (result as { structuredContent?: { results?: unknown[] } }).structuredContent ??
+      JSON.parse(result.content[0].text);
+    const models = payload.results ?? payload;
+    expect(Array.isArray(models)).toBe(true);
     expect(models.length).toBeGreaterThan(0);
     expect(models.length).toBeLessThanOrEqual(5);
   });
@@ -125,11 +131,15 @@ describeIf('Integration: search_models', () => {
       apiClient,
       cache,
     );
-    const models = JSON.parse(result.content[0].text);
+    const payload =
+      (result as { structuredContent?: { results?: unknown[] } }).structuredContent ??
+      JSON.parse(result.content[0].text);
+    const models = (payload.results ?? payload) as Array<{
+      architecture?: { input_modalities?: string[] };
+    }>;
+    expect(Array.isArray(models)).toBe(true);
     expect(
-      models.every((m: { architecture?: { input_modalities?: string[] } }) =>
-        m.architecture?.input_modalities?.includes('image'),
-      ),
+      models.every((m) => m.architecture?.input_modalities?.includes('image')),
     ).toBe(true);
   });
 });

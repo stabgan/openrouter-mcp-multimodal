@@ -6,8 +6,11 @@ describe('ModelCache.ensureFresh coalescing', () => {
 
   beforeEach(() => {
     cache = ModelCache.getInstance();
-    cache.setModels([]);
-    // Force invalid cache (setModels with empty list leaves it invalid)
+    // Reset the singleton entirely — `setModels([])` now marks the cache
+    // as populated (v4.5.0 changed this to avoid hot-looping on a
+    // successful-but-empty upstream response). Tests that want to assert
+    // `ensureFresh()` calls the fetcher need an explicit reset.
+    cache.reset();
   });
 
   it('coalesces concurrent populates into a single fetcher call', async () => {
@@ -37,8 +40,8 @@ describe('ModelCache.ensureFresh coalescing', () => {
     };
 
     await cache.ensureFresh(fetcher);
-    // Manually expire
-    cache.setModels([]);
+    // Manually invalidate so the next call has to re-fetch.
+    cache.reset();
     await cache.ensureFresh(fetcher);
     expect(calls).toBe(2);
   });

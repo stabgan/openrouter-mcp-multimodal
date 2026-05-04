@@ -6,12 +6,12 @@
     "url": "https://github.com/stabgan/openrouter-mcp-multimodal",
     "source": "github"
   },
-  "version": "4.5.0",
+  "version": "4.5.1",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@stabgan/openrouter-mcp-multimodal",
-      "version": "4.5.0",
+      "version": "4.5.1",
       "transport": {
         "type": "stdio"
       },
@@ -99,7 +99,7 @@
     },
     {
       "registryType": "oci",
-      "identifier": "docker.io/stabgan/openrouter-mcp-multimodal:4.5.0",
+      "identifier": "docker.io/stabgan/openrouter-mcp-multimodal:4.5.1",
       "transport": {
         "type": "stdio"
       },

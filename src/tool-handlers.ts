@@ -61,16 +61,29 @@ function buildProgressHook(
   progressToken: string | number | undefined,
 ): McpProgressHook | undefined {
   if (progressToken === undefined) return undefined;
+  // MCP `notifications/progress` REQUIRES `progress` to be strictly
+  // monotonically increasing within a single progressToken. OpenRouter
+  // returns `progress: 0..100` on some ticks and omits it on others, so
+  // we anchor on a per-hook attempt counter and use the upstream number
+  // only as an informational `message`. This guarantees monotonicity
+  // regardless of what the upstream does (drops, duplicates, decreases).
+  //
+  // See MCP spec 2025-06-18 utilities/progress §Behavior Requirements:
+  // "The progress value MUST increase with each notification, even if
+  // the total is unknown."
+  let lastSent = -1;
   return ({ status, progress, attempt, video_id }) => {
+    // Always monotonic: at least attempt+1 (so initial attempt=0 → 0 stays
+    // reserved for the 'submitted' ping). If upstream has a real numeric
+    // progress that's higher than our counter, adopt that.
+    const candidate = typeof progress === 'number' ? Math.max(attempt, progress) : attempt;
+    const next = Math.max(lastSent + 1, candidate);
+    lastSent = next;
     void server.notification({
       method: 'notifications/progress',
       params: {
         progressToken,
-        // Progress MUST increase per the MCP spec. We use attempt as a
-        // monotonic counter when the upstream doesn't return a numeric
-        // progress value.
-        progress: typeof progress === 'number' ? progress : attempt,
-        ...(typeof progress === 'number' ? { total: 100 } : {}),
+        progress: next,
         message: `video ${video_id} — ${status}${
           typeof progress === 'number' ? ` (${progress}%)` : ''
         }`,
@@ -177,25 +190,30 @@ const TOOL_DESCRIPTIONS = {
     '- UNSAFE_PATH: save_path or reference image paths escaped the sandbox\n' +
     '- UPSTREAM_REFUSED: content policy, credits, or bad request\n' +
     '- JOB_FAILED: provider marked the job as failed\n' +
-    '- JOB_STILL_RUNNING: exceeded max_wait_ms (response carries the video_id to resume)\n' +
     '- UNSUPPORTED_FORMAT: reference/frame image could not be decoded\n\n' +
+    'Returns successfully with `_meta.code: JOB_STILL_RUNNING` (NOT an error) when the timeout ' +
+    'elapses — the response carries `_meta.video_id` so callers can resume via get_video_status.\n\n' +
     'Works with: get_video_status (resume timed-out jobs), generate_video_from_image (narrower image-to-video variant).',
   generate_video_from_image:
     'Narrower convenience wrapper around generate_video for image-to-video workflows. Takes a single ' +
     '`image` argument (used as the first frame) and `prompt`. Per arxiv 2511.03497, narrower tools with ' +
-    'fewer parameters improve tool-call hit rate.\n\n' +
+    'fewer parameters improve tool-call hit rate. For last-frame conditioning or reference images, use ' +
+    'generate_video directly.\n\n' +
     'Fails when:\n' +
     '- INVALID_INPUT: image or prompt missing\n' +
     '- UNSAFE_PATH: image path escaped the sandbox\n' +
-    '- UPSTREAM_REFUSED / JOB_FAILED / JOB_STILL_RUNNING: same as generate_video\n\n' +
+    '- UPSTREAM_REFUSED / JOB_FAILED: same as generate_video\n\n' +
+    'Returns successfully with `_meta.code: JOB_STILL_RUNNING` on timeout (resumable via ' +
+    'get_video_status).\n\n' +
     'Works with: generate_video (full parameter surface), get_video_status.',
   get_video_status:
     'Poll an async video-generation job by id. Downloads the result when complete (and saves if save_path given).\n\n' +
     'Fails when:\n' +
     '- INVALID_INPUT: video_id missing\n' +
     '- UNSAFE_PATH: save_path escaped the sandbox\n' +
-    '- JOB_FAILED: provider marked the job as failed\n' +
-    '- JOB_STILL_RUNNING: job not yet complete (carries `_meta.last_status` + `progress`)\n\n' +
+    '- JOB_FAILED: provider marked the job as failed\n\n' +
+    'Returns successfully with `_meta.code: JOB_STILL_RUNNING` (NOT an error) when the job is still ' +
+    'in flight — response carries `_meta.last_status` and `_meta.progress` so callers can retry later.\n\n' +
     'Works with: generate_video, generate_video_from_image.',
   rerank_documents:
     'Re-order a list of documents by relevance to a query using an OpenRouter reranker. Default model: ' +

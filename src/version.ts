@@ -6,7 +6,7 @@
  * Bumped in lockstep with package.json / server.json / smithery.yaml /
  * scripts/build-manifest.mjs during release prep.
  */
-export const SERVER_VERSION = '4.5.0';
+export const SERVER_VERSION = '4.5.1';
 
 /**
  * MCP protocol version our SDK speaks. Hardcoded to match the version

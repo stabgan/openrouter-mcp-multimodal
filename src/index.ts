@@ -6,16 +6,32 @@ config(); // Load .env file if present
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { ToolHandlers } from './tool-handlers.js';
+import { logger } from './logger.js';
+import { SERVER_VERSION } from './version.js';
 
 const DEFAULT_MODEL = 'nvidia/nemotron-nano-12b-v2-vl:free';
 
-// Exit on fatal errors to prevent silent zombie processes (issue #5)
+// Exit on fatal errors to prevent silent zombie processes (issue #5).
+// We log an explicit whitelist of fields rather than the raw error object
+// to avoid ever echoing sensitive SDK internals (request bodies, auth
+// headers) in a future version. Defense-in-depth against a changed
+// APIError.toString() in openai-node.
+function logFatal(kind: string, err: unknown): void {
+  const e = err as { message?: string; name?: string; stack?: string } | null;
+  logger.error('fatal', {
+    kind,
+    name: e?.name ?? 'unknown',
+    msg: e?.message ?? String(err),
+    // Stack traces are developer-only — trim to avoid unbounded log lines.
+    stack: e?.stack?.split('\n').slice(0, 10).join('\n'),
+  });
+}
 process.on('uncaughtException', (err) => {
-  console.error('[Fatal]', err);
+  logFatal('uncaughtException', err);
   process.exit(1);
 });
 process.on('unhandledRejection', (err) => {
-  console.error('[Fatal]', err);
+  logFatal('unhandledRejection', err);
   process.exit(1);
 });
 
@@ -29,11 +45,11 @@ const defaultModel =
   process.env.OPENROUTER_DEFAULT_MODEL || process.env.DEFAULT_MODEL || DEFAULT_MODEL;
 
 const server = new Server(
-  { name: 'openrouter-multimodal-server', version: '4.0.1' },
+  { name: 'openrouter-multimodal-server', version: SERVER_VERSION },
   { capabilities: { tools: {} } },
 );
 
-server.onerror = (error) => console.error('[MCP Error]', error);
+server.onerror = (error) => logFatal('mcpError', error);
 
 new ToolHandlers(server, apiKey, defaultModel);
 
