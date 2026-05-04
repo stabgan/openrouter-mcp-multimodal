@@ -27,9 +27,15 @@ LABEL io.modelcontextprotocol.server.name="io.github.stabgan/openrouter-multimod
 
 RUN apk add --no-cache vips
 
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-COPY package.json ./
+# Drop root. The runtime only needs to read dist/ and node_modules/ and
+# write to OPENROUTER_OUTPUT_DIR (provided as a volume by the caller).
+RUN addgroup -S app && adduser -S -G app -h /app app
+
+COPY --from=builder --chown=app:app /app/node_modules ./node_modules
+COPY --from=builder --chown=app:app /app/dist ./dist
+COPY --chown=app:app package.json ./
+
+USER app
 
 ENV NODE_ENV=production
 CMD ["node", "dist/index.js"]

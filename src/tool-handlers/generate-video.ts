@@ -9,6 +9,7 @@ import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { logger } from '../logger.js';
 import {
   resolveSafeOutputPath,
+  resolveSafeInputPath,
   UnsafeOutputPathError,
 } from './path-safety.js';
 import { readEnvInt } from './fetch-utils.js';
@@ -109,8 +110,15 @@ async function prepareImageInput(
     const mime = (contentType?.split(';')[0]?.trim() || 'image/jpeg').toLowerCase();
     return { mime, data: buffer.toString('base64') };
   }
-  const buf = await fs.readFile(source);
-  const ext = extname(source).toLowerCase();
+  // Local file: sandbox via path-safety's resolveSafeInputPath so
+  // generate_video's first_frame_image / last_frame_image /
+  // reference_images fields enforce the same OPENROUTER_INPUT_DIR
+  // / OPENROUTER_OUTPUT_DIR / cwd scope that generate_image's
+  // input_images already uses. Callers can still bypass with
+  // OPENROUTER_ALLOW_UNSAFE_PATHS=1 for legacy scripts.
+  const abs = await resolveSafeInputPath(source);
+  const buf = await fs.readFile(abs);
+  const ext = extname(abs).toLowerCase();
   const mime =
     ext === '.png'
       ? 'image/png'
@@ -327,6 +335,11 @@ export async function handleGenerateVideo(
   try {
     await attachFrameImages(args, body);
   } catch (err) {
+    // Sandbox violation → UNSAFE_PATH; all other decode failures stay
+    // as UNSUPPORTED_FORMAT (couldn't read, invalid data URL, etc.).
+    if (err instanceof UnsafeOutputPathError) {
+      return toolErrorFrom(ErrorCode.UNSAFE_PATH, err, 'Reference/frame image');
+    }
     return toolErrorFrom(ErrorCode.UNSUPPORTED_FORMAT, err, 'Reference/frame image');
   }
 

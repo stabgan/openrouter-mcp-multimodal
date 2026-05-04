@@ -1,6 +1,6 @@
 name: openrouter-mcp-multimodal
-version: 3.0.0
-description: MCP server for OpenRouter — text chat, image analysis + generation, audio analysis + generation, and video analysis + generation (Veo 3.1 / Sora 2 Pro / Seedance / Wan)
+version: 4.0.1
+description: MCP server for OpenRouter — chat (with provider routing + :nitro/:floor variants), image / audio / video analysis, image / audio / video generation (Veo 3.1, Sora, Seedance, Wan). Apache 2.0.
 
 image:
   name: ghcr.io/stabgan/openrouter-mcp-multimodal
@@ -12,28 +12,73 @@ startCommand:
   type: stdio
   configSchema:
     type: object
+    required: ["OPENROUTER_API_KEY"]
     properties:
       OPENROUTER_API_KEY:
         type: string
-        description: OpenRouter API key for authentication
+        description: OpenRouter API key (https://openrouter.ai/keys)
       OPENROUTER_DEFAULT_MODEL:
         type: string
-        description: Default model to use if none specified in requests
+        description: Default model for chat + analyze tools
+        default: "nvidia/nemotron-nano-12b-v2-vl:free"
       DEFAULT_MODEL:
         type: string
         description: Alias for OPENROUTER_DEFAULT_MODEL
-    required: ["OPENROUTER_API_KEY"]
+      OPENROUTER_MAX_TOKENS:
+        type: string
+        description: Default max_tokens on chat_completion when unset per-call (v4+).
+      OPENROUTER_PROVIDER_SORT:
+        type: string
+        description: price / throughput / latency
+      OPENROUTER_PROVIDER_IGNORE:
+        type: string
+        description: CSV of provider slugs to exclude.
+      OPENROUTER_PROVIDER_ORDER:
+        type: string
+        description: JSON array or CSV of preferred provider IDs.
+      OPENROUTER_PROVIDER_QUANTIZATIONS:
+        type: string
+        description: CSV of quantization levels (fp16,int8).
+      OPENROUTER_PROVIDER_REQUIRE_PARAMETERS:
+        type: string
+        description: true/false. Require providers to support all request params.
+      OPENROUTER_PROVIDER_DATA_COLLECTION:
+        type: string
+        description: allow/deny
+      OPENROUTER_PROVIDER_ALLOW_FALLBACKS:
+        type: string
+        description: true/false
+      OPENROUTER_OUTPUT_DIR:
+        type: string
+        description: Sandbox root for save_path on generate_* tools.
+      OPENROUTER_INPUT_DIR:
+        type: string
+        description: Sandbox root for input_images on generate_image and frame/reference images on generate_video (v4+).
   commandFunction: |
     function getCommand(config) {
-      const defaultModel =
-        config.OPENROUTER_DEFAULT_MODEL || config.DEFAULT_MODEL || "nvidia/nemotron-nano-12b-v2-vl:free";
+      const env = { OPENROUTER_API_KEY: config.OPENROUTER_API_KEY };
+      if (config.OPENROUTER_DEFAULT_MODEL || config.DEFAULT_MODEL) {
+        env.OPENROUTER_DEFAULT_MODEL =
+          config.OPENROUTER_DEFAULT_MODEL || config.DEFAULT_MODEL;
+      }
+      for (const key of [
+        "OPENROUTER_MAX_TOKENS",
+        "OPENROUTER_PROVIDER_SORT",
+        "OPENROUTER_PROVIDER_IGNORE",
+        "OPENROUTER_PROVIDER_ORDER",
+        "OPENROUTER_PROVIDER_QUANTIZATIONS",
+        "OPENROUTER_PROVIDER_REQUIRE_PARAMETERS",
+        "OPENROUTER_PROVIDER_DATA_COLLECTION",
+        "OPENROUTER_PROVIDER_ALLOW_FALLBACKS",
+        "OPENROUTER_OUTPUT_DIR",
+        "OPENROUTER_INPUT_DIR",
+      ]) {
+        if (config[key]) env[key] = config[key];
+      }
       return {
         command: "node",
         args: ["dist/index.js"],
-        env: {
-          OPENROUTER_API_KEY: config.OPENROUTER_API_KEY,
-          OPENROUTER_DEFAULT_MODEL: defaultModel,
-        },
+        env,
       };
     }
 
@@ -51,34 +96,59 @@ publish:
 config:
   env:
     - name: OPENROUTER_API_KEY
-      description: OpenRouter API key for authentication
+      description: OpenRouter API key
       required: true
     - name: OPENROUTER_DEFAULT_MODEL
-      description: Default model to use if none specified in requests
+      description: Default model for chat + analyze tools
       required: false
       defaultValue: "nvidia/nemotron-nano-12b-v2-vl:free"
-    - name: DEFAULT_MODEL
-      description: Alias for OPENROUTER_DEFAULT_MODEL
+    - name: OPENROUTER_MAX_TOKENS
+      description: Default max_tokens on chat_completion when unset per-call (v4+)
       required: false
-      defaultValue: ""
+    - name: OPENROUTER_PROVIDER_SORT
+      description: price / throughput / latency
+      required: false
+    - name: OPENROUTER_PROVIDER_IGNORE
+      description: CSV of provider slugs to exclude
+      required: false
+    - name: OPENROUTER_PROVIDER_ORDER
+      description: JSON array or CSV of preferred provider IDs
+      required: false
+    - name: OPENROUTER_PROVIDER_QUANTIZATIONS
+      description: CSV of quantization levels (fp16,int8)
+      required: false
+    - name: OPENROUTER_PROVIDER_REQUIRE_PARAMETERS
+      description: true/false
+      required: false
+    - name: OPENROUTER_PROVIDER_DATA_COLLECTION
+      description: allow/deny
+      required: false
+    - name: OPENROUTER_PROVIDER_ALLOW_FALLBACKS
+      description: true/false
+      required: false
+    - name: OPENROUTER_OUTPUT_DIR
+      description: Sandbox root for save_path on generate_* tools
+      required: false
+    - name: OPENROUTER_INPUT_DIR
+      description: Sandbox root for input_images and frame/reference images (v4+)
+      required: false
 
 documentation:
   description: |
-    An MCP server that exposes 300+ models from OpenRouter.ai through a unified multimodal tool
-    interface — chat, image analysis + generation, audio analysis + generation, and video analysis
-    + generation (Veo 3.1, Sora 2 Pro, Seedance, Wan). Structured error taxonomy, MCP 2025 tool
-    annotations, path-sandboxed disk output, IPv4/IPv6 SSRF protection.
+    All-in-one MCP server for OpenRouter. Chat with 300+ LLMs (Claude, Gemini, GPT, Llama,
+    Qwen, Grok), analyze images / audio / video, generate images / speech / music / video
+    (Veo 3.1, Sora 2 Pro, Seedance, Wan). chat_completion supports OpenRouter's provider
+    routing (quantizations / ignore / sort / order / require_parameters / data_collection /
+    allow_fallbacks) and the :nitro / :floor model variant suffixes. Apache 2.0, structured
+    _meta.code error taxonomy, IPv4+IPv6 SSRF guards, path-sandboxed disk output, sandboxed
+    input images on both generate_image and generate_video, multi-arch Docker.
   usage: |
-    This MCP server provides the following tools:
-    - chat_completion: Send text or multimodal messages to OpenRouter (reasoning-cutoff aware)
-    - analyze_image: Analyze images from files, URLs, or data URLs
-    - analyze_audio: Transcribe or analyze WAV/MP3/FLAC/OGG audio
-    - analyze_video: Understand video (mp4/mpeg/mov/webm) from files, URLs, or data URLs
-    - generate_image: Generate images with disk-sandboxed save_path
-    - generate_audio: Generate conversational audio or music with format auto-detection
-    - generate_video: Submit async video jobs (Veo 3.1 / Sora 2 Pro / Seedance / Wan), poll, download
-    - get_video_status: Resume polling a generate_video job by id
-    - search_models: Search and filter available models by capability (vision/audio/video)
-    - get_model_info: Get pricing, context length, and capabilities for any model
-    - validate_model: Check if a model ID is valid
+    Tools:
+    - chat_completion — 300+ models, provider-routing controls, :nitro/:floor variants
+    - analyze_image / analyze_audio / analyze_video — files, URLs, data URLs
+    - generate_image — aspect_ratio + image_size + input_images for style consistency
+    - generate_audio — speech / music, format auto-detection
+    - generate_video — Veo 3.1 / Sora 2 Pro / Seedance / Wan via async API
+    - get_video_status — resume a video job by id
+    - search_models / get_model_info / validate_model
   link: https://github.com/stabgan/openrouter-mcp-multimodal

@@ -99,3 +99,63 @@ async function findExistingAncestor(dir: string): Promise<string> {
     }
   }
 }
+
+/**
+ * Root-resolution for caller-supplied INPUT paths. Prefers
+ * `OPENROUTER_INPUT_DIR`, then `OPENROUTER_OUTPUT_DIR`, then `process.cwd()`.
+ * This mirrors the semantics `generate_image`'s `input_images` originally
+ * shipped with; exposing it here lets `generate_video`'s frame and
+ * reference images use the same sandbox.
+ */
+function getInputRoot(): string {
+  const inputDir = process.env.OPENROUTER_INPUT_DIR;
+  if (inputDir && inputDir.length > 0) return path.resolve(inputDir);
+  const outputDir = process.env.OPENROUTER_OUTPUT_DIR;
+  if (outputDir && outputDir.length > 0) return path.resolve(outputDir);
+  return process.cwd();
+}
+
+/**
+ * Resolve and validate a caller-supplied INPUT path. Unlike
+ * `resolveSafeOutputPath`, this never creates directories — it only
+ * confirms the path lives inside the input sandbox and returns the
+ * absolute path the caller can `fs.readFile` from.
+ *
+ * Accepts the same `OPENROUTER_ALLOW_UNSAFE_PATHS=1` legacy bypass.
+ * Throws `UnsafeOutputPathError` on traversal attempts (re-used type so
+ * handlers map errors uniformly to `ErrorCode.UNSAFE_PATH`).
+ */
+export async function resolveSafeInputPath(inputPath: string): Promise<string> {
+  if (isUnsafeMode()) {
+    return path.resolve(inputPath);
+  }
+
+  const root = getInputRoot();
+  const rootReal = await fs.realpath(root).catch(() => path.resolve(root));
+  const withSep = rootReal.endsWith(path.sep) ? rootReal : rootReal + path.sep;
+
+  const abs = path.isAbsolute(inputPath)
+    ? path.resolve(inputPath)
+    : path.resolve(rootReal, inputPath);
+
+  // Prefer realpath for the prefix check so callers can pass paths
+  // through symlinks (e.g. macOS `/var/...` → `/private/var/...`)
+  // without us rejecting them. If the file doesn't exist yet, fall
+  // back to a textual check on the resolved path so traversal
+  // (`../escape.png`) is still rejected with the right error type
+  // instead of leaking an ENOENT to the caller.
+  let canonical: string;
+  try {
+    canonical = await fs.realpath(abs);
+  } catch {
+    canonical = abs;
+  }
+
+  if (!(canonical === rootReal || canonical.startsWith(withSep))) {
+    throw new UnsafeOutputPathError(
+      `input path resolves outside OPENROUTER_INPUT_DIR (${rootReal}): ${inputPath}`,
+    );
+  }
+
+  return abs;
+}

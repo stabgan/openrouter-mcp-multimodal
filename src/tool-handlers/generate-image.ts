@@ -2,7 +2,7 @@ import { promises as fs } from 'fs';
 import path from 'node:path';
 import OpenAI from 'openai';
 import type { ChatCompletion } from 'openai/resources/chat/completions.js';
-import { resolveSafeOutputPath, UnsafeOutputPathError } from './path-safety.js';
+import { resolveSafeOutputPath, resolveSafeInputPath, UnsafeOutputPathError } from './path-safety.js';
 import { parseBase64DataUrl } from './fetch-utils.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
@@ -243,9 +243,9 @@ export async function handleGenerateImage(
 
 /**
  * Resolve a caller-supplied input image into a URL the chat-completions
- * API accepts. Local file paths are sandboxed to the workspace root
- * (`OPENROUTER_INPUT_DIR` or `OPENROUTER_OUTPUT_DIR` or cwd) and inlined
- * as base64 data URLs.
+ * API accepts. Local file paths are sandboxed via
+ * `resolveSafeInputPath` (`OPENROUTER_INPUT_DIR` /
+ * `OPENROUTER_OUTPUT_DIR` / cwd) and inlined as base64 data URLs.
  */
 export async function resolveInputImage(ref: string): Promise<string> {
   const trimmed = ref.trim();
@@ -254,45 +254,7 @@ export async function resolveInputImage(ref: string): Promise<string> {
   if (trimmed.startsWith('data:')) return trimmed;
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
 
-  const root = path.resolve(
-    process.env.OPENROUTER_INPUT_DIR || process.env.OPENROUTER_OUTPUT_DIR || process.cwd(),
-  );
-  const unsafe =
-    process.env.OPENROUTER_ALLOW_UNSAFE_PATHS === '1' ||
-    process.env.OPENROUTER_ALLOW_UNSAFE_PATHS?.toLowerCase() === 'true';
-
-  // Realpath the root first so absolute paths the caller already gave in
-  // canonical form (e.g. /private/var/...) and paths we resolve against
-  // the root (which may go through /var/... symlinks on macOS) live in
-  // the same namespace for the prefix check below.
-  const rootReal = await fs.realpath(root).catch(() => root);
-  const abs = path.isAbsolute(trimmed)
-    ? path.resolve(trimmed)
-    : path.resolve(rootReal, trimmed);
-
-  if (!unsafe) {
-    const withSep = rootReal.endsWith(path.sep) ? rootReal : rootReal + path.sep;
-
-    // Prefer realpath for the prefix check so callers can pass paths
-    // through symlinks (e.g. macOS `/var/...` → `/private/var/...`)
-    // without us rejecting them. If the file doesn't exist yet, fall
-    // back to a textual check on the resolved path so traversal
-    // (`../escape.png`) is still rejected with the right error type
-    // instead of leaking an ENOENT to the caller.
-    let canonical: string;
-    try {
-      canonical = await fs.realpath(abs);
-    } catch {
-      canonical = abs;
-    }
-
-    if (!(canonical === rootReal || canonical.startsWith(withSep))) {
-      throw new UnsafeOutputPathError(
-        `input_images entry resolves outside workspace root (${rootReal}): ${ref}`,
-      );
-    }
-  }
-
+  const abs = await resolveSafeInputPath(trimmed);
   const buf = await fs.readFile(abs);
   const mime = mimeFromExt(path.extname(abs)) || 'image/png';
   return `data:${mime};base64,${buf.toString('base64')}`;

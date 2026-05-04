@@ -71,8 +71,14 @@ describe('readProviderDefaults', () => {
   });
 
   it('drops malformed order without throwing', () => {
+    // Expected: we log a single warning to stderr and drop the value.
+    const warn = vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.stubEnv('OPENROUTER_PROVIDER_ORDER', '[bogus json]');
     expect(readProviderDefaults().order).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('OPENROUTER_PROVIDER_ORDER ignored'),
+    );
+    warn.mockRestore();
   });
 });
 

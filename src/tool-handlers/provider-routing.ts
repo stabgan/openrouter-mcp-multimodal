@@ -95,8 +95,14 @@ export function readProviderDefaults(): ProviderRoutingOptions {
   try {
     const order = parseJsonArray(env.OPENROUTER_PROVIDER_ORDER, 'OPENROUTER_PROVIDER_ORDER');
     if (order) out.order = order;
-  } catch {
-    /* silently drop malformed env var */
+  } catch (err) {
+    // Don't crash the server on a malformed env var — log once so an
+    // operator notices instead of wondering why their ordering is being
+    // ignored. All other OPENROUTER_PROVIDER_* fields follow the same
+    // "silent drop" policy for consistency.
+    console.error(
+      `[openrouter-mcp] OPENROUTER_PROVIDER_ORDER ignored: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
   const requireParams = parseBool(env.OPENROUTER_PROVIDER_REQUIRE_PARAMETERS);
   if (requireParams !== undefined) out.require_parameters = requireParams;

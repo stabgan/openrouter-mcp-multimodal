@@ -2,6 +2,23 @@
 
 All notable changes to `@stabgan/openrouter-mcp-multimodal` are recorded here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.1] — 2026-05-04
+
+Security + hygiene patch from an independent audit pass. Two security fixes (one HIGH, one MEDIUM) and the smithery.yaml manifest catching up to v4.
+
+### Fixed
+- **HIGH — `generate_video` read arbitrary local files without sandbox.** `first_frame_image`, `last_frame_image`, and `reference_images` did a raw `fs.readFile(source)` with no path check, so an MCP caller could set e.g. `first_frame_image: "/etc/passwd"` or `reference_images: ["/Users/victim/.ssh/id_rsa"]` and exfiltrate arbitrary files to OpenRouter inside the video-job body. `generate_image`'s `input_images` field already had the correct `resolveInputImage` sandbox; this fix extracts that logic into a shared `resolveSafeInputPath` helper in `path-safety.ts` and routes `generate_video`'s image inputs through it. Sandbox violations now return `UNSAFE_PATH` (previously would have silently succeeded). `OPENROUTER_ALLOW_UNSAFE_PATHS=1` legacy bypass still works.
+- **MEDIUM — Docker image ran as root.** The final stage had no `USER` directive, so any process-level compromise inside the container ran as uid 0. Added an unprivileged `app` user in the runtime stage and `USER app` before `CMD`. Rebuilt with `--chown=app:app` on the `COPY` lines so file permissions are correct from the start.
+- **MEDIUM — `smithery.yaml` stale at v3.0.0.** Bumped to match the package version, added all seven `OPENROUTER_PROVIDER_*` env vars plus `OPENROUTER_MAX_TOKENS` and `OPENROUTER_INPUT_DIR` to both `configSchema.properties` and `config.env`. Smithery UI now shows the full v4 knob set.
+
+### Changed
+- **LOW — `OPENROUTER_PROVIDER_ORDER` malformed JSON now logs a warning** instead of silently dropping, so operators get a signal when their env var isn't being honored. Other `OPENROUTER_PROVIDER_*` fields keep the silent-drop policy since their parsers can't usefully distinguish "user intended X" from "user typed garbage."
+- **`.gitignore`** now covers `.smithery/` and `.smithery*` patterns alongside the other CLI credential paths (`.mcpregistry_*`).
+
+### Added
+- **`src/tool-handlers/path-safety.ts:resolveSafeInputPath`** — new shared helper for input-path sandboxing. Mirrors `resolveSafeOutputPath`'s semantics but for reads only (no mkdir, no directory creation).
+- **6 new tests** in `src/__tests__/path-safety-input.test.ts` covering the shared helper (relative accept, absolute inside root, traversal reject, `/etc/passwd` reject, `OPENROUTER_OUTPUT_DIR` fallback, `OPENROUTER_ALLOW_UNSAFE_PATHS=1` bypass). Test count now 205 / 205 green.
+
 ## [4.0.0] — 2026-05-04
 
 ### License
