@@ -339,7 +339,7 @@ Works with any MCP client: [Kiro](https://kiro.dev) · [Claude Desktop](https://
 
 ## License
 
-Apache 2.0. See [LICENSE](./LICENSE) and [NOTICE](./NOTICE). v1.0.0 through v3.2.0 were released under MIT; v4.0.0 relicensed to Apache 2.0 (Apache 2.0 is a permissive superset of MIT with explicit patent grant).
+Apache 2.0. See [LICENSE](./LICENSE). v1.0.0 through v3.2.0 were released under MIT; v4.0.0 relicensed to Apache 2.0 (Apache 2.0 is a permissive superset of MIT with explicit patent grant).
 
 ## Contributing
 

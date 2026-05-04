@@ -73,7 +73,7 @@ const manifest = {
     'vision', 'image-generation', 'video-generation', 'tts', 'stt',
     'veo', 'sora', 'ai-agent', 'claude-desktop',
   ],
-  license: 'MIT',
+  license: 'Apache-2.0',
   compatibility: {
     platforms: ['darwin', 'win32', 'linux'],
     runtimes: { node: '>=18.0.0' },

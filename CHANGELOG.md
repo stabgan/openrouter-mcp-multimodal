@@ -22,7 +22,7 @@ Security + hygiene patch from an independent audit pass. Two security fixes (one
 ## [4.0.0] — 2026-05-04
 
 ### License
-- **Relicensed from MIT to Apache-2.0.** Apache 2.0 is a permissive superset of MIT's terms with an explicit patent grant and trademark clause. The `LICENSE` file now carries the canonical Apache 2.0 text. A new `NOTICE` file credits contributors and records the license transition. The `Apache-2.0` SPDX identifier is set in `package.json`, the `org.opencontainers.image.licenses` Dockerfile label, and the README badge.
+- **Relicensed from MIT to Apache-2.0.** Apache 2.0 is a permissive superset of MIT's terms with an explicit patent grant and trademark clause. The `LICENSE` file now carries the canonical Apache 2.0 text. The `Apache-2.0` SPDX identifier is set in `package.json`, the `org.opencontainers.image.licenses` Dockerfile label, and the README badge.
 
 ### Added — provider routing parity
 Brings `chat_completion` up to full parity with [`@mcpservers/openrouterai`](https://www.npmjs.com/package/@mcpservers/openrouterai) on OpenRouter's provider-routing controls. See [https://openrouter.ai/docs/features/provider-routing](https://openrouter.ai/docs/features/provider-routing).
