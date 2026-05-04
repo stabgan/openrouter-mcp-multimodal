@@ -122,13 +122,34 @@ async function harvestGitHub() {
     'X-GitHub-Api-Version': '2022-11-28',
   };
   const base = `https://api.github.com/repos/${REPO}`;
-  const [meta, clones, views, referrers, paths] = await Promise.all([
-    getJSON(base, headers),
-    getJSON(`${base}/traffic/clones`, headers),
-    getJSON(`${base}/traffic/views`, headers),
-    getJSON(`${base}/traffic/popular/referrers`, headers),
-    getJSON(`${base}/traffic/popular/paths`, headers),
+
+  // Repo meta is always available with the default GITHUB_TOKEN.
+  const meta = await getJSON(base, headers);
+
+  // Traffic endpoints require `administration:read` permission, which the
+  // default GITHUB_TOKEN in Actions does NOT grant. Users who want traffic
+  // data must provide a PAT via the METRICS_TOKEN secret. We attempt and
+  // degrade gracefully — a 403 here just omits traffic from the snapshot
+  // rather than failing the whole run.
+  async function tryTraffic(path) {
+    try {
+      return await getJSON(`${base}${path}`, headers);
+    } catch (err) {
+      if (/HTTP 403/.test(err.message)) {
+        console.warn(`traffic ${path}: 403 (provide a PAT with administration:read for traffic data)`);
+        return null;
+      }
+      throw err;
+    }
+  }
+
+  const [clones, views, referrers, paths] = await Promise.all([
+    tryTraffic('/traffic/clones'),
+    tryTraffic('/traffic/views'),
+    tryTraffic('/traffic/popular/referrers'),
+    tryTraffic('/traffic/popular/paths'),
   ]);
+
   // Stargazer timestamps (first 100 only — good enough for current scale).
   // The `star+json` accept header adds `starred_at` to each entry.
   const stars = await getJSON(`${base}/stargazers?per_page=100`, {
@@ -144,18 +165,14 @@ async function harvestGitHub() {
     size_kb: meta.size,
     created_at: meta.created_at,
     pushed_at: meta.pushed_at,
-    clones_14d: {
-      total: clones.count,
-      unique: clones.uniques,
-      daily: clones.clones,
-    },
-    views_14d: {
-      total: views.count,
-      unique: views.uniques,
-      daily: views.views,
-    },
-    referrers: referrers, // already an array of {referrer, count, uniques}
-    popular_paths: paths, // array of {path, title, count, uniques}
+    clones_14d: clones
+      ? { total: clones.count, unique: clones.uniques, daily: clones.clones }
+      : null,
+    views_14d: views
+      ? { total: views.count, unique: views.uniques, daily: views.views }
+      : null,
+    referrers: referrers ?? [],
+    popular_paths: paths ?? [],
     stargazers: stars.map((s) => ({
       login: s.user?.login ?? null,
       starred_at: s.starred_at ?? null,
@@ -197,10 +214,10 @@ async function main() {
     snapshot.docker.tag_count,
     snapshot.github.stars,
     snapshot.github.forks,
-    snapshot.github.views_14d.total,
-    snapshot.github.views_14d.unique,
-    snapshot.github.clones_14d.total,
-    snapshot.github.clones_14d.unique,
+    snapshot.github.views_14d?.total ?? '',
+    snapshot.github.views_14d?.unique ?? '',
+    snapshot.github.clones_14d?.total ?? '',
+    snapshot.github.clones_14d?.unique ?? '',
   ].join(',');
 
   let existing = '';

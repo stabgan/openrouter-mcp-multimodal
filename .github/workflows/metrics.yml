@@ -57,7 +57,10 @@ jobs:
 
       - name: Run harvester
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Prefer METRICS_TOKEN (PAT with administration:read) for traffic
+          # endpoints; fall back to GITHUB_TOKEN (traffic will be omitted
+          # with a warning since the default token lacks admin:read).
+          GH_TOKEN: ${{ secrets.METRICS_TOKEN || secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
           cd metrics
