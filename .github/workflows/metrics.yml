@@ -1,0 +1,77 @@
+name: Harvest metrics
+
+# Snapshots npm, Docker Hub, and GitHub traffic numbers daily and commits
+# the result to an orphan `metrics` branch. The branch holds a running
+# time series so we can chart trends well past GitHub's 14-day traffic
+# retention window. Writes two things per run:
+#   metrics/snapshots/YYYY-MM-DD.json  — full dated snapshot
+#   metrics/history.csv                — append-only rolling CSV
+
+on:
+  schedule:
+    # 03:17 UTC daily. Odd minute to dodge the top-of-hour thundering herd
+    # on Actions runners and the 00:00 UTC boundary on npm's counters.
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  harvest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main (for harvester script only)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main
+
+      - name: Checkout or init metrics branch
+        run: |
+          git clone --branch metrics "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" metrics 2>/dev/null || {
+            # Branch doesn't exist yet — create an orphan one with no history.
+            git clone "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" metrics
+            cd metrics
+            git checkout --orphan metrics
+            git rm -rf . 2>/dev/null || true
+            mkdir -p metrics/snapshots
+            cat > README.md <<'EOF'
+          # Metrics time series
+
+          This branch is machine-written by `.github/workflows/metrics.yml`.
+          Do not edit by hand. Each daily run writes:
+
+          - `metrics/snapshots/YYYY-MM-DD.json` — full snapshot
+          - `metrics/history.csv`               — append-only rolling CSV
+
+          Data sources: npm registry downloads API, Docker Hub v2 API,
+          GitHub repo traffic API. All public, no credentials beyond the
+          default `GITHUB_TOKEN` for traffic endpoints.
+          EOF
+            git add README.md
+            git -c user.name=github-actions -c user.email=actions@github.com \
+              commit -m "init metrics branch"
+            git push origin metrics
+          }
+
+      - name: Run harvester
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          cd metrics
+          node ../main/scripts/harvest-metrics.mjs
+
+      - name: Commit snapshot
+        run: |
+          cd metrics
+          git config user.name github-actions
+          git config user.email actions@github.com
+          git add metrics/
+          if git diff --cached --quiet; then
+            echo "No new data to commit"
+            exit 0
+          fi
+          git commit -m "metrics: snapshot $(date -u +%Y-%m-%d)"
+          git push origin metrics
