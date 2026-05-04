@@ -30,10 +30,28 @@ const DOCKER_REPO = 'stabgan/openrouter-mcp-multimodal';
 
 const TODAY = new Date().toISOString().slice(0, 10); // YYYY-MM-DD in UTC
 
-async function getJSON(url, headers = {}) {
+async function getJSON(url, headers = {}, attempt = 1) {
   const r = await fetch(url, { headers });
-  if (!r.ok) throw new Error(`${url} -> HTTP ${r.status}: ${await r.text()}`);
-  return r.json();
+  if (r.ok) return r.json();
+  // npm's CDN (Cloudflare) and GitHub both use 429 for rate limits. We
+  // don't need to be fancy: 2 retries with increasing backoff, then give
+  // up. In the daily Actions cron this almost never triggers — it's
+  // mainly a safety net if GitHub rate-limits a busy repo.
+  if ((r.status === 429 || r.status === 503) && attempt <= 2) {
+    const body = await r.text().catch(() => '');
+    const retryAfter = Number(r.headers.get('retry-after'));
+    const wait = Number.isFinite(retryAfter) && retryAfter > 0
+      ? retryAfter * 1000
+      : attempt * 5000;
+    console.warn(`retry ${attempt}/2 after HTTP ${r.status} on ${url} (waiting ${wait}ms)`);
+    void body;
+    await new Promise((res) => setTimeout(res, wait));
+    return getJSON(url, headers, attempt + 1);
+  }
+  const body = await r.text();
+  // Truncate HTML error pages (common from Cloudflare) so stack traces stay readable
+  const snippet = body.length > 300 ? body.slice(0, 300) + '…[truncated]' : body;
+  throw new Error(`${url} -> HTTP ${r.status}: ${snippet}`);
 }
 
 async function harvestNpm() {
