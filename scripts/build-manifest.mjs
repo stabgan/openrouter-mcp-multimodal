@@ -1,14 +1,34 @@
 #!/usr/bin/env node
 /**
- * Build a rich MCPB manifest.json for .mcpb-build/ with full tool schemas
- * derived from the live server (via scripts/dump-tools.mjs).
+ * Build an MCPB manifest.json for .mcpb-build/ from the tool names +
+ * descriptions + inputSchema dumped by scripts/dump-tools.mjs.
+ *
+ * Note: the Smithery Registry's publish endpoint REQUIRES each tool to
+ * carry its full `inputSchema`, so we pass that through. The stricter
+ * `@anthropic-ai/mcpb validate` command rejects `inputSchema` /
+ * `outputSchema` / `annotations` as unknown keys — so we deliberately
+ * skip `mcpb validate` in the build pipeline. `mcpb pack` itself
+ * accepts the richer shape (it just warns).
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 
-const tools = JSON.parse(readFileSync('/tmp/tools-clean.json', 'utf8'));
+const rawTools = JSON.parse(readFileSync('/tmp/tools-clean.json', 'utf8'));
+// Keep name, description, and inputSchema — these are what Smithery
+// displays on the listing card and feeds into the "tools available"
+// badge. Drop `outputSchema` / `annotations` since MCPB's base schema
+// doesn't list them; they come from the running server at tools/list
+// time anyway.
+const tools = rawTools.map((t) => {
+  const out = {
+    name: t.name,
+    description: String(t.description ?? '').split('\n\n')[0].trim(),
+  };
+  if (t.inputSchema) out.inputSchema = t.inputSchema;
+  return out;
+});
 
 const manifest = {
-  manifest_version: '0.3',
+  manifest_version: '0.2',
   name: 'openrouter-mcp-multimodal',
   display_name: 'OpenRouter MCP Multimodal',
   version: '4.5.1',
@@ -16,10 +36,9 @@ const manifest = {
   long_description:
     'All-in-one MCP server for OpenRouter. Chat with 300+ LLMs (Claude, Gemini, GPT, Llama, Qwen, Grok). ' +
     'Analyze images, audio, and video. Generate images, speech, music, and video (Veo 3.1, Sora 2 Pro, ' +
-    'Seedance, Wan). generate_image supports reference images for character / style consistency, ' +
-    'aspect_ratio (14 values), image_size (0.5K / 1K / 2K / 4K), and modalities override. Structured ' +
-    'error taxonomy, IPv4+IPv6 SSRF guards, path sandbox, multi-arch Docker. Works with Claude Desktop, ' +
-    'Cursor, Kiro, VS Code, Windsurf, Cline, and any MCP-compatible client.',
+    'Seedance, Wan). v4.5 adds response caching, reasoning token passthrough, web search, ' +
+    'rerank_documents, generate_video_from_image, health_check, audit logging for paid ops, ' +
+    'MCP 2025-06-18 structured outputs + progress notifications. Apache 2.0.',
   author: { name: 'stabgan', url: 'https://github.com/stabgan' },
   repository: { type: 'git', url: 'https://github.com/stabgan/openrouter-mcp-multimodal.git' },
   homepage: 'https://github.com/stabgan/openrouter-mcp-multimodal',
@@ -55,13 +74,13 @@ const manifest = {
       required: false,
     },
     output_dir: {
-      type: 'string',
+      type: 'directory',
       title: 'Output Directory',
       description: 'Sandbox root for save_path on generate_* tools. Leave empty to use the current working directory.',
       required: false,
     },
     input_dir: {
-      type: 'string',
+      type: 'directory',
       title: 'Input Directory',
       description: 'Sandbox root for input_images on generate_image. Falls back to the Output Directory.',
       required: false,
