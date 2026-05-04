@@ -12,6 +12,9 @@ dist/
 .mcpb-build/
 *.mcpb
 
+# Playwright MCP session artifacts
+.playwright-mcp/
+
 # Workspace-local Kiro artifacts (specs, agents, steering) — do not publish.
 .kiro/
 
