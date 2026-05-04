@@ -1,0 +1,21 @@
+openrouter-mcp-multimodal
+Copyright (c) 2026 stabgan
+
+This product includes software developed by the contributors listed below.
+
+Project owner and primary author:
+- stabgan <kgdelivery.main@gmail.com>
+
+Community contributors (see `git log` for the full list):
+- ahmadsl <ahmadsoory74@gmail.com> — PR #16, reference-image conditioning
+  and modalities override on generate_image (v3.2.0).
+- ZoneoutReal <jonathan.salotti68124@gmail.com> — PR #14, User-Agent
+  header on outbound fetches (v3.1.0).
+
+Licensing history:
+- v1.0.0 through v3.2.0 were released under the MIT License.
+- v4.0.0 relicenses the project under Apache License, Version 2.0.
+  Apache 2.0 is a permissive superset of MIT's terms with the addition
+  of an explicit patent grant and trademark clause. Code contributed
+  under MIT is incorporated into Apache-2.0-licensed distributions via
+  MIT's sublicensing grant.

@@ -2,6 +2,30 @@
 
 All notable changes to `@stabgan/openrouter-mcp-multimodal` are recorded here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] — 2026-05-04
+
+### License
+- **Relicensed from MIT to Apache-2.0.** Apache 2.0 is a permissive superset of MIT's terms with an explicit patent grant and trademark clause. The `LICENSE` file now carries the canonical Apache 2.0 text. A new `NOTICE` file credits contributors and records the license transition. The `Apache-2.0` SPDX identifier is set in `package.json`, the `org.opencontainers.image.licenses` Dockerfile label, and the README badge.
+
+### Added — provider routing parity
+Brings `chat_completion` up to full parity with [`@mcpservers/openrouterai`](https://www.npmjs.com/package/@mcpservers/openrouterai) on OpenRouter's provider-routing controls. See [https://openrouter.ai/docs/features/provider-routing](https://openrouter.ai/docs/features/provider-routing).
+
+- **`provider` tool-arg on `chat_completion`** accepting the full set of OpenRouter routing options: `quantizations`, `ignore`, `sort` (price / throughput / latency), `order`, `require_parameters`, `data_collection` (allow / deny), `allow_fallbacks`. Merges on top of env-var defaults so callers can override per-request.
+- **Model variant suffixes** — `:nitro` (fastest variant) and `:floor` (cheapest variant) pass through natively because OpenRouter parses them server-side. Documented in the README and the `chat_completion` schema.
+- **`OPENROUTER_MAX_TOKENS` env var** — default `max_tokens` cap when the tool call doesn't set one. Useful on low-credit and free-tier accounts to avoid the full-context-window reservation that 402s Gemini image models.
+- **Seven `OPENROUTER_PROVIDER_*` env vars** — one per provider-routing field. Default values apply to every `chat_completion` call; tool-arg overrides still win.
+- **`src/tool-handlers/provider-routing.ts`** — shared helper that parses env defaults (with CSV + JSON-array fallback for `OPENROUTER_PROVIDER_ORDER`), merges overrides, and emits the OpenRouter request body.
+- **18 new unit tests** covering env parsing, override merging, body assembly, and `max_tokens` resolution. Total test count 199 / 199 green.
+
+### Changed
+- `chat_completion` tool description now advertises the routing and suffix features.
+- README: first paragraph, env var table, and Usage Examples updated with provider-routing examples; License section notes the Apache 2.0 transition.
+- `.env.example` documents every new env var with inline comments.
+- MCP Registry `server.json` lists the eight new env vars so the Smithery / MCP Registry config UI surfaces them automatically.
+
+### Compatibility
+- Fully backward-compatible for callers who don't use `provider` or any `OPENROUTER_PROVIDER_*` env var: same request body, same behavior. Only the license file and the chat_completion schema expand.
+
 ## [3.2.0] — 2026-05-03
 
 ### Added

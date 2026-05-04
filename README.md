@@ -12,7 +12,7 @@
   <a href="https://www.npmjs.com/package/@stabgan/openrouter-mcp-multimodal"><img src="https://img.shields.io/npm/v/@stabgan/openrouter-mcp-multimodal.svg?label=npm&color=cb3837&logo=npm" alt="npm version" /></a>
   <a href="https://hub.docker.com/r/stabgan/openrouter-mcp-multimodal"><img src="https://img.shields.io/docker/v/stabgan/openrouter-mcp-multimodal/latest?label=docker&color=2496ed&logo=docker&logoColor=white" alt="Docker version" /></a>
   <a href="https://github.com/stabgan/openrouter-mcp-multimodal/actions/workflows/publish.yml"><img src="https://github.com/stabgan/openrouter-mcp-multimodal/actions/workflows/publish.yml/badge.svg" alt="CI" /></a>
-  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT" /></a>
+  <a href="https://www.apache.org/licenses/LICENSE-2.0"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="Apache 2.0" /></a>
   <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%E2%89%A518-43853d?logo=node.js&logoColor=white" alt="Node.js" /></a>
 </p>
 
@@ -106,7 +106,7 @@ Install-link audit (2026-04-20, round 4 — HTTPS redirectors only):
 
 | Tool | Description |
 | :--- | :--- |
-| `chat_completion` | Send messages to any OpenRouter model. Detects reasoning-model cutoffs. |
+| `chat_completion` | Send messages to any OpenRouter model. Detects reasoning-model cutoffs. Supports **provider routing** (`quantizations`, `ignore`, `sort`, `order`, `require_parameters`, `data_collection`, `allow_fallbacks`) and **model suffixes** (`:nitro` for fastest, `:floor` for cheapest). |
 | `analyze_image` | Analyze images from local files, URLs, or data URIs. Auto-optimized with sharp. |
 | `analyze_audio` | Analyze/transcribe audio (WAV, MP3, FLAC, OGG, etc.) from files, URLs, or data URIs. |
 | `analyze_video` | Analyze/transcribe video (mp4, mpeg, mov, webm) from files, URLs, or data URIs. |
@@ -192,6 +192,14 @@ npx -y @smithery/cli install @stabgan/openrouter-mcp-multimodal --client claude
 | `OPENROUTER_API_KEY` | Yes | — | Your OpenRouter API key |
 | `OPENROUTER_DEFAULT_MODEL` | No | `nvidia/nemotron-nano-12b-v2-vl:free` | Default model for chat + analyze tools |
 | `DEFAULT_MODEL` | No | — | Alias for above |
+| `OPENROUTER_MAX_TOKENS` | No | — | Default `max_tokens` for `chat_completion` when not set in the request. Useful on low-credit / free-tier accounts to avoid the full-context-window reservation. |
+| `OPENROUTER_PROVIDER_QUANTIZATIONS` | No | — | CSV. Filter providers by quantization (e.g. `fp16,int8`). |
+| `OPENROUTER_PROVIDER_IGNORE` | No | — | CSV. Exclude these provider slugs (e.g. `openai,anthropic`). |
+| `OPENROUTER_PROVIDER_SORT` | No | — | `price` / `throughput` / `latency`. |
+| `OPENROUTER_PROVIDER_ORDER` | No | — | JSON array or CSV of provider IDs (e.g. `["meta-llama","google"]`). |
+| `OPENROUTER_PROVIDER_REQUIRE_PARAMETERS` | No | — | `true` / `false`. Only use providers supporting every request parameter. |
+| `OPENROUTER_PROVIDER_DATA_COLLECTION` | No | — | `allow` / `deny`. Opt out of providers that log request data. |
+| `OPENROUTER_PROVIDER_ALLOW_FALLBACKS` | No | — | `true` / `false`. |
 | `OPENROUTER_MODEL_CACHE_TTL_MS` | No | `3600000` | Model cache TTL (ms) |
 | `OPENROUTER_IMAGE_MAX_DIMENSION` | No | `800` | Longest edge for resize (px) |
 | `OPENROUTER_IMAGE_JPEG_QUALITY` | No | `80` | JPEG quality (1–100) |
@@ -230,6 +238,16 @@ npx -y @smithery/cli install @stabgan/openrouter-mcp-multimodal --client claude
 ```
 # Chat
 Use chat_completion to explain quantum computing in simple terms.
+
+# Chat with provider routing — prefer cheapest provider, exclude OpenAI, opt out of data collection
+Use chat_completion with model "anthropic/claude-3.5-sonnet", prompt "Summarize this",
+provider { sort: "price", ignore: ["openai"], data_collection: "deny" }
+
+# Chat with :nitro variant for faster response
+Use chat_completion with model "openai/gpt-4o:nitro", prompt "Reason step-by-step about this problem"
+
+# Chat with :floor variant for cheapest provider of the requested model
+Use chat_completion with model "mistralai/mistral-7b-instruct:floor", prompt "Quick check"
 
 # Vision
 Use analyze_image on /path/to/photo.jpg and tell me what you see.
@@ -321,7 +339,7 @@ Works with any MCP client: [Kiro](https://kiro.dev) · [Claude Desktop](https://
 
 ## License
 
-MIT
+Apache 2.0. See [LICENSE](./LICENSE) and [NOTICE](./NOTICE). v1.0.0 through v3.2.0 were released under MIT; v4.0.0 relicensed to Apache 2.0 (Apache 2.0 is a permissive superset of MIT with explicit patent grant).
 
 ## Contributing
 

@@ -10,12 +10,27 @@ import {
   detectReasoningCutoff,
   toUsageMeta,
 } from './completion-utils.js';
+import {
+  type ProviderRoutingOptions,
+  readProviderDefaults,
+  mergeProviderOptions,
+  buildProviderBody,
+  resolveMaxTokens,
+} from './provider-routing.js';
+
+const DEFAULT_MODEL = 'nvidia/nemotron-nano-12b-v2-vl:free';
 
 export interface ChatCompletionToolRequest {
   model?: string;
   messages: ChatCompletionMessageParam[];
   temperature?: number;
   max_tokens?: number;
+  /**
+   * OpenRouter provider routing overrides. Merges on top of the
+   * `OPENROUTER_PROVIDER_*` env-var defaults. See
+   * https://openrouter.ai/docs/features/provider-routing
+   */
+  provider?: ProviderRoutingOptions;
 }
 
 export async function handleChatCompletion(
@@ -23,7 +38,7 @@ export async function handleChatCompletion(
   openai: OpenAI,
   defaultModel?: string,
 ) {
-  const { messages, model, temperature, max_tokens } = request.params.arguments ?? {
+  const { messages, model, temperature, max_tokens, provider } = request.params.arguments ?? {
     messages: [],
   };
 
@@ -31,14 +46,25 @@ export async function handleChatCompletion(
     return toolError(ErrorCode.INVALID_INPUT, 'Messages array cannot be empty.');
   }
 
+  const providerOptions = mergeProviderOptions(readProviderDefaults(), provider);
+  const providerBody = buildProviderBody(providerOptions);
+  const effectiveMaxTokens = resolveMaxTokens(max_tokens);
+
+  // Build the request body. `provider` is an OpenRouter extension not in
+  // the OpenAI SDK's types, so we cast to unknown to thread it through.
+  const body: Record<string, unknown> = {
+    model: model || defaultModel || DEFAULT_MODEL,
+    messages,
+    temperature: temperature ?? 1,
+  };
+  if (typeof effectiveMaxTokens === 'number') body.max_tokens = effectiveMaxTokens;
+  if (providerBody) body.provider = providerBody;
+
   let completion: ChatCompletion;
   try {
-    completion = await openai.chat.completions.create({
-      model: model || defaultModel || 'nvidia/nemotron-nano-12b-v2-vl:free',
-      messages,
-      temperature: temperature ?? 1,
-      ...(max_tokens && { max_tokens }),
-    });
+    completion = (await openai.chat.completions.create(
+      body as unknown as Parameters<typeof openai.chat.completions.create>[0],
+    )) as ChatCompletion;
   } catch (err) {
     return classifyUpstreamError(err);
   }

@@ -41,4 +41,4 @@ All error responses carry `_meta.code` from a closed taxonomy: `INVALID_INPUT`, 
 - npm: https://www.npmjs.com/package/@stabgan/openrouter-mcp-multimodal
 - Docker Hub: https://hub.docker.com/r/stabgan/openrouter-mcp-multimodal
 - GHCR: https://github.com/stabgan/openrouter-mcp-multimodal/pkgs/container/openrouter-mcp-multimodal
-- License: MIT
+- License: Apache-2.0

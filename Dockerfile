@@ -22,7 +22,7 @@ WORKDIR /app
 LABEL io.modelcontextprotocol.server.name="io.github.stabgan/openrouter-multimodal" \
       org.opencontainers.image.source="https://github.com/stabgan/openrouter-mcp-multimodal" \
       org.opencontainers.image.description="Chat with 300+ LLMs via OpenRouter. Analyze and generate images, audio, and video from MCP." \
-      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.title="openrouter-mcp-multimodal"
 
 RUN apk add --no-cache vips

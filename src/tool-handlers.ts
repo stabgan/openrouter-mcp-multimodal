@@ -59,7 +59,8 @@ export class ToolHandlers {
       tools: [
         {
           name: 'chat_completion',
-          description: 'Send messages to an OpenRouter model and get a response',
+          description:
+            'Send messages to an OpenRouter model and get a response. Supports provider routing (quantizations / ignore / sort / order / require_parameters / data_collection / allow_fallbacks) and model variant suffixes (`:nitro` for faster, `:floor` for cheapest).',
           annotations: {
             readOnlyHint: false,
             destructiveHint: false,
@@ -68,7 +69,11 @@ export class ToolHandlers {
           inputSchema: {
             type: 'object',
             properties: {
-              model: { type: 'string', description: 'Model ID (optional, uses default)' },
+              model: {
+                type: 'string',
+                description:
+                  'Model ID (optional, uses default). Append `:nitro` for faster/experimental variants or `:floor` for the cheapest available variant (e.g. `openai/gpt-4o:nitro`).',
+              },
               messages: {
                 type: 'array',
                 minItems: 1,
@@ -84,7 +89,55 @@ export class ToolHandlers {
                 },
               },
               temperature: { type: 'number', minimum: 0, maximum: 2 },
-              max_tokens: { type: 'number', minimum: 1 },
+              max_tokens: {
+                type: 'number',
+                minimum: 1,
+                description:
+                  'Max completion tokens. Falls back to `OPENROUTER_MAX_TOKENS` env var if unset.',
+              },
+              provider: {
+                type: 'object',
+                description:
+                  'OpenRouter provider-routing overrides. Merges on top of `OPENROUTER_PROVIDER_*` env defaults. See https://openrouter.ai/docs/features/provider-routing',
+                properties: {
+                  quantizations: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Filter providers by quantization (e.g. `["fp16","int8"]`).',
+                  },
+                  ignore: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Exclude these provider slugs (e.g. `["openai","anthropic"]`).',
+                  },
+                  sort: {
+                    type: 'string',
+                    enum: ['price', 'throughput', 'latency'],
+                    description: 'Sort providers by this criterion.',
+                  },
+                  order: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description:
+                      'Prioritized list of provider IDs (e.g. `["openai/gpt-4o","anthropic/claude-3-opus"]`).',
+                  },
+                  require_parameters: {
+                    type: 'boolean',
+                    description:
+                      'Only use providers that support every parameter in the request.',
+                  },
+                  data_collection: {
+                    type: 'string',
+                    enum: ['allow', 'deny'],
+                    description: 'Whether providers may collect request data.',
+                  },
+                  allow_fallbacks: {
+                    type: 'boolean',
+                    description:
+                      'Allow fallback to unlisted providers when preferred ones fail.',
+                  },
+                },
+              },
             },
             required: ['messages'],
           },
