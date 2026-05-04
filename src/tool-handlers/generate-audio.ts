@@ -3,6 +3,8 @@ import { extname } from 'path';
 import OpenAI from 'openai';
 import { resolveSafeOutputPath, UnsafeOutputPathError } from './path-safety.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
+import { SERVER_VERSION } from '../version.js';
+import { logger } from '../logger.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
 
 export interface GenerateAudioToolRequest {
@@ -120,6 +122,17 @@ export async function handleGenerateAudio(
     return toolError(ErrorCode.INVALID_INPUT, 'prompt is required.');
   }
 
+  // Audit entry. See generate_image for rationale.
+  logger.audit('generate_audio.start', {
+    model: model || DEFAULT_MODEL,
+    voice: voice?.trim() || DEFAULT_VOICE,
+    format: (VALID_FORMATS as readonly string[]).includes(format ?? '')
+      ? format
+      : DEFAULT_FORMAT,
+    prompt_preview: prompt.slice(0, 80),
+    save_path: save_path ? 'provided' : 'none',
+  });
+
   // Fail-fast on unsafe paths BEFORE spending tokens.
   let safeBase: string | null = null;
   if (save_path) {
@@ -210,6 +223,7 @@ export async function handleGenerateAudio(
           { type: 'audio' as const, mimeType: detected.mimeType, data: returnBase64 },
         ],
         _meta: {
+          server_version: SERVER_VERSION,
           save_path: actualSavePath,
           mime: detected.mimeType,
           size_bytes: audioBuffer.length,
@@ -222,7 +236,11 @@ export async function handleGenerateAudio(
         { type: 'text' as const, text: transcript || 'Audio generated successfully.' },
         { type: 'audio' as const, mimeType: detected.mimeType, data: returnBase64 },
       ],
-      _meta: { mime: detected.mimeType, size_bytes: audioBuffer.length },
+      _meta: {
+        server_version: SERVER_VERSION,
+        mime: detected.mimeType,
+        size_bytes: audioBuffer.length,
+      },
     };
   } catch (err) {
     return classifyUpstreamError(err, 'generate_audio (stream)');

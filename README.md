@@ -92,6 +92,12 @@ Install-link audit (2026-04-20, round 4 — HTTPS redirectors only):
 | Image generation | ✅ Path-sandboxed disk output |
 | **Video understanding** | ✅ **v3** — mp4, mpeg, mov, webm from files, URLs, or data URLs |
 | **Video generation** | ✅ **v3** — Veo 3.1 / Sora 2 Pro / Seedance / Wan via async API with progress notifications |
+| **Response caching** | ✅ **v4.5** — `X-OpenRouter-Cache` passthrough, zero tokens billed on hit, 80–300ms latency |
+| **Web search plugin** | ✅ **v4.5** — `online: true` on `chat_completion` injects OpenRouter's Exa-backed plugin |
+| **Rerank** | ✅ **v4.5** — `rerank_documents` tool against `/rerank` (Cohere, Fireworks) |
+| **Health check** | ✅ **v4.5** — `health_check` verifies API key + OpenRouter reachability |
+| **Reasoning tokens** | ✅ **v4.5** — passthrough of DeepSeek R1 / Gemini Thinking / Opus 4.7 traces on `_meta.reasoning` |
+| **MCP 2025-06-18 spec** | ✅ **v4.5** — structured outputs (`outputSchema`), progress notifications, `title` + `openWorldHint` |
 | Auto image resize + compress | ✅ Configurable (defaults 800px max, JPEG 80%) |
 | Model search + validation | ✅ Filter by vision / audio / video modality |
 | Free model support | ✅ Default: free Nemotron VL |
@@ -106,17 +112,20 @@ Install-link audit (2026-04-20, round 4 — HTTPS redirectors only):
 
 | Tool | Description |
 | :--- | :--- |
-| `chat_completion` | Send messages to any OpenRouter model. Detects reasoning-model cutoffs. Supports **provider routing** (`quantizations`, `ignore`, `sort`, `order`, `require_parameters`, `data_collection`, `allow_fallbacks`) and **model suffixes** (`:nitro` for fastest, `:floor` for cheapest). |
-| `analyze_image` | Analyze images from local files, URLs, or data URIs. Auto-optimized with sharp. |
-| `analyze_audio` | Analyze/transcribe audio (WAV, MP3, FLAC, OGG, etc.) from files, URLs, or data URIs. |
-| `analyze_video` | Analyze/transcribe video (mp4, mpeg, mov, webm) from files, URLs, or data URIs. |
+| `chat_completion` | Send messages to any OpenRouter model. Detects reasoning-model cutoffs. Supports **provider routing** (`quantizations`, `ignore`, `sort`, `order`, `require_parameters`, `data_collection`, `allow_fallbacks`), **model suffixes** (`:nitro` for fastest, `:floor` for cheapest, `:exacto` for Auto Exacto tool-calling), **response caching** (`cache`, `cache_ttl`, `cache_clear`), **reasoning passthrough** (`include_reasoning`), and **web search** (`online`, `web_max_results`). |
+| `analyze_image` | Analyze images from local files, URLs, or data URIs. Auto-optimized with sharp. Optional `cache_input: true` attaches `cache_control: ephemeral` for Anthropic / Gemini 2.5+ prompt caching. |
+| `analyze_audio` | Analyze/transcribe audio (WAV, MP3, FLAC, OGG, etc.) from files, URLs, or data URIs. Optional `cache_input: true` for prompt caching. |
+| `analyze_video` | Analyze/transcribe video (mp4, mpeg, mov, webm) from files, URLs, or data URIs. Optional `cache_input: true` for prompt caching. |
 | `generate_image` | Generate images from text prompts. Supports `aspect_ratio` (14 values), `image_size` (0.5K–4K), and `max_tokens`. Optional path-sandboxed disk save. |
 | `generate_audio` | Generate audio from text. Auto-detects format, wraps raw PCM in WAV. |
-| `generate_video` | Generate video via OpenRouter's async API (Veo 3.1 / Sora 2 Pro / Seedance / Wan). Submits, polls, downloads, saves. |
+| `generate_video` | Generate video via OpenRouter's async API (Veo 3.1 / Sora 2 Pro / Seedance / Wan). Submits, polls, downloads, saves. Emits MCP `notifications/progress` when the client sends a `progressToken`. |
+| `generate_video_from_image` | Image-to-video wrapper around `generate_video`. Narrower schema, higher tool-call hit rate. |
 | `get_video_status` | Resume polling a `generate_video` job by id. Download + save when complete. |
-| `search_models` | Search/filter models by name, provider, or capabilities (vision / audio / video). |
+| `rerank_documents` | Rerank candidate documents against a query via OpenRouter's `/rerank` endpoint. Supports Cohere and Fireworks rerankers. |
+| `search_models` | Search/filter models by name, provider, or capabilities (vision / audio / video). Paginated via `offset` / `next_offset` / `has_more` / `total`. |
 | `get_model_info` | Get pricing, context length, and capabilities for any model. |
 | `validate_model` | Check if a model ID exists on OpenRouter. |
+| `health_check` | Verify API-key validity, OpenRouter reachability, and return server + protocol versions. |
 
 > All error responses carry `_meta.code` from a closed taxonomy: `INVALID_INPUT` · `UNSAFE_PATH` · `UPSTREAM_HTTP` · `UPSTREAM_TIMEOUT` · `UPSTREAM_REFUSED` · `UNSUPPORTED_FORMAT` · `RESOURCE_TOO_LARGE` · `ZDR_INCOMPATIBLE` · `MODEL_NOT_FOUND` · `JOB_FAILED` · `JOB_STILL_RUNNING` · `INTERNAL`
 
@@ -200,6 +209,8 @@ npx -y @smithery/cli install @stabgan/openrouter-mcp-multimodal --client claude
 | `OPENROUTER_PROVIDER_REQUIRE_PARAMETERS` | No | — | `true` / `false`. Only use providers supporting every request parameter. |
 | `OPENROUTER_PROVIDER_DATA_COLLECTION` | No | — | `allow` / `deny`. Opt out of providers that log request data. |
 | `OPENROUTER_PROVIDER_ALLOW_FALLBACKS` | No | — | `true` / `false`. |
+| `OPENROUTER_CACHE_RESPONSES` | No | — | `1` / `true`. Enable response caching server-wide. Sends `X-OpenRouter-Cache: true` on chat + analyze_* calls unless overridden per-request with `cache: false`. Zero tokens billed on hits. |
+| `OPENROUTER_INCLUDE_REASONING` | No | — | `1` / `true`. Enable reasoning tokens passthrough server-wide for DeepSeek R1 / Gemini Thinking / Opus 4.7. Adds `_meta.reasoning` to `chat_completion` responses. |
 | `OPENROUTER_MODEL_CACHE_TTL_MS` | No | `3600000` | Model cache TTL (ms) |
 | `OPENROUTER_IMAGE_MAX_DIMENSION` | No | `800` | Longest edge for resize (px) |
 | `OPENROUTER_IMAGE_JPEG_QUALITY` | No | `80` | JPEG quality (1–100) |
@@ -248,6 +259,28 @@ Use chat_completion with model "openai/gpt-4o:nitro", prompt "Reason step-by-ste
 
 # Chat with :floor variant for cheapest provider of the requested model
 Use chat_completion with model "mistralai/mistral-7b-instruct:floor", prompt "Quick check"
+
+# Chat with response caching + reasoning passthrough (v4.5)
+Use chat_completion with model "deepseek/deepseek-r1", prompt "Prove sqrt(2) is irrational",
+cache: true, cache_ttl: 3600, include_reasoning: true
+# → response.meta.cache = { status: "hit" | "miss", age, ttl }
+# → response.meta.reasoning = "<upstream reasoning trace>"
+
+# Chat with web search plugin (v4.5)
+Use chat_completion with model "openai/gpt-4o", prompt "What shipped in OpenRouter last week?",
+online: true, web_max_results: 5
+
+# Rerank documents against a query (v4.5)
+Use rerank_documents with query "best practices for MCP server auth",
+documents: ["doc A text...", "doc B text...", "doc C text..."], top_n: 3
+
+# Generate video from an image (v4.5)
+Use generate_video_from_image with image "./frame.png", prompt "zoom out slowly",
+model "google/veo-3.1", save to ./clip.mp4
+
+# Health check (v4.5)
+Use health_check
+# → { ok: true, server_version: "4.5.0", protocol_version: "2025-06-18", api_key_valid: true, models_cached: 312 }
 
 # Vision
 Use analyze_image on /path/to/photo.jpg and tell me what you see.

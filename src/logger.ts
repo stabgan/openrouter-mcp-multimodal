@@ -7,6 +7,10 @@
  *
  * Level is filtered by OPENROUTER_LOG_LEVEL (error|warn|info|debug,
  * default info). Unknown values fall through to info.
+ *
+ * `audit` is a special level that ALWAYS writes (bypasses the level filter),
+ * intended for cost-incurring / destructive operations so operators can
+ * trace them after the fact.
  */
 export type LogLevel = 'error' | 'warn' | 'info' | 'debug';
 
@@ -58,4 +62,30 @@ export const logger = {
   warn: (msg: string, ctx?: Record<string, unknown>) => log('warn', msg, ctx),
   info: (msg: string, ctx?: Record<string, unknown>) => log('info', msg, ctx),
   debug: (msg: string, ctx?: Record<string, unknown>) => log('debug', msg, ctx),
+  /**
+   * Always-on audit line. Bypasses OPENROUTER_LOG_LEVEL. Use for paid or
+   * destructive operations (generate_video, generate_audio, generate_image)
+   * so operators can trace unintended spend via `docker logs` or a log
+   * aggregator.
+   */
+  audit(msg: string, ctx?: Record<string, unknown>): void {
+    const record: Record<string, unknown> = {
+      ts: new Date().toISOString(),
+      level: 'audit',
+      msg,
+    };
+    if (ctx) record.ctx = ctx;
+    try {
+      _sink.write(JSON.stringify(record));
+    } catch {
+      _sink.write(
+        JSON.stringify({
+          ts: new Date().toISOString(),
+          level: 'audit',
+          msg,
+          ctx: { note: 'unserializable' },
+        }),
+      );
+    }
+  },
 };

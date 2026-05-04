@@ -23,6 +23,9 @@ Get a free API key at https://openrouter.ai/keys.
 - `search_models` — filter OpenRouter models by name, provider, or modality
 - `get_model_info` — pricing / context length / capabilities for any model
 - `validate_model` — check if a model id exists
+- `rerank_documents` — rerank candidate documents against a query via OpenRouter's `/rerank` endpoint (Cohere, Fireworks)
+- `generate_video_from_image` — narrower image-to-video wrapper around `generate_video` (Veo 3.1, Sora 2 Pro, Seedance, Wan)
+- `health_check` — verify API-key validity, OpenRouter reachability, and return server + protocol versions
 
 All error responses carry `_meta.code` from a closed taxonomy: `INVALID_INPUT`, `UNSAFE_PATH`, `UPSTREAM_HTTP`, `UPSTREAM_TIMEOUT`, `UPSTREAM_REFUSED`, `UNSUPPORTED_FORMAT`, `RESOURCE_TOO_LARGE`, `ZDR_INCOMPATIBLE`, `MODEL_NOT_FOUND`, `JOB_FAILED`, `JOB_STILL_RUNNING`, `INTERNAL`.
 

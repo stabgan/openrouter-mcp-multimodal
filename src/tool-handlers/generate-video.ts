@@ -6,6 +6,7 @@ import type {
   VideoJobStatus,
 } from '../openrouter-api.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
+import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import {
   resolveSafeOutputPath,
@@ -252,6 +253,7 @@ async function finalizeCompletedJob(
         : '.mp4';
 
   const baseMeta: Record<string, unknown> = {
+    server_version: SERVER_VERSION,
     video_id: status.id,
     mime,
     size_bytes: buffer.length,
@@ -315,6 +317,26 @@ export async function handleGenerateVideo(
     return toolError(ErrorCode.INVALID_INPUT, 'prompt is required.');
   }
 
+  const model =
+    args.model ||
+    process.env.OPENROUTER_DEFAULT_VIDEO_GEN_MODEL ||
+    FALLBACK_MODEL;
+
+  // Audit entry — video is the most expensive tool we have. Always log
+  // model, resolution, duration, and a safe prompt preview so unintended
+  // spend can be traced.
+  logger.audit('generate_video.start', {
+    model,
+    prompt_preview: args.prompt.slice(0, 80),
+    resolution: args.resolution,
+    duration: args.duration,
+    aspect_ratio: args.aspect_ratio,
+    first_frame: args.first_frame_image ? 'provided' : 'none',
+    last_frame: args.last_frame_image ? 'provided' : 'none',
+    reference_images: args.reference_images?.length ?? 0,
+    save_path: args.save_path ? 'provided' : 'none',
+  });
+
   // Fail-fast on unsafe save_path BEFORE spending credits on the job.
   let safeSavePath: string | null = null;
   if (args.save_path) {
@@ -325,11 +347,6 @@ export async function handleGenerateVideo(
       return toolErrorFrom(ErrorCode.INTERNAL, err);
     }
   }
-
-  const model =
-    args.model ||
-    process.env.OPENROUTER_DEFAULT_VIDEO_GEN_MODEL ||
-    FALLBACK_MODEL;
 
   const body = buildRequestBody(args, model);
   try {
@@ -379,6 +396,7 @@ export async function handleGenerateVideo(
       ],
       isError: false as const,
       _meta: {
+        server_version: SERVER_VERSION,
         code: ErrorCode.JOB_STILL_RUNNING,
         video_id: envelope.id,
         polling_url: envelope.polling_url ?? `https://openrouter.ai/api/v1/videos/${envelope.id}`,
@@ -451,12 +469,67 @@ export async function handleGetVideoStatus(
     ],
     isError: false as const,
     _meta: {
+      server_version: SERVER_VERSION,
       code: ErrorCode.JOB_STILL_RUNNING,
       video_id: id,
       last_status: status.status,
       progress: status.progress,
     },
   };
+}
+
+/**
+ * Image-to-video convenience wrapper. Takes a single `image` argument
+ * (first frame) and delegates to `handleGenerateVideo` with the broader
+ * parameter surface hidden. Based on arxiv 2511.03497's finding that
+ * tool-calling success degrades with parameter count — a narrower tool
+ * gives the model a cleaner decision path.
+ */
+export interface GenerateVideoFromImageRequest {
+  image: string;
+  prompt: string;
+  model?: string;
+  resolution?: string;
+  aspect_ratio?: string;
+  duration?: number;
+  seed?: number;
+  save_path?: string;
+  max_wait_ms?: number;
+  poll_interval_ms?: number;
+}
+
+export async function handleGenerateVideoFromImage(
+  request: { params: { arguments: GenerateVideoFromImageRequest } },
+  apiClient: OpenRouterAPIClient,
+  progress?: ProgressHook,
+) {
+  const args = request.params.arguments ?? ({} as GenerateVideoFromImageRequest);
+  if (!args.image) {
+    return toolError(ErrorCode.INVALID_INPUT, 'image is required.');
+  }
+  if (!args.prompt || !args.prompt.trim()) {
+    return toolError(ErrorCode.INVALID_INPUT, 'prompt is required.');
+  }
+  return handleGenerateVideo(
+    {
+      params: {
+        arguments: {
+          prompt: args.prompt,
+          first_frame_image: args.image,
+          model: args.model,
+          resolution: args.resolution,
+          aspect_ratio: args.aspect_ratio,
+          duration: args.duration,
+          seed: args.seed,
+          save_path: args.save_path,
+          max_wait_ms: args.max_wait_ms,
+          poll_interval_ms: args.poll_interval_ms,
+        },
+      },
+    },
+    apiClient,
+    progress,
+  );
 }
 
 export const _internals = { buildRequestBody, stripAndReplaceExt, extractJobError };

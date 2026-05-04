@@ -5,6 +5,8 @@ import type { ChatCompletion } from 'openai/resources/chat/completions.js';
 import { resolveSafeOutputPath, resolveSafeInputPath, UnsafeOutputPathError } from './path-safety.js';
 import { parseBase64DataUrl } from './fetch-utils.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
+import { SERVER_VERSION } from '../version.js';
+import { logger } from '../logger.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
 
 export interface GenerateImageToolRequest {
@@ -98,6 +100,18 @@ export async function handleGenerateImage(
   if (!prompt?.trim()) {
     return toolError(ErrorCode.INVALID_INPUT, 'prompt is required.');
   }
+
+  // Audit entry. Bypasses the normal log level so operators always see a
+  // record of cost-incurring operations. Prompt preview is hard-capped
+  // at 80 chars to avoid PII spillage in log aggregators.
+  logger.audit('generate_image.start', {
+    model: model || DEFAULT_MODEL,
+    prompt_preview: prompt.slice(0, 80),
+    aspect_ratio,
+    image_size,
+    save_path: save_path ? 'provided' : 'none',
+    input_images_count: input_images?.length ?? 0,
+  });
 
   // Validate optional shape fields early so callers get a clear error
   // instead of a cryptic upstream 400.
@@ -208,6 +222,7 @@ export async function handleGenerateImage(
         { type: 'image' as const, mimeType: base64.mime, data: base64.data },
       ],
       _meta: {
+        server_version: SERVER_VERSION,
         save_path: safePathResolved,
         mime: base64.mime,
         ...(usage
@@ -227,6 +242,7 @@ export async function handleGenerateImage(
   return {
     content: [{ type: 'image' as const, mimeType: base64.mime, data: base64.data }],
     _meta: {
+      server_version: SERVER_VERSION,
       mime: base64.mime,
       ...(usage
         ? {

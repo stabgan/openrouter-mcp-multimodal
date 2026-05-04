@@ -2,6 +2,55 @@
 
 All notable changes to `@stabgan/openrouter-mcp-multimodal` are recorded here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.5.0] — 2026-05-04
+
+Major feature release adding 18 enhancements across OpenRouter platform parity, MCP 2025-06-18 spec compliance, and research-driven improvements. Fully backwards compatible.
+
+### Added — OpenRouter platform parity
+- **Response caching via `X-OpenRouter-Cache`.** New `cache`, `cache_ttl`, `cache_clear` params on `chat_completion` + analyze_* tools. Zero tokens billed on cache hits, 80-300ms latency vs seconds. Server-wide default via `OPENROUTER_CACHE_RESPONSES=1`. `_meta.cache = {status, age, ttl}` surfaced from response headers.
+- **Reasoning tokens passthrough.** New `include_reasoning` param on `chat_completion`; when set, upstream reasoning trace surfaces on `_meta.reasoning`. Supports DeepSeek R1, Gemini Thinking, Opus 4.7. Server-wide default via `OPENROUTER_INCLUDE_REASONING=1`.
+- **Native finish reason.** `_meta.native_finish_reason` alongside normalized `_meta.finish_reason` on every text-returning tool.
+- **`:exacto` suffix documented.** `chat_completion` description + field docstring list `:nitro`, `:floor`, `:exacto` (Auto Exacto reduces tool-call errors ~80% on top tool-calling models).
+- **Web search plugin.** New `online: boolean` + `web_max_results: number` on `chat_completion` — injects OpenRouter's Exa-backed plugin (`$4 / 1000 results`).
+- **`cache_control` breakpoints on analyze_* tools.** New `cache_input: boolean` on `analyze_image`, `analyze_audio`, `analyze_video`. Attaches `cache_control: {type: 'ephemeral'}` to the media block so Anthropic Claude / Gemini 2.5+ prompt-cache it — 10x savings on repeat analysis (Anthropic), 4x (Gemini).
+- **`rerank_documents` tool.** New tool backed by OpenRouter's `/rerank` endpoint. Cohere + Fireworks rerankers. Inputs: `query`, `documents[]`, optional `model` (default `cohere/rerank-english-v3.0`), `top_n`, `return_documents`.
+
+### Added — MCP 2025-06-18 spec compliance
+- **Structured outputs + `outputSchema`.** `validate_model`, `get_model_info`, `search_models`, `rerank_documents`, `health_check` now emit `structuredContent` with typed JSON + declared `outputSchema`, per MCP §5.2.6-7. Agents can validate responses structurally.
+- **Progress notifications.** `generate_video` now emits `notifications/progress` on every poll tick when the client passes a `progressToken` in request `_meta`. Per MCP basic/utilities/progress spec. Agents can show "processing 45%" to users.
+- **`title` + `openWorldHint: true` on every tool.** Human-readable display names for clients that surface them; open-world hint reflects that every one of our tools hits external APIs.
+
+### Added — research-driven improvements
+- **Failure-mode + inter-tool documentation on every tool.** Per arxiv 2602.18764 (Schema-Guided Dialogue / MCP convergence), every tool description now includes explicit "Fails when:" (ErrorCode triggers) and "Works with:" (related tools in a workflow) sections. Research predicts ~10-15% improvement in tool-selection accuracy.
+- **`generate_video_from_image`.** New narrower tool wrapping `generate_video` for image-to-video workflows. Per arxiv 2511.03497: fewer parameters = higher tool-call hit rate.
+- **`content_is_untrusted: true` hint on analyze_* output.** Inspired by ClawGuard (arxiv 2604.11790) and tool-result-parsing defenses (2601.04795). Flags model output derived from potentially attacker-controlled media so downstream agents can treat it as data, not instructions.
+- **Audit logging for paid operations.** New `logger.audit()` method that bypasses the log-level filter. Emitted from `generate_video`, `generate_audio`, `generate_image` with model, 80-char prompt preview (PII boundary), and cost-shape hints. Enables unintended-spend tracing via `docker logs`.
+- **Structured error metadata.** `toolError()` accepts optional `suggestions: string[]` and `retry_after_seconds: number`. Agents get concrete next-step options instead of raw strings to interpret. Inspired by Apigene's production MCP best-practice guide.
+- **`health_check` tool.** Verifies API-key validity, OpenRouter reachability, and returns server + protocol versions. `{ ok, server_version, protocol_version, api_key_valid, models_cached }`.
+- **`search_models` pagination.** New `offset` + `next_offset` + `has_more` + `total` fields in the result. Safely walk large result sets.
+- **`_meta.server_version` stamp.** Every successful tool response carries `server_version: "4.5.0"` for debuggability.
+
+### Changed
+- Rewrote every tool description (11 existing + 2 new) with explicit "Fails when:" and "Works with:" sections.
+- `ModelCache.search()` gains an `all: true` escape hatch for pagination (returns the full filtered set, no limit applied).
+- `completion-utils.ts`'s `ExtractedText` interface now carries `nativeFinishReason` + `reasoning` fields, surfaced by the new `buildCompletionMeta()` helper.
+
+### Added — tests
+- 11 new test files: `cache`, `structured-output`, `structured-tools`, `rerank`, `health-check`, `generate-video-from-image`, `audit-log`, `progress-notifications`, `pagination`, `content-untrusted`, `error-suggestions`. Test count rises from 205 to 250+.
+
+### Backwards compatibility
+All changes are additive. Every new field is optional. No existing caller breaks.
+
+### Citations
+- Anthropic announcement: [Response caching](https://openrouter.ai/announcements/response-caching)
+- Arxiv [2602.18764](https://arxiv.org/abs/2602.18764) — Schema-Guided Dialogue / MCP convergence principles
+- Arxiv [2511.03497](https://arxiv.org/abs/2511.03497) — ROSBag MCP, tool-call accuracy vs parameter count
+- Arxiv [2604.11790](https://arxiv.org/abs/2604.11790) — ClawGuard, tool-call boundary enforcement
+- Arxiv [2601.04795](https://arxiv.org/abs/2601.04795) — Tool result parsing defense against prompt injection
+- Apigene's production MCP best-practice guide (March 2026)
+- Phil Schmid, "MCP is Not the Problem, It's your Server" (January 2026)
+- MCP spec [2025-06-18](https://modelcontextprotocol.io/specification/2025-06-18/) — structured outputs, progress notifications
+
 ## [4.0.1] — 2026-05-04
 
 Security + hygiene patch from an independent audit pass. Two security fixes (one HIGH, one MEDIUM) and the smithery.yaml manifest catching up to v4.

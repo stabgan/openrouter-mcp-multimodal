@@ -2,6 +2,7 @@ import { ModelCache } from '../model-cache.js';
 import { OpenRouterAPIClient } from '../openrouter-api.js';
 import { ErrorCode, toolError } from '../errors.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
+import { buildStructuredResult } from './structured-output.js';
 
 export async function handleValidateModel(
   request: { params: { arguments: { model: string } } },
@@ -26,12 +27,6 @@ export async function handleValidateModel(
     return toolError(ErrorCode.INTERNAL, 'No model data available.');
   }
 
-  return {
-    content: [
-      {
-        type: 'text' as const,
-        text: JSON.stringify({ valid: modelCache.has(model) }),
-      },
-    ],
-  };
+  const valid = modelCache.has(model);
+  return buildStructuredResult({ valid, model });
 }

@@ -5,13 +5,20 @@ import type {
 } from 'openai/resources/chat/completions.js';
 import { prepareVideoData } from './video-utils.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
+import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
 import {
   extractCompletionText,
   detectReasoningCutoff,
-  toUsageMeta,
+  buildCompletionMeta,
 } from './completion-utils.js';
+import {
+  type CacheOptions,
+  buildCacheHeaders,
+  extractCacheMeta,
+} from './cache.js';
+import { awaitCompletionWithHeaders } from './openai-withresponse.js';
 
 /**
  * Default model — `google/gemini-2.5-flash` has the widest video-input
@@ -20,10 +27,16 @@ import {
  */
 const FALLBACK_DEFAULT_MODEL = 'google/gemini-2.5-flash';
 
-export interface AnalyzeVideoToolRequest {
+export interface AnalyzeVideoToolRequest extends CacheOptions {
   video_path: string;
   question?: string;
   model?: string;
+  /**
+   * Attach `cache_control: {type: 'ephemeral'}` to the video block so
+   * Claude / Gemini 2.5+ prompt-caches it. Very valuable for large
+   * videos where repeat questions save 10x on Anthropic pricing.
+   */
+  cache_input?: boolean;
 }
 
 export async function handleAnalyzeVideo(
@@ -31,9 +44,8 @@ export async function handleAnalyzeVideo(
   openai: OpenAI,
   defaultModel?: string,
 ) {
-  const { video_path, question, model } = request.params.arguments ?? {
-    video_path: '',
-  };
+  const args = request.params.arguments ?? ({ video_path: '' } as AnalyzeVideoToolRequest);
+  const { video_path, question, model, cache_input, cache, cache_ttl, cache_clear } = args;
 
   if (!video_path) {
     return toolError(ErrorCode.INVALID_INPUT, 'video_path is required.');
@@ -62,37 +74,46 @@ export async function handleAnalyzeVideo(
     return toolErrorFrom(ErrorCode.INVALID_INPUT, err);
   }
 
+  const videoBlock: Record<string, unknown> = {
+    // The `video_url` content type is an OpenRouter extension; the OpenAI
+    // SDK's typings don't know about it yet.
+    type: 'video_url',
+    video_url: { url: `data:${videoData.mediaType};base64,${videoData.data}` },
+  };
+  if (cache_input) videoBlock.cache_control = { type: 'ephemeral' };
+
+  const headers = buildCacheHeaders({ cache, cache_ttl, cache_clear });
+  const requestOpts = Object.keys(headers).length > 0 ? { headers } : undefined;
+
   let completion: ChatCompletion;
+  let responseHeaders: Headers | undefined;
   try {
     logger.debug('analyze_video.submit', {
       model: pickedModel,
       format: videoData.format,
       size_bytes: videoData.sizeBytes,
     });
-
-    completion = await openai.chat.completions.create({
-      model: pickedModel,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: question || 'Describe what happens in this video, step by step.',
-            },
-            {
-              // The `video_url` content type is an OpenRouter extension; the
-              // OpenAI SDK's typings don't know about it yet. See:
-              // https://openrouter.ai/docs/guides/overview/multimodal/videos
-              type: 'video_url',
-              video_url: {
-                url: `data:${videoData.mediaType};base64,${videoData.data}`,
+    const call = openai.chat.completions.create(
+      {
+        model: pickedModel,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: question || 'Describe what happens in this video, step by step.',
               },
-            },
-          ],
-        },
-      ] as unknown as ChatCompletionMessageParam[],
-    });
+              videoBlock,
+            ],
+          },
+        ] as unknown as ChatCompletionMessageParam[],
+      },
+      requestOpts,
+    );
+    const { data, response } = await awaitCompletionWithHeaders(call);
+    completion = data;
+    responseHeaders = response?.headers;
   } catch (err) {
     logger.warn('analyze_video.error', {
       err: err instanceof Error ? err.message : String(err),
@@ -109,11 +130,16 @@ export async function handleAnalyzeVideo(
       finish_reason: extracted.finishReason,
     });
   }
+
+  const cacheMeta = extractCacheMeta(responseHeaders);
+  const extra: Record<string, unknown> = {
+    server_version: SERVER_VERSION,
+    content_is_untrusted: true,
+  };
+  if (cacheMeta) extra.cache = cacheMeta;
+
   return {
     content: [{ type: 'text' as const, text: extracted.text }],
-    _meta: {
-      finish_reason: extracted.finishReason,
-      ...(toUsageMeta(extracted.usage) ?? {}),
-    },
+    _meta: buildCompletionMeta(extracted, { extra }),
   };
 }

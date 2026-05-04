@@ -6,12 +6,12 @@
     "url": "https://github.com/stabgan/openrouter-mcp-multimodal",
     "source": "github"
   },
-  "version": "4.0.1",
+  "version": "4.5.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@stabgan/openrouter-mcp-multimodal",
-      "version": "4.0.1",
+      "version": "4.5.0",
       "transport": {
         "type": "stdio"
       },
@@ -82,12 +82,24 @@
           "description": "true/false",
           "isRequired": false,
           "format": "string"
+        },
+        {
+          "name": "OPENROUTER_CACHE_RESPONSES",
+          "description": "Enable response caching server-wide. Sends X-OpenRouter-Cache: true on every chat/analyze call unless overridden per-request. Zero tokens billed on cache hits.",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "OPENROUTER_INCLUDE_REASONING",
+          "description": "Enable reasoning tokens passthrough server-wide. Adds _meta.reasoning to chat_completion responses for DeepSeek R1 / Gemini Thinking / Opus 4.7.",
+          "isRequired": false,
+          "format": "string"
         }
       ]
     },
     {
       "registryType": "oci",
-      "identifier": "docker.io/stabgan/openrouter-mcp-multimodal:4.0.1",
+      "identifier": "docker.io/stabgan/openrouter-mcp-multimodal:4.5.0",
       "transport": {
         "type": "stdio"
       },

@@ -2,6 +2,7 @@ import { ModelCache } from '../model-cache.js';
 import { OpenRouterAPIClient } from '../openrouter-api.js';
 import { ErrorCode, toolError } from '../errors.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
+import { buildStructuredResult } from './structured-output.js';
 
 export async function handleGetModelInfo(
   request: { params: { arguments: { model: string } } },
@@ -31,5 +32,5 @@ export async function handleGetModelInfo(
     return toolError(ErrorCode.MODEL_NOT_FOUND, `Model '${model}' not found.`);
   }
 
-  return { content: [{ type: 'text' as const, text: JSON.stringify(info, null, 2) }] };
+  return buildStructuredResult(info);
 }

@@ -127,8 +127,7 @@ export class OpenRouterAPIClient {
     return (await res.json()) as VideoJobStatus;
   }
 
-  /**
-   * Download the generated video binary. Returns `{ buffer, contentType }`.
+  /** Download the generated video binary. Returns `{ buffer, contentType }`.
    * This intentionally does NOT go through our SSRF-guarded `fetchHttpResource`
    * because the URL is always OpenRouter itself (trusted origin) — and it can
    * return arbitrarily large bodies that the caller bounds via
@@ -182,12 +181,55 @@ export class OpenRouterAPIClient {
     }
     return { buffer: Buffer.concat(chunks), contentType: res.headers.get('content-type') };
   }
+
+  /** POST /rerank — re-order documents by relevance to a query. */
+  async rerank(params: {
+    model: string;
+    query: string;
+    documents: string[];
+    top_n?: number;
+  }): Promise<RerankResponse> {
+    const body: Record<string, unknown> = {
+      model: params.model,
+      query: params.query,
+      documents: params.documents,
+    };
+    if (typeof params.top_n === 'number' && params.top_n > 0) body.top_n = params.top_n;
+    const res = await fetchWithRetry(
+      `${BASE_URL}/rerank`,
+      {
+        method: 'POST',
+        headers: this.authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(body),
+      },
+      { retries: 2, timeoutMs: DEFAULT_TIMEOUT_MS },
+    );
+    if (!res.ok) {
+      const detail = await safeReadText(res);
+      throw new Error(`POST /rerank failed: HTTP ${res.status}${detail ? ` — ${detail}` : ''}`);
+    }
+    return (await res.json()) as RerankResponse;
+  }
 }
 
 export interface VideoJobEnvelope {
   id: string;
   status?: VideoJobStatusName;
   polling_url?: string;
+  [key: string]: unknown;
+}
+
+export interface RerankResultItem {
+  index: number;
+  relevance_score?: number;
+  score?: number;
+  document?: { text?: string } | string;
+}
+
+export interface RerankResponse {
+  model?: string;
+  results: RerankResultItem[];
+  usage?: Record<string, unknown>;
   [key: string]: unknown;
 }
 

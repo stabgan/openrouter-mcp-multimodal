@@ -1,5 +1,5 @@
 name: openrouter-mcp-multimodal
-version: 4.0.1
+version: 4.5.0
 description: MCP server for OpenRouter — chat (with provider routing + :nitro/:floor variants), image / audio / video analysis, image / audio / video generation (Veo 3.1, Sora, Seedance, Wan). Apache 2.0.
 
 image:
@@ -54,6 +54,12 @@ startCommand:
       OPENROUTER_INPUT_DIR:
         type: string
         description: Sandbox root for input_images on generate_image and frame/reference images on generate_video (v4+).
+      OPENROUTER_CACHE_RESPONSES:
+        type: string
+        description: Enable response caching server-wide (v4.5+). Sends X-OpenRouter-Cache: true on chat/analyze calls unless overridden per-request. Zero tokens billed on cache hits.
+      OPENROUTER_INCLUDE_REASONING:
+        type: string
+        description: Enable reasoning tokens passthrough server-wide (v4.5+). Adds _meta.reasoning to chat_completion responses for DeepSeek R1 / Gemini Thinking / Opus 4.7.
   commandFunction: |
     function getCommand(config) {
       const env = { OPENROUTER_API_KEY: config.OPENROUTER_API_KEY };
@@ -72,6 +78,8 @@ startCommand:
         "OPENROUTER_PROVIDER_ALLOW_FALLBACKS",
         "OPENROUTER_OUTPUT_DIR",
         "OPENROUTER_INPUT_DIR",
+        "OPENROUTER_CACHE_RESPONSES",
+        "OPENROUTER_INCLUDE_REASONING",
       ]) {
         if (config[key]) env[key] = config[key];
       }
@@ -131,6 +139,12 @@ config:
       required: false
     - name: OPENROUTER_INPUT_DIR
       description: Sandbox root for input_images and frame/reference images (v4+)
+      required: false
+    - name: OPENROUTER_CACHE_RESPONSES
+      description: Enable response caching server-wide (v4.5+). Sends X-OpenRouter-Cache on chat/analyze calls unless overridden per-request.
+      required: false
+    - name: OPENROUTER_INCLUDE_REASONING
+      description: Enable reasoning tokens passthrough server-wide (v4.5+). Adds _meta.reasoning to chat_completion responses.
       required: false
 
 documentation:

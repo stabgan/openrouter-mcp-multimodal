@@ -1,7 +1,7 @@
 /**
  * Closed error-code taxonomy for MCP tool responses. Every handler uses
- * `toolError(code, message, details?)` instead of ad-hoc text so clients
- * can switch on `_meta.code` without regex-parsing free text.
+ * `toolError(code, message, details?, opts?)` instead of ad-hoc text so
+ * clients can switch on `_meta.code` without regex-parsing free text.
  *
  * Adding a new code requires a design.md note — this set is intentionally
  * small and stable.
@@ -23,13 +23,33 @@ export const ErrorCode = {
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 
+export interface ToolErrorMeta {
+  code: ErrorCode;
+  details?: Record<string, unknown>;
+  /**
+   * Optional human-readable next steps the agent can take. Inspired by
+   * the Apigene "structured errors" best practice: rather than a raw
+   * string for the agent to interpret, list concrete options like
+   * "Wait and retry" or "Lower resolution to 480p".
+   */
+  suggestions?: string[];
+  /**
+   * For rate-limit / backoff errors, the number of seconds the caller
+   * should wait before retrying. Derived from `Retry-After` headers when
+   * available.
+   */
+  retry_after_seconds?: number;
+}
+
 export interface ToolErrorResult {
   content: Array<{ type: 'text'; text: string }>;
   isError: true;
-  _meta: {
-    code: ErrorCode;
-    details?: Record<string, unknown>;
-  };
+  _meta: ToolErrorMeta;
+}
+
+export interface ToolErrorOptions {
+  suggestions?: string[];
+  retry_after_seconds?: number;
 }
 
 /** Build a structured MCP error result. */
@@ -37,14 +57,19 @@ export function toolError(
   code: ErrorCode,
   message: string,
   details?: Record<string, unknown>,
+  opts?: ToolErrorOptions,
 ): ToolErrorResult {
-  const result: ToolErrorResult = {
+  const meta: ToolErrorMeta = { code };
+  if (details !== undefined) meta.details = details;
+  if (opts?.suggestions && opts.suggestions.length > 0) meta.suggestions = opts.suggestions;
+  if (typeof opts?.retry_after_seconds === 'number') {
+    meta.retry_after_seconds = opts.retry_after_seconds;
+  }
+  return {
     content: [{ type: 'text', text: message }],
     isError: true,
-    _meta: { code },
+    _meta: meta,
   };
-  if (details !== undefined) result._meta.details = details;
-  return result;
 }
 
 /**
@@ -52,9 +77,14 @@ export function toolError(
  * user-visible messages for known `Error` types and refuses to leak stack
  * traces or raw objects.
  */
-export function toolErrorFrom(code: ErrorCode, err: unknown, prefix?: string): ToolErrorResult {
+export function toolErrorFrom(
+  code: ErrorCode,
+  err: unknown,
+  prefix?: string,
+  opts?: ToolErrorOptions,
+): ToolErrorResult {
   const base = prefix ? `${prefix}: ` : '';
-  if (err instanceof Error) return toolError(code, base + err.message);
-  if (typeof err === 'string') return toolError(code, base + err);
-  return toolError(code, base + 'unknown error');
+  if (err instanceof Error) return toolError(code, base + err.message, undefined, opts);
+  if (typeof err === 'string') return toolError(code, base + err, undefined, opts);
+  return toolError(code, base + 'unknown error', undefined, opts);
 }

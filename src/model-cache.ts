@@ -58,6 +58,11 @@ export class ModelCache {
     return Object.values(this.models);
   }
 
+  /** Number of models currently cached. Used by health_check. */
+  size(): number {
+    return Object.keys(this.models).length;
+  }
+
   get(id: string): OpenRouterModelRecord | null {
     return this.models[id] ?? null;
   }
@@ -71,6 +76,8 @@ export class ModelCache {
     provider?: string;
     capabilities?: { vision?: boolean; audio?: boolean; video?: boolean };
     limit?: number;
+    /** When true, return the full filtered set and ignore `limit`. Used by pagination. */
+    all?: boolean;
   }): OpenRouterModelRecord[] {
     let results = this.getAll();
 
@@ -93,6 +100,8 @@ export class ModelCache {
     if (params.capabilities?.video) {
       results = results.filter((m) => m.architecture?.input_modalities?.includes('video'));
     }
+
+    if (params.all) return results;
 
     const limit = Math.min(Math.max(1, params.limit ?? 10), MAX_SEARCH_LIMIT);
     return results.slice(0, limit);
