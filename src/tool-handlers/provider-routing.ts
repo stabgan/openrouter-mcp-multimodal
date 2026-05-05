@@ -8,6 +8,8 @@
  * objects are dropped so we don't send noise to the API.
  */
 
+import { logger } from '../logger.js';
+
 export type ProviderSort = 'price' | 'throughput' | 'latency';
 export type DataCollectionPolicy = 'allow' | 'deny';
 
@@ -100,9 +102,9 @@ export function readProviderDefaults(): ProviderRoutingOptions {
     // operator notices instead of wondering why their ordering is being
     // ignored. All other OPENROUTER_PROVIDER_* fields follow the same
     // "silent drop" policy for consistency.
-    console.error(
-      `[openrouter-mcp] OPENROUTER_PROVIDER_ORDER ignored: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    logger.warn('OPENROUTER_PROVIDER_ORDER ignored', {
+      err: err instanceof Error ? err.message : String(err),
+    });
   }
   const requireParams = parseBool(env.OPENROUTER_PROVIDER_REQUIRE_PARAMETERS);
   if (requireParams !== undefined) out.require_parameters = requireParams;

@@ -54,7 +54,9 @@ async function loadSharp(): Promise<((input: Buffer) => import('sharp').Sharp) |
       const fn = (mod as unknown as { default?: (input: Buffer) => import('sharp').Sharp }).default;
       sharpFn = fn ?? (mod as unknown as (input: Buffer) => import('sharp').Sharp);
     } catch {
-      console.error('sharp not available, images will be sent unprocessed');
+      // sharp is optional — images will be sent unprocessed (larger but functional)
+      const { logger } = await import('../logger.js');
+      logger.warn('sharp not available, images will be sent unprocessed');
     }
   }
   return sharpFn;

@@ -107,4 +107,10 @@ describe('ModelCache', () => {
     await new Promise((r) => setTimeout(r, 60));
     expect(cache.isValid()).toBe(false);
   });
+
+  it('marks cache valid even with empty array (prevents hot-loop)', () => {
+    cache.setModels([]);
+    expect(cache.isValid()).toBe(true);
+    expect(cache.size()).toBe(0);
+  });
 });

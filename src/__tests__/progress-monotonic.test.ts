@@ -134,3 +134,52 @@ describe('progress notifications are monotonic', () => {
     }
   });
 });
+
+
+describe('progress: 0 edge case', () => {
+  it('handles upstream returning progress: 0 on the first real tick', async () => {
+    const client = mockClient([
+      { id: 'vid_mono', status: 'processing', progress: 0 },
+      { id: 'vid_mono', status: 'processing', progress: 50 },
+      {
+        id: 'vid_mono',
+        status: 'completed',
+        unsigned_urls: ['https://x/y.mp4'],
+      },
+    ]);
+
+    let lastSent = -1;
+    const emitted: number[] = [];
+    const hook: Parameters<typeof handleGenerateVideo>[2] = ({
+      progress,
+      attempt,
+    }) => {
+      const candidate =
+        typeof progress === 'number' ? Math.max(attempt, progress) : attempt;
+      const next = Math.max(lastSent + 1, candidate);
+      lastSent = next;
+      emitted.push(next);
+    };
+
+    await handleGenerateVideo(
+      {
+        params: {
+          arguments: {
+            prompt: 'progress zero test',
+            max_wait_ms: 100_000,
+            poll_interval_ms: 50,
+          },
+        },
+      },
+      client,
+      hook,
+    );
+
+    // All values must be strictly increasing
+    for (let i = 1; i < emitted.length; i++) {
+      expect(emitted[i]).toBeGreaterThan(emitted[i - 1]!);
+    }
+    // First real tick (attempt=0, initial status) should produce progress=0
+    expect(emitted[0]).toBe(0);
+  });
+});
