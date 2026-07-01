@@ -3,6 +3,7 @@
  * load (402, 429, premature close, timeouts). Treat those as soft passes so
  * the suite still validates handler wiring without flaking on upstream capacity.
  */
+import { expect } from 'vitest';
 type ToolResult = {
   isError?: boolean;
   content?: Array<{ text?: string }>;
