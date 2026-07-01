@@ -2,6 +2,24 @@
 
 All notable changes to `@stabgan/openrouter-mcp-multimodal` are recorded here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.5.3] — 2026-07-02
+
+Distribution release: PyPI `uvx` launcher, full install matrix in README, and CI publish for npm + PyPI + Docker.
+
+### Added
+
+- **PyPI package** `mcp-server-openrouter-multimodal` — `uvx` / `pipx` launcher that execs the npm server (Node 20+ still required).
+- **CI `publish-pypi` job** — builds `python/` and publishes to PyPI on version tags (trusted publisher or `PYPI_API_TOKEN` secret).
+- **`scripts/smoke-uvx-mcp.mjs`** — stdio smoke for the Python launcher (`npm run test:smoke:uvx` / `test:smoke:uvx:git`).
+- **MCP Registry PyPI entry** in `server.json` with `mcp-name` ownership marker in `python/README.md`.
+- README install table covering npx, uvx, npm global, Docker, GHCR, Smithery, MCP Registry, Claude Code CLI, Inspector, and Windows `cmd /c npx`.
+
+### Changed
+
+- Dedicated **`ci.yml`** workflow for test badge (separate from release publish failures).
+- Release workflow npm publish falls back without provenance when Sigstore is unavailable.
+- **uvx launcher** runs `npx` with `cwd=/tmp` and supports `OPENROUTER_MCP_NPM_SPEC` for local `npm pack` tarballs.
+
 ## [4.5.2] — 2026-07-02
 
 Security patch closing GHSA-3q7p-736f-x44v (path traversal on analyze\_\* local file inputs), plus tool-description overhaul, performance optimizations, and a major test-suite expansion. Fully backwards compatible with v4.5.1.

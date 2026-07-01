@@ -70,6 +70,30 @@ jobs:
         run: |
           npm publish --access=public --provenance || npm publish --access=public
 
+  publish-pypi:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Build Python package
+        working-directory: python
+        run: uv build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: python/dist/
+          skip-existing: true
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
   docker:
     needs: build
     runs-on: ubuntu-latest

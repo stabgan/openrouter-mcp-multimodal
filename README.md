@@ -11,6 +11,7 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@stabgan/openrouter-mcp-multimodal"><img src="https://img.shields.io/npm/v/@stabgan/openrouter-mcp-multimodal.svg?label=npm&color=cb3837&logo=npm" alt="npm version" /></a>
+  <a href="https://pypi.org/project/mcp-server-openrouter-multimodal/"><img src="https://img.shields.io/pypi/v/mcp-server-openrouter-multimodal.svg?label=pypi&color=3775A9&logo=pypi&logoColor=white" alt="PyPI version" /></a>
   <a href="https://github.com/stabgan/openrouter-mcp-multimodal/releases"><img src="https://img.shields.io/github/v/release/stabgan/openrouter-mcp-multimodal?label=release&color=6366f1" alt="GitHub release" /></a>
   <a href="https://hub.docker.com/r/stabgan/openrouter-mcp-multimodal"><img src="https://img.shields.io/docker/v/stabgan/openrouter-mcp-multimodal/latest?label=docker&color=2496ed&logo=docker&logoColor=white" alt="Docker version" /></a>
   <a href="https://github.com/stabgan/openrouter-mcp-multimodal/actions/workflows/ci.yml"><img src="https://github.com/stabgan/openrouter-mcp-multimodal/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
@@ -74,7 +75,7 @@ MCP servers are distributed through several packaging models. **This server is i
 | Method | Runtime | Best for | This server |
 | :--- | :--- | :--- | :--- |
 | **[npx](#npx-recommended)** | Node.js 20+ | Most MCP clients (default) | ✅ `@stabgan/openrouter-mcp-multimodal` |
-| **[uvx / pipx](#uvx--pipx-python-launcher)** | Python 3.10+ **and** Node.js 20+ | Python-first workflows, same pattern as PyPI MCP servers | ✅ `mcp-server-openrouter-multimodal` |
+| **[uvx / pipx](#uvx--pipx-python-launcher)** | Python 3.10+ **and** Node.js 20+ | Python-first workflows, same pattern as PyPI MCP servers | ✅ [`mcp-server-openrouter-multimodal`](https://pypi.org/project/mcp-server-openrouter-multimodal/) |
 | **[npm global](#npm-global)** | Node.js 20+ | Pin a version without re-downloading | ✅ |
 | **[node (local)](#node-local-clone)** | Node.js 20+ | Contributors / air-gapped builds | ✅ |
 | **[Docker Hub](#docker)** | Docker | Isolation, no Node on host | ✅ `stabgan/openrouter-mcp-multimodal` |
@@ -128,7 +129,7 @@ npx -y @stabgan/openrouter-mcp-multimodal
 }
 ```
 
-Pin a release: `"args": ["-y", "@stabgan/openrouter-mcp-multimodal@4.5.2"]`
+Pin a release: `"args": ["-y", "@stabgan/openrouter-mcp-multimodal@4.5.3"]`
 
 </details>
 
@@ -140,6 +141,7 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/) (includes 
 ```bash
 export OPENROUTER_API_KEY=sk-or-v1-...
 uvx mcp-server-openrouter-multimodal
+# pin npm version: OPENROUTER_MCP_NPM_VERSION=4.5.3 uvx mcp-server-openrouter-multimodal
 ```
 
 ```json
@@ -156,23 +158,9 @@ uvx mcp-server-openrouter-multimodal
 }
 ```
 
-**Before PyPI publish** — run from this repo's `python/` subdirectory:
+**pipx equivalent:** `pipx run mcp-server-openrouter-multimodal`
 
-```json
-{
-  "command": "uvx",
-  "args": [
-    "--from",
-    "git+https://github.com/stabgan/openrouter-mcp-multimodal#subdirectory=python",
-    "mcp-server-openrouter-multimodal"
-  ],
-  "env": { "OPENROUTER_API_KEY": "sk-or-v1-..." }
-}
-```
-
-**pipx equivalent:** `pipx run mcp-server-openrouter-multimodal` (after PyPI publish).
-
-Optional: `OPENROUTER_MCP_NPM_VERSION=4.5.2` pins the underlying npm package.
+Optional: `OPENROUTER_MCP_NPM_VERSION=4.5.3` pins the underlying npm package.
 
 </details>
 
@@ -253,7 +241,7 @@ Use `-i` (interactive stdio). Avoid `-t` (TTY corrupts MCP framing on some hosts
 
 ```bash
 docker run --rm -i -e OPENROUTER_API_KEY=sk-or-v1-... \
-  ghcr.io/stabgan/openrouter-mcp-multimodal:4.5.2
+  ghcr.io/stabgan/openrouter-mcp-multimodal:4.5.3
 ```
 
 ```json

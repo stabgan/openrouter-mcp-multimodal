@@ -53,7 +53,7 @@ All error responses carry `_meta.code` from a closed taxonomy: `INVALID_INPUT`, 
 - Issues: https://github.com/stabgan/openrouter-mcp-multimodal/issues
 - Changelog: https://github.com/stabgan/openrouter-mcp-multimodal/blob/main/CHANGELOG.md
 - npm: https://www.npmjs.com/package/@stabgan/openrouter-mcp-multimodal
-- PyPI (uvx launcher): https://pypi.org/project/mcp-server-openrouter-multimodal/ (publish pending)
+- PyPI (uvx launcher): https://pypi.org/project/mcp-server-openrouter-multimodal/
 - Docker Hub: https://hub.docker.com/r/stabgan/openrouter-mcp-multimodal
 - GHCR: https://github.com/stabgan/openrouter-mcp-multimodal/pkgs/container/openrouter-mcp-multimodal
 - MCP Registry: https://registry.modelcontextprotocol.io/servers/io.github.stabgan/openrouter-multimodal

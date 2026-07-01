@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mcp-server-openrouter-multimodal"
-version = "4.5.2"
+version = "4.5.3"
 description = "uvx/pip launcher for @stabgan/openrouter-mcp-multimodal (Node MCP server)"
 readme = "README.md"
-license = "Apache-2.0"
+license = { text = "Apache-2.0" }
 requires-python = ">=3.10"
 authors = [{ name = "stabgan" }]
 keywords = ["mcp", "openrouter", "llm", "model-context-protocol"]

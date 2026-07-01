@@ -1,6 +1,6 @@
 {
   "name": "@stabgan/openrouter-mcp-multimodal",
-  "version": "4.5.2",
+  "version": "4.5.3",
   "mcpName": "io.github.stabgan/openrouter-multimodal",
   "description": "MCP server for OpenRouter with text chat, image analysis + generation, audio analysis + generation, video analysis, and video generation (Veo 3.1 / Sora 2 Pro / Seedance / Wan)",
   "type": "module",
@@ -23,6 +23,12 @@
     "test:regression": "vitest run --config vitest.regression.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "npm run build && node scripts/live-e2e.mjs",
+    "test:smoke:npm": "npm run build && npm pack --quiet && node scripts/smoke-npm-mcp.mjs",
+    "test:smoke:docker": "node scripts/smoke-docker-mcp.mjs",
+    "test:smoke:uvx": "node scripts/smoke-uvx-mcp.mjs",
+    "test:smoke:uvx:local": "npm run build && npm pack --quiet && MCP_UVX_LOCAL=1 node scripts/smoke-uvx-mcp.mjs",
+    "test:smoke:uvx:git": "MCP_UVX_FROM_GIT=1 node scripts/smoke-uvx-mcp.mjs",
+    "test:smoke": "npm run test:smoke:npm && npm run test:smoke:docker && npm run test:smoke:uvx:local",
     "test:all": "npm test && npm run test:regression && npm run test:integration",
     "ci": "npm run lint && npm run format:check && npm run build && npm run test:all"
   },

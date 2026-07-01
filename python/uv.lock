@@ -4,5 +4,5 @@ requires-python = ">=3.10"
 
 [[package]]
 name = "mcp-server-openrouter-multimodal"
-version = "4.5.2"
+version = "4.5.3"
 source = { editable = "." }
