@@ -31,7 +31,7 @@ const manifest = {
   manifest_version: '0.2',
   name: 'openrouter-mcp-multimodal',
   display_name: 'OpenRouter MCP Multimodal',
-  version: '4.5.1',
+  version: '4.5.2',
   description: 'Chat with 300+ LLMs via OpenRouter. Analyze and generate images, audio, and video from MCP.',
   long_description:
     'All-in-one MCP server for OpenRouter. Chat with 300+ LLMs (Claude, Gemini, GPT, Llama, Qwen, Grok). ' +

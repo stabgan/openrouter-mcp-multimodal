@@ -37,6 +37,13 @@ const skipFilter = typeof argv.skip === 'string' ? argv.skip.split(',').map((s) 
 const OUTPUT_DIR = path.resolve('.mcp-smoke-output');
 await fs.mkdir(OUTPUT_DIR, { recursive: true });
 
+function readToolPayload(result) {
+  if (result.structuredContent !== undefined) return result.structuredContent;
+  const text = result.content?.[0]?.text;
+  if (text === undefined) throw new Error('tool result has no structuredContent or content text');
+  return JSON.parse(text);
+}
+
 class McpClient {
   constructor(proc) {
     this.proc = proc;
@@ -98,6 +105,7 @@ async function bootServer() {
   const proc = spawn('node', ['dist/index.js'], {
     env: {
       ...process.env,
+      OPENROUTER_INPUT_DIR: process.cwd(),
       OPENROUTER_OUTPUT_DIR: OUTPUT_DIR,
       OPENROUTER_LOG_LEVEL: process.env.OPENROUTER_LOG_LEVEL ?? 'info',
     },
@@ -192,7 +200,10 @@ try {
       'generate_image',
       'generate_audio',
       'generate_video',
+      'generate_video_from_image',
       'get_video_status',
+      'rerank_documents',
+      'health_check',
     ];
     for (const exp of expected) {
       if (!names.includes(exp)) throw new Error(`Missing tool: ${exp}`);
@@ -271,9 +282,10 @@ try {
       20_000,
     );
     requireOk(r, 'search_models');
-    const arr = JSON.parse(r.content[0].text);
-    if (!Array.isArray(arr)) throw new Error('search_models did not return an array');
-    return { count: arr.length, first: arr[0]?.id };
+    const payload = readToolPayload(r);
+    const results = Array.isArray(payload) ? payload : payload.results;
+    if (!Array.isArray(results)) throw new Error('search_models did not return results array');
+    return { count: results.length, first: results[0]?.id };
   });
 
   await run('get_model_info', async () => {

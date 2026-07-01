@@ -48,7 +48,8 @@ describe('handleGenerateVideoFromImage', () => {
       downloadVideoContent: vi.fn(),
     } as unknown as OpenRouterAPIClient;
 
-    const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQMAAAAl21bKAAAAA1BMVEX///+nxBvIAAAAC0lEQVQIHWNgAAIAAAUAAYehTtQAAAAASUVORK5CYII=';
+    const tinyPng =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQMAAAAl21bKAAAAA1BMVEX///+nxBvIAAAAC0lEQVQIHWNgAAIAAAUAAYehTtQAAAAASUVORK5CYII=';
 
     await genVideo.handleGenerateVideoFromImage(
       {

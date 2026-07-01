@@ -122,7 +122,9 @@ export class OpenRouterAPIClient {
     );
     if (!res.ok) {
       const detail = await safeReadText(res);
-      throw new Error(`GET /videos/${id} failed: HTTP ${res.status}${detail ? ` — ${detail}` : ''}`);
+      throw new Error(
+        `GET /videos/${id} failed: HTTP ${res.status}${detail ? ` — ${detail}` : ''}`,
+      );
     }
     return (await res.json()) as VideoJobStatus;
   }

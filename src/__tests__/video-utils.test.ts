@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import path from 'node:path';
-import { tmpdir } from 'node:os';
-import { writeFileSync, unlinkSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import {
   getVideoFormat,
   getVideoMimeType,
@@ -9,6 +8,8 @@ import {
   prepareVideoData,
   SUPPORTED_VIDEO_FORMATS,
 } from '../tool-handlers/video-utils.js';
+import { UnsafeOutputPathError } from '../tool-handlers/path-safety.js';
+import { withInputSandbox } from './helpers/input-sandbox.js';
 
 describe('SUPPORTED_VIDEO_FORMATS', () => {
   it('matches OpenRouter docs (mp4, mpeg, mov, webm)', () => {
@@ -97,9 +98,7 @@ describe('prepareVideoData', () => {
 
   it('rejects non-video data URLs', async () => {
     const payload = Buffer.from('x').toString('base64');
-    await expect(prepareVideoData(`data:image/png;base64,${payload}`)).rejects.toThrow(
-      'video/*',
-    );
+    await expect(prepareVideoData(`data:image/png;base64,${payload}`)).rejects.toThrow('video/*');
   });
 
   it('rejects unsupported video MIME subtypes', async () => {
@@ -110,21 +109,18 @@ describe('prepareVideoData', () => {
   });
 
   it('reads a local file and detects mp4 from magic bytes', async () => {
-    const file = path.join(tmpdir(), `test-vid-${Date.now()}.mp4`);
-    const contents = Buffer.concat([
-      Buffer.from([0x00, 0x00, 0x00, 0x20]),
-      Buffer.from('ftyp', 'ascii'),
-      Buffer.from('isom', 'ascii'),
-      Buffer.from('extra-bytes', 'ascii'),
-    ]);
-    writeFileSync(file, contents);
-    try {
-      const r = await prepareVideoData(file);
+    await withInputSandbox('mcp-vid-', async (root) => {
+      const contents = Buffer.concat([
+        Buffer.from([0x00, 0x00, 0x00, 0x20]),
+        Buffer.from('ftyp', 'ascii'),
+        Buffer.from('isom', 'ascii'),
+        Buffer.from('extra-bytes', 'ascii'),
+      ]);
+      writeFileSync(path.join(root, 'clip.mp4'), contents);
+      const r = await prepareVideoData('clip.mp4');
       expect(r.format).toBe('mp4');
       expect(r.sizeBytes).toBe(contents.length);
-    } finally {
-      unlinkSync(file);
-    }
+    });
   });
 
   it('rejects private URLs via SSRF guard', async () => {
@@ -133,12 +129,15 @@ describe('prepareVideoData', () => {
   });
 
   it('rejects unsupported local-file extensions with no detectable magic', async () => {
-    const file = path.join(tmpdir(), `test-vid-${Date.now()}.avi`);
-    writeFileSync(file, Buffer.from('unknown-bytes'));
-    try {
-      await expect(prepareVideoData(file)).rejects.toThrow('Unsupported video format');
-    } finally {
-      unlinkSync(file);
-    }
+    await withInputSandbox('mcp-vid-', async (root) => {
+      writeFileSync(path.join(root, 'clip.avi'), Buffer.from('unknown-bytes'));
+      await expect(prepareVideoData('clip.avi')).rejects.toThrow('Unsupported video format');
+    });
+  });
+
+  it('rejects paths outside the sandbox', async () => {
+    await withInputSandbox('mcp-vid-', async () => {
+      await expect(prepareVideoData('/etc/passwd')).rejects.toBeInstanceOf(UnsafeOutputPathError);
+    });
   });
 });

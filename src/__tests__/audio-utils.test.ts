@@ -7,9 +7,10 @@ import {
   assertUrlSafeForFetch,
   SUPPORTED_AUDIO_FORMATS,
 } from '../tool-handlers/audio-utils.js';
+import { UnsafeOutputPathError } from '../tool-handlers/path-safety.js';
+import { withInputSandbox } from './helpers/input-sandbox.js';
 import path from 'path';
-import { writeFileSync, unlinkSync } from 'fs';
-import { tmpdir } from 'os';
+import { writeFileSync } from 'fs';
 
 describe('getAudioFormat', () => {
   it('returns correct format for supported extensions', () => {
@@ -94,29 +95,31 @@ describe('prepareAudioData', () => {
   });
 
   it('reads local files and returns base64 with format', async () => {
-    const tmpFile = path.join(tmpdir(), `test-audio-${Date.now()}.wav`);
-    writeFileSync(tmpFile, Buffer.from('fake-audio-content'));
-    try {
-      const result = await prepareAudioData(tmpFile);
+    await withInputSandbox('mcp-audio-', async (root) => {
+      writeFileSync(path.join(root, 'clip.wav'), Buffer.from('fake-audio-content'));
+      const result = await prepareAudioData('clip.wav');
       expect(result.data).toBe(Buffer.from('fake-audio-content').toString('base64'));
       expect(result.format).toBe('wav');
-    } finally {
-      unlinkSync(tmpFile);
-    }
+    });
   });
 
-  it('throws on missing files', async () => {
-    await expect(prepareAudioData('/nonexistent/path/audio.wav')).rejects.toThrow();
+  it('throws on missing files inside the sandbox', async () => {
+    await withInputSandbox('mcp-audio-', async () => {
+      await expect(prepareAudioData('missing.wav')).rejects.toThrow();
+    });
+  });
+
+  it('rejects paths outside the sandbox', async () => {
+    await withInputSandbox('mcp-audio-', async () => {
+      await expect(prepareAudioData('/etc/passwd')).rejects.toBeInstanceOf(UnsafeOutputPathError);
+    });
   });
 
   it('throws on unsupported file extensions', async () => {
-    const tmpFile = path.join(tmpdir(), `test-audio-${Date.now()}.xyz`);
-    writeFileSync(tmpFile, Buffer.from('fake'));
-    try {
-      await expect(prepareAudioData(tmpFile)).rejects.toThrow('Unsupported audio format');
-    } finally {
-      unlinkSync(tmpFile);
-    }
+    await withInputSandbox('mcp-audio-', async (root) => {
+      writeFileSync(path.join(root, 'clip.xyz'), Buffer.from('fake'));
+      await expect(prepareAudioData('clip.xyz')).rejects.toThrow('Unsupported audio format');
+    });
   });
 
   it('rejects private IPv4 URLs', async () => {

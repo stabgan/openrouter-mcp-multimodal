@@ -32,3 +32,18 @@ export function buildStructuredResult<T>(
     _meta: { server_version: SERVER_VERSION, ...meta },
   };
 }
+
+/** Read typed JSON from an MCP tool result (structuredContent or legacy text). */
+export function readToolPayload<T = unknown>(result: {
+  structuredContent?: T;
+  content?: Array<{ type: string; text?: string }>;
+}): T {
+  if (result.structuredContent !== undefined) {
+    return result.structuredContent;
+  }
+  const text = result.content?.[0]?.text;
+  if (text === undefined) {
+    throw new Error('tool result has no structuredContent or content text');
+  }
+  return JSON.parse(text) as T;
+}

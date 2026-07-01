@@ -80,69 +80,65 @@ describe('handleGenerateVideo', () => {
     expect((r as { _meta: { code: string } })._meta.code).toBe('INVALID_INPUT');
   });
 
-  it(
-    'happy path: submits, polls, downloads, saves',
-    async () => {
-      // Use REAL timers for this test so the async fs ops in path-safety can
-      // proceed alongside the poll delays.
-      vi.useRealTimers();
+  it('happy path: submits, polls, downloads, saves', async () => {
+    // Use REAL timers for this test so the async fs ops in path-safety can
+    // proceed alongside the poll delays.
+    vi.useRealTimers();
 
-      const mp4 = Buffer.concat([
-        Buffer.from([0x00, 0x00, 0x00, 0x20]),
-        Buffer.from('ftypisom', 'ascii'),
-        Buffer.alloc(64),
-      ]);
-      const submitVideoJob = vi.fn().mockResolvedValue({
+    const mp4 = Buffer.concat([
+      Buffer.from([0x00, 0x00, 0x00, 0x20]),
+      Buffer.from('ftypisom', 'ascii'),
+      Buffer.alloc(64),
+    ]);
+    const submitVideoJob = vi.fn().mockResolvedValue({
+      id: 'vid_abc',
+      status: 'pending',
+      polling_url: 'https://openrouter.ai/api/v1/videos/vid_abc',
+    });
+    const pollStates = [
+      { id: 'vid_abc', status: 'processing' },
+      {
         id: 'vid_abc',
-        status: 'pending',
-        polling_url: 'https://openrouter.ai/api/v1/videos/vid_abc',
-      });
-      const pollStates = [
-        { id: 'vid_abc', status: 'processing' },
-        {
-          id: 'vid_abc',
-          status: 'completed',
-          unsigned_urls: ['https://openrouter.ai/api/v1/videos/vid_abc/content?index=0'],
-          usage: { duration_s: 4 },
-        },
-      ];
-      const pollVideoJob = vi.fn().mockImplementation(async () => pollStates.shift()!);
-      const downloadVideoContent = vi.fn().mockResolvedValue({
-        buffer: mp4,
-        contentType: 'video/mp4',
-      });
-      const client = mkApiClient({ submitVideoJob, pollVideoJob, downloadVideoContent });
+        status: 'completed',
+        unsigned_urls: ['https://openrouter.ai/api/v1/videos/vid_abc/content?index=0'],
+        usage: { duration_s: 4 },
+      },
+    ];
+    const pollVideoJob = vi.fn().mockImplementation(async () => pollStates.shift()!);
+    const downloadVideoContent = vi.fn().mockResolvedValue({
+      buffer: mp4,
+      contentType: 'video/mp4',
+    });
+    const client = mkApiClient({ submitVideoJob, pollVideoJob, downloadVideoContent });
 
-      const progress = vi.fn();
-      const result = await handleGenerateVideo(
-        {
-          params: {
-            arguments: {
-              prompt: 'a calm river',
-              save_path: 'out/river.mov',
-              poll_interval_ms: 50,
-              max_wait_ms: 10_000,
-            },
+    const progress = vi.fn();
+    const result = await handleGenerateVideo(
+      {
+        params: {
+          arguments: {
+            prompt: 'a calm river',
+            save_path: 'out/river.mov',
+            poll_interval_ms: 50,
+            max_wait_ms: 10_000,
           },
         },
-        client,
-        progress,
-      );
+      },
+      client,
+      progress,
+    );
 
-      expect(result.isError).toBeFalsy();
-      expect(submitVideoJob).toHaveBeenCalledOnce();
-      expect(pollVideoJob).toHaveBeenCalledTimes(2);
-      expect(downloadVideoContent).toHaveBeenCalledWith('vid_abc', 0, expect.any(Number));
-      const savedPath = (result as { _meta: { save_path: string } })._meta.save_path;
-      expect(savedPath.endsWith('.mp4')).toBe(true);
-      expect(savedPath.startsWith(await fs.realpath(sandbox))).toBe(true);
-      const types = (result as { content: Array<{ type: string }> }).content.map((c) => c.type);
-      expect(types).toContain('text');
-      expect(types).toContain('video');
-      expect(progress).toHaveBeenCalled();
-    },
-    10_000,
-  );
+    expect(result.isError).toBeFalsy();
+    expect(submitVideoJob).toHaveBeenCalledOnce();
+    expect(pollVideoJob).toHaveBeenCalledTimes(2);
+    expect(downloadVideoContent).toHaveBeenCalledWith('vid_abc', 0, expect.any(Number));
+    const savedPath = (result as { _meta: { save_path: string } })._meta.save_path;
+    expect(savedPath.endsWith('.mp4')).toBe(true);
+    expect(savedPath.startsWith(await fs.realpath(sandbox))).toBe(true);
+    const types = (result as { content: Array<{ type: string }> }).content.map((c) => c.type);
+    expect(types).toContain('text');
+    expect(types).toContain('video');
+    expect(progress).toHaveBeenCalled();
+  }, 10_000);
 
   it('maps failed jobs to JOB_FAILED', async () => {
     vi.useRealTimers();
@@ -186,9 +182,9 @@ describe('handleGenerateVideo', () => {
   });
 
   it('maps HTTP 4xx submission errors to INVALID_INPUT', async () => {
-    const submitVideoJob = vi.fn().mockRejectedValue(
-      new Error('POST /videos failed: HTTP 400 — bad prompt'),
-    );
+    const submitVideoJob = vi
+      .fn()
+      .mockRejectedValue(new Error('POST /videos failed: HTTP 400 — bad prompt'));
     const r = await handleGenerateVideo(
       { params: { arguments: { prompt: 'x' } } },
       mkApiClient({ submitVideoJob }),
@@ -218,10 +214,9 @@ describe('handleGenerateVideo', () => {
 describe('handleGetVideoStatus', () => {
   it('returns JOB_STILL_RUNNING when processing', async () => {
     const pollVideoJob = vi.fn().mockResolvedValue({ id: 'v', status: 'processing' });
-    const r = await handleGetVideoStatus(
-      { params: { arguments: { video_id: 'v' } } },
-      { pollVideoJob } as unknown as OpenRouterAPIClient,
-    );
+    const r = await handleGetVideoStatus({ params: { arguments: { video_id: 'v' } } }, {
+      pollVideoJob,
+    } as unknown as OpenRouterAPIClient);
     expect(r.isError).toBeFalsy();
     expect((r as { _meta: { code: string } })._meta.code).toBe('JOB_STILL_RUNNING');
   });
@@ -232,10 +227,9 @@ describe('handleGetVideoStatus', () => {
       status: 'failed',
       error: 'nope',
     });
-    const r = await handleGetVideoStatus(
-      { params: { arguments: { video_id: 'v' } } },
-      { pollVideoJob } as unknown as OpenRouterAPIClient,
-    );
+    const r = await handleGetVideoStatus({ params: { arguments: { video_id: 'v' } } }, {
+      pollVideoJob,
+    } as unknown as OpenRouterAPIClient);
     expect(r.isError).toBe(true);
     expect((r as { _meta: { code: string } })._meta.code).toBe('JOB_FAILED');
   });

@@ -126,9 +126,7 @@ export async function handleGenerateAudio(
   logger.audit('generate_audio.start', {
     model: model || DEFAULT_MODEL,
     voice: voice?.trim() || DEFAULT_VOICE,
-    format: (VALID_FORMATS as readonly string[]).includes(format ?? '')
-      ? format
-      : DEFAULT_FORMAT,
+    format: (VALID_FORMATS as readonly string[]).includes(format ?? '') ? format : DEFAULT_FORMAT,
     prompt_preview: prompt.slice(0, 80),
     save_path: save_path ? 'provided' : 'none',
   });
@@ -195,7 +193,7 @@ export async function handleGenerateAudio(
 
     // Always wrap raw PCM in WAV so it's playable
     if (detected.ext === 'pcm') {
-      audioBuffer = wrapPcmInWav(audioBuffer);
+      audioBuffer = Buffer.from(wrapPcmInWav(audioBuffer));
       detected.ext = 'wav';
       detected.mimeType = 'audio/wav';
     }

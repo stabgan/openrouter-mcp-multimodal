@@ -82,7 +82,8 @@ describe('handleRerankDocuments', () => {
       { params: { arguments: { query: 'q', documents: ['a'] } } },
       client,
     );
-    const sc = (r as { structuredContent: { results: Array<{ score: number }> } }).structuredContent;
+    const sc = (r as { structuredContent: { results: Array<{ score: number }> } })
+      .structuredContent;
     expect(sc.results[0].score).toBe(0.8);
   });
 

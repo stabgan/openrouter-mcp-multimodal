@@ -7,6 +7,7 @@ import {
   fetchHttpResource,
   parseBase64DataUrl,
 } from './fetch-utils.js';
+import { resolveSafeInputPath } from './path-safety.js';
 
 // Re-export for backward compatibility (tests import from image-utils)
 export const isBlockedIPv4 = _isBlockedIPv4;
@@ -62,17 +63,23 @@ async function loadSharp(): Promise<((input: Buffer) => import('sharp').Sharp) |
   return sharpFn;
 }
 
+const IMAGE_EXT_MIME: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  bmp: 'image/bmp',
+};
+
+export function mimeFromExtension(ext: string): string | null {
+  const normalized = ext.toLowerCase().replace(/^\./, '');
+  if (!normalized) return null;
+  return IMAGE_EXT_MIME[normalized] ?? null;
+}
+
 export function getMimeType(filePath: string): string {
-  const ext = path.extname(filePath).toLowerCase();
-  const map: Record<string, string> = {
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.webp': 'image/webp',
-    '.gif': 'image/gif',
-    '.bmp': 'image/bmp',
-  };
-  return map[ext] || 'image/jpeg';
+  return mimeFromExtension(path.extname(filePath)) ?? 'image/jpeg';
 }
 
 export async function fetchHttpImage(urlString: string): Promise<Buffer> {
@@ -97,7 +104,8 @@ export async function fetchImage(source: string): Promise<Buffer> {
     return fetchHttpImage(source);
   }
 
-  return fs.readFile(source);
+  const safe = await resolveSafeInputPath(source);
+  return fs.readFile(safe);
 }
 
 /**
@@ -158,15 +166,16 @@ export async function optimizeImage(buffer: Buffer): Promise<{ base64: string; m
   const quality = getImageJpegQuality();
 
   try {
-    const meta = await sharp(buffer).metadata();
-    let pipeline = sharp(buffer);
+    const pipeline = sharp(buffer);
+    const meta = await pipeline.metadata();
+    let resized = pipeline;
 
     if (meta.width && meta.height && Math.max(meta.width, meta.height) > maxDim) {
       const opts = meta.width > meta.height ? { width: maxDim } : { height: maxDim };
-      pipeline = pipeline.resize(opts);
+      resized = pipeline.resize(opts);
     }
 
-    const out = await pipeline.jpeg({ quality }).toBuffer();
+    const out = await resized.jpeg({ quality }).toBuffer();
     return { base64: out.toString('base64'), mime: 'image/jpeg' };
   } catch {
     return {
@@ -184,7 +193,6 @@ export async function prepareImageUrl(source: string): Promise<string> {
   // When optimization succeeded, mime is 'image/jpeg'. When it failed, we
   // use the sniffed mime. For local files we prefer the extension-derived
   // mime (more specific) when optimization fell back.
-  const finalMime =
-    mime === 'image/jpeg' || source.startsWith('http') ? mime : getMimeType(source);
+  const finalMime = mime === 'image/jpeg' || source.startsWith('http') ? mime : getMimeType(source);
   return `data:${finalMime};base64,${base64}`;
 }

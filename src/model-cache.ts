@@ -6,6 +6,15 @@ export interface OpenRouterModelRecord {
   [key: string]: unknown;
 }
 
+export interface ModelSearchParams {
+  query?: string;
+  provider?: string;
+  capabilities?: { vision?: boolean; audio?: boolean; video?: boolean };
+  limit?: number;
+  /** When true, return the full filtered set and ignore `limit`. Used by pagination. */
+  all?: boolean;
+}
+
 function getCacheTtlMs(): number {
   const raw = process.env.OPENROUTER_MODEL_CACHE_TTL_MS;
   if (raw === undefined || raw === '') return 3600000;
@@ -13,7 +22,31 @@ function getCacheTtlMs(): number {
   return Number.isFinite(n) && n > 0 ? n : 3600000;
 }
 
-const MAX_SEARCH_LIMIT = 50;
+export const MAX_SEARCH_LIMIT = 50;
+
+function buildMatcher(params: ModelSearchParams): (m: OpenRouterModelRecord) => boolean {
+  const q = params.query?.toLowerCase();
+  const providerPrefix = params.provider?.toLowerCase();
+  const needVision = params.capabilities?.vision === true;
+  const needAudio = params.capabilities?.audio === true;
+  const needVideo = params.capabilities?.video === true;
+
+  return (m: OpenRouterModelRecord): boolean => {
+    if (q) {
+      const id = m.id.toLowerCase();
+      const name = m.name?.toLowerCase() ?? '';
+      if (!id.includes(q) && !name.includes(q)) return false;
+    }
+    if (providerPrefix && !m.id.toLowerCase().startsWith(`${providerPrefix}/`)) {
+      return false;
+    }
+    const mods = m.architecture?.input_modalities;
+    if (needVision && !mods?.includes('image')) return false;
+    if (needAudio && !mods?.includes('audio')) return false;
+    if (needVideo && !mods?.includes('video')) return false;
+    return true;
+  };
+}
 
 export class ModelCache {
   private static instance: ModelCache;
@@ -92,39 +125,44 @@ export class ModelCache {
     return id in this.models;
   }
 
-  search(params: {
-    query?: string;
-    provider?: string;
-    capabilities?: { vision?: boolean; audio?: boolean; video?: boolean };
-    limit?: number;
-    /** When true, return the full filtered set and ignore `limit`. Used by pagination. */
-    all?: boolean;
-  }): OpenRouterModelRecord[] {
-    let results = this.getAll();
+  /**
+   * Single-pass paginated search: O(n) time, O(limit) extra space for the page.
+   * Avoids materializing the full filtered array when only one page is needed.
+   */
+  searchPaginated(
+    params: ModelSearchParams,
+    offset: number,
+    limit: number,
+  ): { page: OpenRouterModelRecord[]; total: number } {
+    const matches = buildMatcher(params);
+    const safeOffset = Math.max(0, offset);
+    const safeLimit = Math.min(Math.max(1, limit), MAX_SEARCH_LIMIT);
+    const page: OpenRouterModelRecord[] = [];
+    let total = 0;
+    let matchIndex = 0;
 
-    if (params.query) {
-      const q = params.query.toLowerCase();
-      results = results.filter(
-        (m) => m.id.toLowerCase().includes(q) || m.name?.toLowerCase().includes(q),
-      );
+    for (const model of Object.values(this.models)) {
+      if (!matches(model)) continue;
+      if (matchIndex >= safeOffset && page.length < safeLimit) {
+        page.push(model);
+      }
+      matchIndex++;
     }
-    if (params.provider) {
-      const p = params.provider.toLowerCase();
-      results = results.filter((m) => m.id.toLowerCase().startsWith(p + '/'));
-    }
-    if (params.capabilities?.vision) {
-      results = results.filter((m) => m.architecture?.input_modalities?.includes('image'));
-    }
-    if (params.capabilities?.audio) {
-      results = results.filter((m) => m.architecture?.input_modalities?.includes('audio'));
-    }
-    if (params.capabilities?.video) {
-      results = results.filter((m) => m.architecture?.input_modalities?.includes('video'));
-    }
+    total = matchIndex;
+    return { page, total };
+  }
 
-    if (params.all) return results;
+  search(params: ModelSearchParams): OpenRouterModelRecord[] {
+    if (params.all) {
+      const matches = buildMatcher(params);
+      const results: OpenRouterModelRecord[] = [];
+      for (const model of Object.values(this.models)) {
+        if (matches(model)) results.push(model);
+      }
+      return results;
+    }
 
     const limit = Math.min(Math.max(1, params.limit ?? 10), MAX_SEARCH_LIMIT);
-    return results.slice(0, limit);
+    return this.searchPaginated(params, 0, limit).page;
   }
 }

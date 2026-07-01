@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildStructuredResult } from '../tool-handlers/structured-output.js';
+import { buildStructuredResult, readToolPayload } from '../tool-handlers/structured-output.js';
 import { SERVER_VERSION } from '../version.js';
 
 describe('buildStructuredResult', () => {
@@ -40,5 +40,30 @@ describe('buildStructuredResult', () => {
     const result = buildStructuredResult(data);
     expect(result.content[0].text).toContain('\n'); // 2-space indent
     expect(result.structuredContent).toEqual(data);
+  });
+});
+
+describe('readToolPayload', () => {
+  it('prefers structuredContent when present', () => {
+    const payload = { results: [{ id: 'a' }], total: 1 };
+    expect(
+      readToolPayload({
+        structuredContent: payload,
+        content: [{ type: 'text', text: '{"stale":true}' }],
+      }),
+    ).toEqual(payload);
+  });
+
+  it('falls back to parsing content text', () => {
+    const payload = { results: [{ id: 'b' }], total: 1, has_more: false };
+    expect(
+      readToolPayload({
+        content: [{ type: 'text', text: JSON.stringify(payload) }],
+      }),
+    ).toEqual(payload);
+  });
+
+  it('throws when neither representation exists', () => {
+    expect(() => readToolPayload({ content: [] })).toThrow(/no structuredContent/);
   });
 });

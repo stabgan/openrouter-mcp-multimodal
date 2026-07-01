@@ -16,10 +16,7 @@ describe('handleHealthCheck', () => {
   it('returns ok=true when API call and cache succeed', async () => {
     const cache = resetCache();
     const apiClient = {
-      getModels: vi.fn().mockResolvedValue([
-        { id: 'model-1' },
-        { id: 'model-2' },
-      ]),
+      getModels: vi.fn().mockResolvedValue([{ id: 'model-1' }, { id: 'model-2' }]),
     } as unknown as OpenRouterAPIClient;
     const r = await handleHealthCheck({ params: { arguments: {} } }, apiClient, cache);
     const sc = (r as { structuredContent: Record<string, unknown> }).structuredContent;

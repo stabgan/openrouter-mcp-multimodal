@@ -6,9 +6,13 @@
  * anything is off.
  */
 import 'dotenv/config';
+import { readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import path from 'node:path';
+
+const { version: PKG_VERSION } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+const EXPECTED_TOOLS = 14;
 
 const scratch = path.resolve('.mcp-smoke-output/npm-install-test');
 const bin = path.join(scratch, 'node_modules', '.bin', 'openrouter-multimodal');
@@ -67,12 +71,12 @@ try {
     }),
     delay(5000).then(() => ({ error: 'init timeout' })),
   ]);
-  check('initialize', !init.error && init.result?.serverInfo?.version === '3.0.0',
+  check('initialize', !init.error && init.result?.serverInfo?.version === PKG_VERSION,
     `got ${JSON.stringify(init.result?.serverInfo ?? init.error)}`);
 
   const list = await rpc('tools/list', {});
   const names = list.result?.tools?.map((t) => t.name) ?? [];
-  check('tools/list returns 11 tools', names.length === 11, `got ${names.length}: ${names.join(',')}`);
+  check(`tools/list returns ${EXPECTED_TOOLS} tools`, names.length === EXPECTED_TOOLS, `got ${names.length}: ${names.join(',')}`);
   check('has analyze_video', names.includes('analyze_video'), 'missing');
   check('has generate_video', names.includes('generate_video'), 'missing');
   check('has get_video_status', names.includes('get_video_status'), 'missing');
@@ -88,7 +92,8 @@ try {
       arguments: { model: 'openai/gpt-4' },
     });
     const text = r.result?.content?.[0]?.text;
-    check('validate_model openai/gpt-4', text === '{"valid":true}', `got ${text}`);
+    const parsed = r.result?.structuredContent ?? (text ? JSON.parse(text) : null);
+    check('validate_model openai/gpt-4', parsed?.valid === true, `got ${text ?? JSON.stringify(r.result)}`);
   } else {
     console.log('⚠ skipping live validate_model (no API key)');
   }

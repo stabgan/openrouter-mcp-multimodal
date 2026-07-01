@@ -19,7 +19,8 @@ import path from 'node:path';
  * located (e.g. in certain bundled environments).
  */
 export const FETCH_USER_AGENT: string = (() => {
-  const fallback = 'openrouter-mcp-multimodal/dev (+https://github.com/stabgan/openrouter-mcp-multimodal)';
+  const fallback =
+    'openrouter-mcp-multimodal/dev (+https://github.com/stabgan/openrouter-mcp-multimodal)';
   try {
     const here = path.dirname(fileURLToPath(import.meta.url));
     // Walk up a few levels looking for package.json (handles both
@@ -152,11 +153,29 @@ export function isBlockedIPv6(ip: string): boolean {
   ];
 
   // ::  (unspecified)
-  if (g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0 && g6 === 0 && g7 === 0) {
+  if (
+    g0 === 0 &&
+    g1 === 0 &&
+    g2 === 0 &&
+    g3 === 0 &&
+    g4 === 0 &&
+    g5 === 0 &&
+    g6 === 0 &&
+    g7 === 0
+  ) {
     return true;
   }
   // ::1 (loopback)
-  if (g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0 && g6 === 0 && g7 === 1) {
+  if (
+    g0 === 0 &&
+    g1 === 0 &&
+    g2 === 0 &&
+    g3 === 0 &&
+    g4 === 0 &&
+    g5 === 0 &&
+    g6 === 0 &&
+    g7 === 1
+  ) {
     return true;
   }
   // ::ffff:0:0/96 — IPv4-mapped. Re-check the embedded IPv4.
@@ -298,9 +317,7 @@ async function readResponseBodyWithLimit(res: Response, maxBytes: number): Promi
  * `data:;base64,...` form. Returns `null` for anything that is not a
  * base64-encoded data URL.
  */
-export function parseBase64DataUrl(
-  source: string,
-): { mediaType: string; base64: string } | null {
+export function parseBase64DataUrl(source: string): { mediaType: string; base64: string } | null {
   if (!source.startsWith('data:')) return null;
   const comma = source.indexOf(',');
   if (comma < 0) return null;
@@ -309,7 +326,9 @@ export function parseBase64DataUrl(
   const parts = prefix.split(';').map((p) => p.trim());
   const hasBase64 = parts[parts.length - 1]?.toLowerCase() === 'base64';
   if (!hasBase64) return null;
-  const mediaType = (parts[0] && parts[0].includes('/') ? parts[0] : 'application/octet-stream').toLowerCase();
+  const mediaType = (
+    parts[0] && parts[0].includes('/') ? parts[0] : 'application/octet-stream'
+  ).toLowerCase();
   return { mediaType, base64: payload };
 }
 

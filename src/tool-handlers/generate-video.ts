@@ -1,10 +1,6 @@
 import { promises as fs } from 'node:fs';
 import { extname } from 'node:path';
-import type {
-  OpenRouterAPIClient,
-  VideoJobEnvelope,
-  VideoJobStatus,
-} from '../openrouter-api.js';
+import type { OpenRouterAPIClient, VideoJobEnvelope, VideoJobStatus } from '../openrouter-api.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
@@ -52,11 +48,7 @@ type ProgressHook = (update: {
 }) => void | Promise<void>;
 
 function getMaxInlineBytes(): number {
-  return readEnvInt(
-    'OPENROUTER_VIDEO_INLINE_MAX_BYTES',
-    INLINE_RETURN_CEILING_BYTES,
-    4096,
-  );
+  return readEnvInt('OPENROUTER_VIDEO_INLINE_MAX_BYTES', INLINE_RETURN_CEILING_BYTES, 4096);
 }
 
 function getDefaultPollInterval(): number {
@@ -74,11 +66,7 @@ function getDefaultMaxWait(): number {
 function getMaxDownloadBytes(): number {
   // Generation output can be bigger than the input cap since it's our own
   // content. Default 256 MB, override via env.
-  return readEnvInt(
-    'OPENROUTER_VIDEO_GEN_MAX_BYTES',
-    256 * 1024 * 1024,
-    1024 * 1024,
-  );
+  return readEnvInt('OPENROUTER_VIDEO_GEN_MAX_BYTES', 256 * 1024 * 1024, 1024 * 1024);
 }
 
 /**
@@ -92,9 +80,7 @@ function getMaxDownloadBytes(): number {
  * local via fs). We deliberately do NOT run them through sharp — the model
  * wants the pristine frame.
  */
-async function prepareImageInput(
-  source: string,
-): Promise<{ data: string; mime: string } | null> {
+async function prepareImageInput(source: string): Promise<{ data: string; mime: string } | null> {
   if (!source) return null;
   if (source.startsWith('data:')) {
     const match = source.match(/^data:([^;,]+)(?:;[^,]*)*;base64,(.+)$/);
@@ -145,33 +131,52 @@ async function attachFrameImages(
   args: GenerateVideoToolRequest,
   body: Record<string, unknown>,
 ): Promise<void> {
-  const frameImages: Array<Record<string, unknown>> = [];
+  const frameTasks: Array<Promise<{ kind: 'frame'; entry: Record<string, unknown> } | null>> = [];
+
   if (args.first_frame_image) {
-    const img = await prepareImageInput(args.first_frame_image);
-    if (img) {
-      frameImages.push({
-        frame_type: 'first_frame',
-        image: { url: `data:${img.mime};base64,${img.data}` },
-      });
-    }
+    frameTasks.push(
+      prepareImageInput(args.first_frame_image).then((img) =>
+        img
+          ? {
+              kind: 'frame' as const,
+              entry: {
+                frame_type: 'first_frame',
+                image: { url: `data:${img.mime};base64,${img.data}` },
+              },
+            }
+          : null,
+      ),
+    );
   }
   if (args.last_frame_image) {
-    const img = await prepareImageInput(args.last_frame_image);
-    if (img) {
-      frameImages.push({
-        frame_type: 'last_frame',
-        image: { url: `data:${img.mime};base64,${img.data}` },
-      });
-    }
+    frameTasks.push(
+      prepareImageInput(args.last_frame_image).then((img) =>
+        img
+          ? {
+              kind: 'frame' as const,
+              entry: {
+                frame_type: 'last_frame',
+                image: { url: `data:${img.mime};base64,${img.data}` },
+              },
+            }
+          : null,
+      ),
+    );
   }
+
+  const frameResults = await Promise.all(frameTasks);
+  const frameImages = frameResults
+    .filter((r): r is { kind: 'frame'; entry: Record<string, unknown> } => r !== null)
+    .map((r) => r.entry);
   if (frameImages.length) body.frame_images = frameImages;
 
   if (args.reference_images?.length) {
-    const refs: Array<Record<string, unknown>> = [];
-    for (const src of args.reference_images) {
-      const img = await prepareImageInput(src);
-      if (img) refs.push({ image: { url: `data:${img.mime};base64,${img.data}` } });
-    }
+    const refResults = await Promise.all(
+      args.reference_images.map((src) => prepareImageInput(src)),
+    );
+    const refs = refResults
+      .filter((img): img is NonNullable<typeof img> => img !== null)
+      .map((img) => ({ image: { url: `data:${img.mime};base64,${img.data}` } }));
     if (refs.length) body.input_references = refs;
   }
 }
@@ -265,8 +270,7 @@ async function finalizeCompletedJob(
     const finalPath = extname(savePath) === ext ? savePath : stripAndReplaceExt(savePath, ext);
     await fs.writeFile(finalPath, buffer);
     baseMeta.save_path = finalPath;
-    const summaryNote =
-      finalPath !== savePath ? ` (detected ${mime}, saved as ${finalPath})` : '';
+    const summaryNote = finalPath !== savePath ? ` (detected ${mime}, saved as ${finalPath})` : '';
     const content: Array<Record<string, unknown>> = [
       { type: 'text', text: `Video saved to: ${finalPath}${summaryNote}` },
     ];
@@ -317,10 +321,7 @@ export async function handleGenerateVideo(
     return toolError(ErrorCode.INVALID_INPUT, 'prompt is required.');
   }
 
-  const model =
-    args.model ||
-    process.env.OPENROUTER_DEFAULT_VIDEO_GEN_MODEL ||
-    FALLBACK_MODEL;
+  const model = args.model || process.env.OPENROUTER_DEFAULT_VIDEO_GEN_MODEL || FALLBACK_MODEL;
 
   // Audit entry — video is the most expensive tool we have. Always log
   // model, resolution, duration, and a safe prompt preview so unintended
@@ -406,11 +407,7 @@ export async function handleGenerateVideo(
   }
 
   try {
-    const { content, _meta } = await finalizeCompletedJob(
-      apiClient,
-      outcome.status,
-      safeSavePath,
-    );
+    const { content, _meta } = await finalizeCompletedJob(apiClient, outcome.status, safeSavePath);
     return { content, _meta };
   } catch (err) {
     if (err instanceof UnsafeOutputPathError) {

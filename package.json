@@ -1,6 +1,6 @@
 {
   "name": "@stabgan/openrouter-mcp-multimodal",
-  "version": "4.5.1",
+  "version": "4.5.2",
   "mcpName": "io.github.stabgan/openrouter-multimodal",
   "description": "MCP server for OpenRouter with text chat, image analysis + generation, audio analysis + generation, video analysis, and video generation (Veo 3.1 / Sora 2 Pro / Seedance / Wan)",
   "type": "module",
@@ -20,7 +20,11 @@
     "format": "prettier --write \"src/**/*.ts\" *.json \"*.md\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
     "test": "node --experimental-vm-modules node_modules/.bin/vitest run",
-    "test:integration": "node --experimental-vm-modules node_modules/.bin/vitest run --config vitest.integration.config.ts"
+    "test:regression": "node --experimental-vm-modules node_modules/.bin/vitest run --config vitest.regression.config.ts",
+    "test:integration": "node --experimental-vm-modules node_modules/.bin/vitest run --config vitest.integration.config.ts",
+    "test:e2e": "npm run build && node scripts/live-e2e.mjs",
+    "test:all": "npm test && npm run test:regression && npm run test:integration",
+    "ci": "npm run lint && npm run format:check && npm run build && npm run test:all"
   },
   "keywords": [
     "mcp",
@@ -47,20 +51,22 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.27.1",
-    "dotenv": "^16.4.7",
-    "openai": "^4.89.1",
-    "sharp": "^0.33.5"
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "dotenv": "^16.6.1",
+    "openai": "^4.104.0",
+    "sharp": "^0.35.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
-    "@types/node": "^22.13.14",
+    "@types/node": "^22.20.0",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
-    "prettier": "^3.7.4",
+    "form-data": "^4.0.6",
+    "js-yaml": "^4.3.0",
+    "prettier": "^3.9.4",
     "shx": "^0.3.4",
-    "typescript": "^5.8.2",
-    "typescript-eslint": "^8.53.0",
-    "vitest": "^3.1.1"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.62.1",
+    "vitest": "^3.2.6"
   }
 }

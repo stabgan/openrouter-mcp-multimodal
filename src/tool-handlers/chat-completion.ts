@@ -18,11 +18,7 @@ import {
   buildProviderBody,
   resolveMaxTokens,
 } from './provider-routing.js';
-import {
-  type CacheOptions,
-  buildCacheHeaders,
-  extractCacheMeta,
-} from './cache.js';
+import { type CacheOptions, buildCacheHeaders, extractCacheMeta } from './cache.js';
 import { awaitCompletionWithHeaders } from './openai-withresponse.js';
 
 const DEFAULT_MODEL = 'nvidia/nemotron-nano-12b-v2-vl:free';

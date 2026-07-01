@@ -118,32 +118,53 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
 
   // Zero Data Retention.
   if (lower.includes('zdr') || lower.includes('zero data retention')) {
-    return toolError(ErrorCode.ZDR_INCOMPATIBLE, fullMsg, { status }, {
-      suggestions: [
-        'Pick a provider that supports your ZDR policy',
-        'Set provider.data_collection: "allow" to bypass the restriction',
-      ],
-    });
+    return toolError(
+      ErrorCode.ZDR_INCOMPATIBLE,
+      fullMsg,
+      { status },
+      {
+        suggestions: [
+          'Pick a provider that supports your ZDR policy',
+          'Set provider.data_collection: "allow" to bypass the restriction',
+        ],
+      },
+    );
   }
 
   // Model lookup failures.
   if (
     lower.includes('model') &&
-    (lower.includes('does not exist') || lower.includes('not found') || lower.includes('invalid model'))
+    (lower.includes('does not exist') ||
+      lower.includes('not found') ||
+      lower.includes('invalid model'))
   ) {
-    return toolError(ErrorCode.MODEL_NOT_FOUND, fullMsg, { status }, {
-      suggestions: [
-        'Use search_models to discover valid model ids',
-        'Use validate_model to pre-flight a model id',
-      ],
-    });
+    return toolError(
+      ErrorCode.MODEL_NOT_FOUND,
+      fullMsg,
+      { status },
+      {
+        suggestions: [
+          'Use search_models to discover valid model ids',
+          'Use validate_model to pre-flight a model id',
+        ],
+      },
+    );
   }
 
   // Content policy / moderation — surface as UPSTREAM_REFUSED so callers can distinguish from 5xx.
-  if (lower.includes('content policy') || lower.includes('moderation') || lower.includes('refused')) {
-    return toolError(ErrorCode.UPSTREAM_REFUSED, fullMsg, { status, reason: 'policy' }, {
-      suggestions: ['Rephrase the prompt', 'Try a different provider via provider.order'],
-    });
+  if (
+    lower.includes('content policy') ||
+    lower.includes('moderation') ||
+    lower.includes('refused')
+  ) {
+    return toolError(
+      ErrorCode.UPSTREAM_REFUSED,
+      fullMsg,
+      { status, reason: 'policy' },
+      {
+        suggestions: ['Rephrase the prompt', 'Try a different provider via provider.order'],
+      },
+    );
   }
 
   // Rate-limit specific.
@@ -171,9 +192,14 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
     lower.includes('aborted') ||
     (err instanceof Error && (err as { name?: string }).name === 'AbortError')
   ) {
-    return toolError(ErrorCode.UPSTREAM_TIMEOUT, fullMsg, { status }, {
-      suggestions: ['Retry', 'Raise max_wait_ms or max_tokens'],
-    });
+    return toolError(
+      ErrorCode.UPSTREAM_TIMEOUT,
+      fullMsg,
+      { status },
+      {
+        suggestions: ['Retry', 'Raise max_wait_ms or max_tokens'],
+      },
+    );
   }
 
   // Anything in the 4xx band that isn't covered above — user supplied a bad request.

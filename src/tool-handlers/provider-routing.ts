@@ -72,7 +72,9 @@ function parseBool(raw: string | undefined): boolean | undefined {
 function parseSort(raw: string | undefined): ProviderSort | undefined {
   if (!raw) return undefined;
   const lc = raw.trim().toLowerCase();
-  return lc === 'price' || lc === 'throughput' || lc === 'latency' ? (lc as ProviderSort) : undefined;
+  return lc === 'price' || lc === 'throughput' || lc === 'latency'
+    ? (lc as ProviderSort)
+    : undefined;
 }
 
 function parseDataCollection(raw: string | undefined): DataCollectionPolicy | undefined {

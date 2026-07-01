@@ -18,19 +18,14 @@ export async function handleRerankDocuments(
   request: { params: { arguments: RerankDocumentsRequest } },
   apiClient: OpenRouterAPIClient,
 ) {
-  const args =
-    request.params.arguments ??
-    ({ query: '', documents: [] } as RerankDocumentsRequest);
+  const args = request.params.arguments ?? ({ query: '', documents: [] } as RerankDocumentsRequest);
   const { query, documents, model, top_n, return_documents } = args;
 
   if (!query?.trim()) {
     return toolError(ErrorCode.INVALID_INPUT, 'query is required.');
   }
   if (!Array.isArray(documents) || documents.length === 0) {
-    return toolError(
-      ErrorCode.INVALID_INPUT,
-      'documents must be a non-empty array of strings.',
-    );
+    return toolError(ErrorCode.INVALID_INPUT, 'documents must be a non-empty array of strings.');
   }
   if (documents.some((d) => typeof d !== 'string')) {
     return toolError(ErrorCode.INVALID_INPUT, 'every document must be a string.');
@@ -55,9 +50,7 @@ export async function handleRerankDocuments(
     const out: Record<string, unknown> = { index: r.index, score };
     if (return_documents) {
       const doc =
-        typeof r.document === 'string'
-          ? r.document
-          : r.document?.text ?? documents[r.index];
+        typeof r.document === 'string' ? r.document : (r.document?.text ?? documents[r.index]);
       out.document = doc;
     }
     return out;

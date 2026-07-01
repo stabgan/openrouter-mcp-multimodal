@@ -23,11 +23,7 @@ describe('search_models pagination', () => {
   } as unknown as OpenRouterAPIClient;
 
   it('returns first page by default', async () => {
-    const r = await handleSearchModels(
-      { params: { arguments: { limit: 10 } } },
-      apiClient,
-      cache,
-    );
+    const r = await handleSearchModels({ params: { arguments: { limit: 10 } } }, apiClient, cache);
     const sc = (r as { structuredContent: Record<string, unknown> }).structuredContent;
     expect(Array.isArray(sc.results)).toBe(true);
     expect((sc.results as unknown[]).length).toBe(10);
@@ -51,11 +47,7 @@ describe('search_models pagination', () => {
   });
 
   it('caps limit at 50', async () => {
-    const r = await handleSearchModels(
-      { params: { arguments: { limit: 500 } } },
-      apiClient,
-      cache,
-    );
+    const r = await handleSearchModels({ params: { arguments: { limit: 500 } } }, apiClient, cache);
     const sc = (r as { structuredContent: Record<string, unknown> }).structuredContent;
     expect(sc.limit).toBe(50);
   });

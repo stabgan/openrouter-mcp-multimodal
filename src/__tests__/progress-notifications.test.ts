@@ -1,10 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { handleGenerateVideo } from '../tool-handlers/generate-video.js';
-import type {
-  OpenRouterAPIClient,
-  VideoJobEnvelope,
-  VideoJobStatus,
-} from '../openrouter-api.js';
+import type { OpenRouterAPIClient, VideoJobEnvelope, VideoJobStatus } from '../openrouter-api.js';
 
 function mockClient(envelope: VideoJobEnvelope, statuses: VideoJobStatus[]) {
   let idx = 0;
@@ -25,18 +21,15 @@ function mockClient(envelope: VideoJobEnvelope, statuses: VideoJobStatus[]) {
 
 describe('generate_video progress hook', () => {
   it('invokes progress hook on each poll with status + attempt', async () => {
-    const client = mockClient(
-      { id: 'vid_1', status: 'pending' },
-      [
-        { id: 'vid_1', status: 'processing', progress: 25 },
-        { id: 'vid_1', status: 'processing', progress: 75 },
-        {
-          id: 'vid_1',
-          status: 'completed',
-          unsigned_urls: ['https://x/y.mp4'],
-        },
-      ],
-    );
+    const client = mockClient({ id: 'vid_1', status: 'pending' }, [
+      { id: 'vid_1', status: 'processing', progress: 25 },
+      { id: 'vid_1', status: 'processing', progress: 75 },
+      {
+        id: 'vid_1',
+        status: 'completed',
+        unsigned_urls: ['https://x/y.mp4'],
+      },
+    ]);
 
     const updates: Array<{ status: string; progress?: number; attempt: number }> = [];
     await handleGenerateVideo(
@@ -64,16 +57,13 @@ describe('generate_video progress hook', () => {
   });
 
   it('works without a progress hook', async () => {
-    const client = mockClient(
-      { id: 'vid_1', status: 'pending' },
-      [
-        {
-          id: 'vid_1',
-          status: 'completed',
-          unsigned_urls: ['https://x/y.mp4'],
-        },
-      ],
-    );
+    const client = mockClient({ id: 'vid_1', status: 'pending' }, [
+      {
+        id: 'vid_1',
+        status: 'completed',
+        unsigned_urls: ['https://x/y.mp4'],
+      },
+    ]);
     const r = await handleGenerateVideo(
       {
         params: {

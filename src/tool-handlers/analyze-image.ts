@@ -4,6 +4,7 @@ import type {
   ChatCompletionMessageParam,
 } from 'openai/resources/chat/completions.js';
 import { prepareImageUrl } from './image-utils.js';
+import { UnsafeOutputPathError } from './path-safety.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
@@ -12,11 +13,7 @@ import {
   detectReasoningCutoff,
   buildCompletionMeta,
 } from './completion-utils.js';
-import {
-  type CacheOptions,
-  buildCacheHeaders,
-  extractCacheMeta,
-} from './cache.js';
+import { type CacheOptions, buildCacheHeaders, extractCacheMeta } from './cache.js';
 import { awaitCompletionWithHeaders } from './openai-withresponse.js';
 
 const DEFAULT_MODEL = 'nvidia/nemotron-nano-12b-v2-vl:free';
@@ -50,6 +47,9 @@ export async function handleAnalyzeImage(
   try {
     imageUrl = await prepareImageUrl(image_path);
   } catch (err) {
+    if (err instanceof UnsafeOutputPathError) {
+      return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
+    }
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('Blocked host')) return toolErrorFrom(ErrorCode.UPSTREAM_REFUSED, err);
     if (msg.toLowerCase().includes('too large')) {
@@ -79,10 +79,7 @@ export async function handleAnalyzeImage(
         messages: [
           {
             role: 'user',
-            content: [
-              { type: 'text', text: question || "What's in this image?" },
-              imageBlock,
-            ],
+            content: [{ type: 'text', text: question || "What's in this image?" }, imageBlock],
           },
         ] as unknown as ChatCompletionMessageParam[],
       },

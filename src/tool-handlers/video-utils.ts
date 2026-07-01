@@ -9,6 +9,7 @@
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
 import { readEnvInt, fetchHttpResource, parseBase64DataUrl } from './fetch-utils.js';
+import { resolveSafeInputPath } from './path-safety.js';
 
 export { isBlockedIPv4, assertUrlSafeForFetch } from './fetch-utils.js';
 
@@ -100,12 +101,7 @@ export function detectVideoFormat(buffer: Buffer): VideoFormat | undefined {
   }
   if (buffer.length >= 4) {
     // EBML header — WebM & Matroska.
-    if (
-      buffer[0] === 0x1a &&
-      buffer[1] === 0x45 &&
-      buffer[2] === 0xdf &&
-      buffer[3] === 0xa3
-    ) {
+    if (buffer[0] === 0x1a && buffer[1] === 0x45 && buffer[2] === 0xdf && buffer[3] === 0xa3) {
       return 'webm';
     }
     // MPEG-PS / MPEG-TS start codes.
@@ -167,9 +163,7 @@ export async function prepareVideoData(source: string): Promise<VideoData> {
     });
     const urlPath = new URL(source).pathname;
     const format =
-      detectVideoFormat(buffer) ??
-      getVideoFormat(urlPath) ??
-      formatFromContentType(contentType);
+      detectVideoFormat(buffer) ?? getVideoFormat(urlPath) ?? formatFromContentType(contentType);
     if (!format) {
       throw new Error(
         `Could not determine video format from ${source}. Supported: ${SUPPORTED_VIDEO_FORMATS.join(', ')}`,
@@ -184,8 +178,9 @@ export async function prepareVideoData(source: string): Promise<VideoData> {
   }
 
   // --- local file ---
-  const buffer = await fs.readFile(source);
-  const format = detectVideoFormat(buffer) ?? getVideoFormat(source);
+  const safe = await resolveSafeInputPath(source);
+  const buffer = await fs.readFile(safe);
+  const format = detectVideoFormat(buffer) ?? getVideoFormat(safe);
   if (!format) {
     throw new Error(
       `Unsupported video format for file: ${source}. Supported: ${SUPPORTED_VIDEO_FORMATS.join(', ')}`,

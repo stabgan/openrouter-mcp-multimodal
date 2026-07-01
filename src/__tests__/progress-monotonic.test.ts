@@ -10,11 +10,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { handleGenerateVideo } from '../tool-handlers/generate-video.js';
-import type {
-  OpenRouterAPIClient,
-  VideoJobEnvelope,
-  VideoJobStatus,
-} from '../openrouter-api.js';
+import type { OpenRouterAPIClient, VideoJobEnvelope, VideoJobStatus } from '../openrouter-api.js';
 
 function mockClient(statuses: VideoJobStatus[]) {
   let i = 0;
@@ -56,15 +52,10 @@ describe('progress notifications are monotonic', () => {
     // the `progress` field that each notification would carry.
     let lastSent = -1;
     const emitted: number[] = [];
-    const hook: Parameters<typeof handleGenerateVideo>[2] = ({
-      status,
-      progress,
-      attempt,
-    }) => {
+    const hook: Parameters<typeof handleGenerateVideo>[2] = ({ status, progress, attempt }) => {
       // Reproduce the exact logic from `buildProgressHook` in
       // tool-handlers.ts so this test catches future regressions there.
-      const candidate =
-        typeof progress === 'number' ? Math.max(attempt, progress) : attempt;
+      const candidate = typeof progress === 'number' ? Math.max(attempt, progress) : attempt;
       const next = Math.max(lastSent + 1, candidate);
       lastSent = next;
       emitted.push(next);
@@ -104,12 +95,8 @@ describe('progress notifications are monotonic', () => {
 
     let lastSent = -1;
     const emitted: number[] = [];
-    const hook: Parameters<typeof handleGenerateVideo>[2] = ({
-      progress,
-      attempt,
-    }) => {
-      const candidate =
-        typeof progress === 'number' ? Math.max(attempt, progress) : attempt;
+    const hook: Parameters<typeof handleGenerateVideo>[2] = ({ progress, attempt }) => {
+      const candidate = typeof progress === 'number' ? Math.max(attempt, progress) : attempt;
       const next = Math.max(lastSent + 1, candidate);
       lastSent = next;
       emitted.push(next);
@@ -135,7 +122,6 @@ describe('progress notifications are monotonic', () => {
   });
 });
 
-
 describe('progress: 0 edge case', () => {
   it('handles upstream returning progress: 0 on the first real tick', async () => {
     const client = mockClient([
@@ -150,12 +136,8 @@ describe('progress: 0 edge case', () => {
 
     let lastSent = -1;
     const emitted: number[] = [];
-    const hook: Parameters<typeof handleGenerateVideo>[2] = ({
-      progress,
-      attempt,
-    }) => {
-      const candidate =
-        typeof progress === 'number' ? Math.max(attempt, progress) : attempt;
+    const hook: Parameters<typeof handleGenerateVideo>[2] = ({ progress, attempt }) => {
+      const candidate = typeof progress === 'number' ? Math.max(attempt, progress) : attempt;
       const next = Math.max(lastSent + 1, candidate);
       lastSent = next;
       emitted.push(next);

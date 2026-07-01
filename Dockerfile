@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 RUN apk add --no-cache g++ make python3 vips-dev
@@ -11,7 +11,7 @@ COPY src/ ./src/
 RUN npx tsc
 RUN npm prune --omit=dev
 
-FROM node:20-alpine
+FROM node:22-alpine
 WORKDIR /app
 
 # Required by the official MCP Registry (registry.modelcontextprotocol.io)

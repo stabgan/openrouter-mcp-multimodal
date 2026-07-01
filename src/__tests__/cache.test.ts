@@ -1,9 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import {
-  buildCacheHeaders,
-  extractCacheMeta,
-  readCacheDefault,
-} from '../tool-handlers/cache.js';
+import { buildCacheHeaders, extractCacheMeta, readCacheDefault } from '../tool-handlers/cache.js';
 
 describe('buildCacheHeaders', () => {
   afterEach(() => vi.unstubAllEnvs());

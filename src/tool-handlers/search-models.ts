@@ -1,4 +1,4 @@
-import { ModelCache, type OpenRouterModelRecord } from '../model-cache.js';
+import { ModelCache } from '../model-cache.js';
 import { OpenRouterAPIClient } from '../openrouter-api.js';
 import { ErrorCode, toolErrorFrom } from '../errors.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
@@ -36,15 +36,15 @@ export async function handleSearchModels(
     const limit = Math.min(Math.max(1, args.limit ?? DEFAULT_LIMIT), MAX_LIMIT);
     const offset = Math.max(0, args.offset ?? 0);
 
-    // Get the full filtered set, then slice for pagination.
-    const all = modelCache.search({
-      query: args.query,
-      provider: args.provider,
-      capabilities: args.capabilities,
-      all: true,
-    }) as OpenRouterModelRecord[];
-    const total = all.length;
-    const page = all.slice(offset, offset + limit);
+    const { page, total } = modelCache.searchPaginated(
+      {
+        query: args.query,
+        provider: args.provider,
+        capabilities: args.capabilities,
+      },
+      offset,
+      limit,
+    );
     const nextOffset = offset + limit;
     const hasMore = nextOffset < total;
 

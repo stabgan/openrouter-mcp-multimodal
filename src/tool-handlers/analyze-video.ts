@@ -4,6 +4,7 @@ import type {
   ChatCompletionMessageParam,
 } from 'openai/resources/chat/completions.js';
 import { prepareVideoData } from './video-utils.js';
+import { UnsafeOutputPathError } from './path-safety.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
@@ -13,11 +14,7 @@ import {
   detectReasoningCutoff,
   buildCompletionMeta,
 } from './completion-utils.js';
-import {
-  type CacheOptions,
-  buildCacheHeaders,
-  extractCacheMeta,
-} from './cache.js';
+import { type CacheOptions, buildCacheHeaders, extractCacheMeta } from './cache.js';
 import { awaitCompletionWithHeaders } from './openai-withresponse.js';
 
 /**
@@ -52,15 +49,15 @@ export async function handleAnalyzeVideo(
   }
 
   const pickedModel =
-    model ||
-    process.env.OPENROUTER_DEFAULT_VIDEO_MODEL ||
-    defaultModel ||
-    FALLBACK_DEFAULT_MODEL;
+    model || process.env.OPENROUTER_DEFAULT_VIDEO_MODEL || defaultModel || FALLBACK_DEFAULT_MODEL;
 
   let videoData;
   try {
     videoData = await prepareVideoData(video_path);
   } catch (err) {
+    if (err instanceof UnsafeOutputPathError) {
+      return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
+    }
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('Blocked host')) {
       return toolErrorFrom(ErrorCode.UPSTREAM_REFUSED, err);

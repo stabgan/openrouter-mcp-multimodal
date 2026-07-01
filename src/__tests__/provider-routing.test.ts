@@ -56,18 +56,12 @@ describe('readProviderDefaults', () => {
 
   it('parses order as JSON array of strings', () => {
     vi.stubEnv('OPENROUTER_PROVIDER_ORDER', '["openai/gpt-4o","anthropic/claude-3-opus"]');
-    expect(readProviderDefaults().order).toEqual([
-      'openai/gpt-4o',
-      'anthropic/claude-3-opus',
-    ]);
+    expect(readProviderDefaults().order).toEqual(['openai/gpt-4o', 'anthropic/claude-3-opus']);
   });
 
   it('parses order as a comma-separated fallback', () => {
     vi.stubEnv('OPENROUTER_PROVIDER_ORDER', 'openai/gpt-4o,anthropic/claude-3-opus');
-    expect(readProviderDefaults().order).toEqual([
-      'openai/gpt-4o',
-      'anthropic/claude-3-opus',
-    ]);
+    expect(readProviderDefaults().order).toEqual(['openai/gpt-4o', 'anthropic/claude-3-opus']);
   });
 
   it('drops malformed order without throwing', async () => {
@@ -75,7 +69,9 @@ describe('readProviderDefaults', () => {
     const { _sink } = await import('../logger.js');
     const lines: string[] = [];
     const origWrite = _sink.write;
-    _sink.write = (line: string) => { lines.push(line); };
+    _sink.write = (line: string) => {
+      lines.push(line);
+    };
     vi.stubEnv('OPENROUTER_PROVIDER_ORDER', '[bogus json]');
     expect(readProviderDefaults().order).toBeUndefined();
     _sink.write = origWrite;
@@ -85,10 +81,7 @@ describe('readProviderDefaults', () => {
 
 describe('mergeProviderOptions', () => {
   it('applies overrides on top of defaults', () => {
-    const merged = mergeProviderOptions(
-      { sort: 'price', ignore: ['openai'] },
-      { sort: 'latency' },
-    );
+    const merged = mergeProviderOptions({ sort: 'price', ignore: ['openai'] }, { sort: 'latency' });
     expect(merged).toEqual({ sort: 'latency', ignore: ['openai'] });
   });
 

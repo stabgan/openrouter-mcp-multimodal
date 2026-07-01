@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 /**
- * End-to-end Docker smoke: `docker run -i openrouter-mcp-multimodal:v3-test`
+ * End-to-end Docker smoke: `docker run -i openrouter-mcp-multimodal:4.5.2-test`
  * over stdio, list tools, run a live validate_model call, test error paths.
  */
 import 'dotenv/config';
+import { readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 
-const IMAGE = process.env.MCP_DOCKER_IMAGE || 'openrouter-mcp-multimodal:v3-test';
+const { version: PKG_VERSION } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+const EXPECTED_TOOLS = 14;
+const IMAGE = process.env.MCP_DOCKER_IMAGE || `openrouter-mcp-multimodal:${PKG_VERSION}-test`;
 
 const proc = spawn(
   'docker',
@@ -63,12 +66,12 @@ try {
     }),
     delay(20_000).then(() => ({ error: 'init timeout' })),
   ]);
-  check('initialize', !init.error && init.result?.serverInfo?.version === '3.0.0',
+  check('initialize', !init.error && init.result?.serverInfo?.version === PKG_VERSION,
     `got ${JSON.stringify(init.result?.serverInfo ?? init.error)}`);
 
   const list = await rpc('tools/list', {});
   const names = list.result?.tools?.map((t) => t.name) ?? [];
-  check('tools/list has 11 tools', names.length === 11, `got ${names.length}`);
+  check(`tools/list has ${EXPECTED_TOOLS} tools`, names.length === EXPECTED_TOOLS, `got ${names.length}`);
   check('has analyze_video', names.includes('analyze_video'), 'missing');
   check('has generate_video', names.includes('generate_video'), 'missing');
   check('has get_video_status', names.includes('get_video_status'), 'missing');
@@ -79,8 +82,11 @@ try {
       name: 'validate_model',
       arguments: { model: 'openai/gpt-4' },
     });
+    const validPayload =
+      r.result?.structuredContent ??
+      (r.result?.content?.[0]?.text ? JSON.parse(r.result.content[0].text) : null);
     check('validate_model reaches OpenRouter from container',
-      r.result?.content?.[0]?.text === '{"valid":true}',
+      validPayload?.valid === true,
       `got ${JSON.stringify(r.result)}`);
   }
 

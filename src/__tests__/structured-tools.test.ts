@@ -40,9 +40,7 @@ describe('data-returning tools emit structuredContent', () => {
       { params: { arguments: { model: 'imaginary/model' } } },
       cache,
     );
-    expect(
-      (r as { structuredContent?: { valid: boolean } }).structuredContent?.valid,
-    ).toBe(false);
+    expect((r as { structuredContent?: { valid: boolean } }).structuredContent?.valid).toBe(false);
   });
 
   it('get_model_info emits the full record', async () => {
@@ -58,21 +56,14 @@ describe('data-returning tools emit structuredContent', () => {
 
   it('get_model_info errors cleanly on unknown model', async () => {
     const cache = ModelCache.getInstance();
-    const r = await handleGetModelInfo(
-      { params: { arguments: { model: 'ghost/model' } } },
-      cache,
-    );
+    const r = await handleGetModelInfo({ params: { arguments: { model: 'ghost/model' } } }, cache);
     expect((r as { isError?: boolean }).isError).toBe(true);
     expect((r as { _meta: { code: string } })._meta.code).toBe('MODEL_NOT_FOUND');
   });
 
   it('search_models emits paginated structured output', async () => {
     const cache = ModelCache.getInstance();
-    const r = await handleSearchModels(
-      { params: { arguments: {} } },
-      apiClient,
-      cache,
-    );
+    const r = await handleSearchModels({ params: { arguments: {} } }, apiClient, cache);
     const sc = (r as { structuredContent?: Record<string, unknown> }).structuredContent;
     expect(sc).toBeDefined();
     expect(sc).toHaveProperty('results');
@@ -88,9 +79,7 @@ describe('data-returning tools emit structuredContent', () => {
       cache,
     );
     const sc = (r as { structuredContent: unknown }).structuredContent;
-    const text = (
-      r as { content: Array<{ type: string; text: string }> }
-    ).content[0].text;
+    const text = (r as { content: Array<{ type: string; text: string }> }).content[0].text;
     expect(JSON.parse(text)).toEqual(sc);
   });
 });

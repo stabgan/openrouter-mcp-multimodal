@@ -36,11 +36,23 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Format check
+        run: npm run format:check
+
       - name: Build TypeScript
         run: npm run build
 
-      - name: Run tests
+      - name: Unit tests
         run: npm test
+
+      - name: Regression tests
+        run: npm run test:regression
+
+      - name: Integration tests
+        run: npm run test:integration
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        timeout-minutes: 10
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

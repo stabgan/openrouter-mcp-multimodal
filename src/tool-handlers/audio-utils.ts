@@ -5,6 +5,7 @@
 import path from 'path';
 import { promises as fs } from 'fs';
 import { readEnvInt, fetchHttpResource, parseBase64DataUrl } from './fetch-utils.js';
+import { resolveSafeInputPath } from './path-safety.js';
 
 // Re-export for tests
 export { isBlockedIPv4, assertUrlSafeForFetch } from './fetch-utils.js';
@@ -139,12 +140,13 @@ export async function prepareAudioData(source: string): Promise<AudioData> {
   }
 
   // --- local file ---
-  const format = getAudioFormat(source);
+  const safe = await resolveSafeInputPath(source);
+  const format = getAudioFormat(safe);
   if (!format) {
     throw new Error(
       `Unsupported audio format for file: ${source}. Supported: ${SUPPORTED_AUDIO_FORMATS.join(', ')}`,
     );
   }
-  const buffer = await fs.readFile(source);
+  const buffer = await fs.readFile(safe);
   return { data: buffer.toString('base64'), format };
 }

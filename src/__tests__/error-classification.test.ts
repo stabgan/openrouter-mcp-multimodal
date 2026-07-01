@@ -18,10 +18,9 @@ describe('classifyUpstreamError — context + suggestions', () => {
   });
 
   it('attaches suggestions on a 402 credits error', () => {
-    const err: Error & { status?: number } = Object.assign(
-      new Error('Insufficient credits'),
-      { status: 402 },
-    );
+    const err: Error & { status?: number } = Object.assign(new Error('Insufficient credits'), {
+      status: 402,
+    });
     const r = classifyUpstreamError(err);
     expect(r._meta.suggestions).toBeDefined();
     expect(r._meta.suggestions!.length).toBeGreaterThan(0);
@@ -38,9 +37,7 @@ describe('classifyUpstreamError — context + suggestions', () => {
     const r = classifyUpstreamError(err);
     expect(r._meta.retry_after_seconds).toBe(30);
     expect(r._meta.suggestions).toBeDefined();
-    expect(r._meta.suggestions!.some((s) => /30/.test(s) || /backoff/i.test(s))).toBe(
-      true,
-    );
+    expect(r._meta.suggestions!.some((s) => /30/.test(s) || /backoff/i.test(s))).toBe(true);
   });
 
   it('falls back gracefully when Retry-After is not numeric', () => {
@@ -66,9 +63,7 @@ describe('classifyUpstreamError — context + suggestions', () => {
     const r = classifyUpstreamError(new Error('model does not exist: foo/bar'));
     expect(r._meta.code).toBe('MODEL_NOT_FOUND');
     expect(r._meta.suggestions).toBeDefined();
-    expect(r._meta.suggestions!.some((s) => /search_models|validate_model/.test(s))).toBe(
-      true,
-    );
+    expect(r._meta.suggestions!.some((s) => /search_models|validate_model/.test(s))).toBe(true);
   });
 
   it('context label applies to rate-limit errors too', () => {

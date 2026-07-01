@@ -1,15 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import {
   getMimeType,
+  mimeFromExtension,
   fetchImage,
   optimizeImage,
   prepareImageUrl,
   isBlockedIPv4,
   assertUrlSafeForFetch,
 } from '../tool-handlers/image-utils.js';
+import { UnsafeOutputPathError } from '../tool-handlers/path-safety.js';
+import { withInputSandbox } from './helpers/input-sandbox.js';
 import path from 'path';
 import { writeFileSync } from 'fs';
-import { tmpdir } from 'os';
 
 describe('getMimeType', () => {
   it('should return correct MIME types', () => {
@@ -27,6 +29,24 @@ describe('getMimeType', () => {
   });
 });
 
+describe('mimeFromExtension', () => {
+  it('maps known image extensions', () => {
+    expect(mimeFromExtension('.png')).toBe('image/png');
+    expect(mimeFromExtension('png')).toBe('image/png');
+    expect(mimeFromExtension('.PNG')).toBe('image/png');
+    expect(mimeFromExtension('.jpg')).toBe('image/jpeg');
+    expect(mimeFromExtension('.jpeg')).toBe('image/jpeg');
+    expect(mimeFromExtension('.webp')).toBe('image/webp');
+    expect(mimeFromExtension('.gif')).toBe('image/gif');
+    expect(mimeFromExtension('.bmp')).toBe('image/bmp');
+  });
+
+  it('returns null for unknown extensions', () => {
+    expect(mimeFromExtension('.tiff')).toBeNull();
+    expect(mimeFromExtension('')).toBeNull();
+  });
+});
+
 describe('fetchImage', () => {
   it('should decode base64 data URLs', async () => {
     const data = Buffer.from('hello').toString('base64');
@@ -38,15 +58,26 @@ describe('fetchImage', () => {
     await expect(fetchImage('data:invalid')).rejects.toThrow('Invalid data URL');
   });
 
-  it('should read local files', async () => {
-    const tmpFile = path.join(tmpdir(), `test-img-${Date.now()}.txt`);
-    writeFileSync(tmpFile, 'test-content');
-    const buf = await fetchImage(tmpFile);
-    expect(buf.toString()).toBe('test-content');
+  it('should read local files inside the input sandbox', async () => {
+    await withInputSandbox('mcp-fetch-img-', async (root) => {
+      const rel = 'test-content.txt';
+      writeFileSync(path.join(root, rel), 'test-content');
+      const buf = await fetchImage(rel);
+      expect(buf.toString()).toBe('test-content');
+    });
   });
 
-  it('should throw on missing files', async () => {
-    await expect(fetchImage('/nonexistent/path/image.png')).rejects.toThrow();
+  it('should reject paths outside the input sandbox', async () => {
+    await withInputSandbox('mcp-fetch-img-', async () => {
+      await expect(fetchImage('/etc/passwd')).rejects.toBeInstanceOf(UnsafeOutputPathError);
+      await expect(fetchImage('../escape.png')).rejects.toBeInstanceOf(UnsafeOutputPathError);
+    });
+  });
+
+  it('should throw on missing files inside the sandbox', async () => {
+    await withInputSandbox('mcp-fetch-img-', async () => {
+      await expect(fetchImage('missing.png')).rejects.toThrow();
+    });
   });
 
   it('should reject private IPv4 URLs', async () => {
@@ -86,10 +117,11 @@ describe('prepareImageUrl', () => {
   });
 
   it('should convert local files to data URLs', async () => {
-    // Create a tiny valid file
-    const tmpFile = path.join(tmpdir(), `test-prep-${Date.now()}.png`);
-    writeFileSync(tmpFile, Buffer.from([0x89, 0x50, 0x4e, 0x47])); // PNG magic bytes
-    const result = await prepareImageUrl(tmpFile);
-    expect(result).toMatch(/^data:image\/png;base64,/);
+    await withInputSandbox('mcp-prep-img-', async (root) => {
+      const rel = 'test-prep.png';
+      writeFileSync(path.join(root, rel), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+      const result = await prepareImageUrl(rel);
+      expect(result).toMatch(/^data:image\/png;base64,/);
+    });
   });
 });
