@@ -10,12 +10,7 @@ type ToolResult = {
   _meta?: { code?: string };
 };
 
-const SOFT_CODES = new Set([
-  'UPSTREAM_REFUSED',
-  'UPSTREAM_TIMEOUT',
-  'RATE_LIMITED',
-  'INTERNAL',
-]);
+const SOFT_CODES = new Set(['UPSTREAM_REFUSED', 'UPSTREAM_TIMEOUT', 'RATE_LIMITED', 'INTERNAL']);
 
 const SOFT_TEXT = [
   '402',
