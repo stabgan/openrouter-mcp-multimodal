@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="OpenRouter MCP Multimodal — MCP server for chat, vision, audio, and video AI tools" width="128" height="128" />
+  <img src="assets/logo.svg" alt="OpenRouter MCP Multimodal — MCP server for chat, vision, audio, and video AI tools" width="128" height="128" />
 </p>
 
 <h1 align="center">OpenRouter MCP Multimodal</h1>
@@ -11,16 +11,18 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@stabgan/openrouter-mcp-multimodal"><img src="https://img.shields.io/npm/v/@stabgan/openrouter-mcp-multimodal.svg?label=npm&color=cb3837&logo=npm" alt="npm version" /></a>
+  <a href="https://github.com/stabgan/openrouter-mcp-multimodal/releases"><img src="https://img.shields.io/github/v/release/stabgan/openrouter-mcp-multimodal?label=release&color=6366f1" alt="GitHub release" /></a>
   <a href="https://hub.docker.com/r/stabgan/openrouter-mcp-multimodal"><img src="https://img.shields.io/docker/v/stabgan/openrouter-mcp-multimodal/latest?label=docker&color=2496ed&logo=docker&logoColor=white" alt="Docker version" /></a>
-  <a href="https://github.com/stabgan/openrouter-mcp-multimodal/actions/workflows/publish.yml"><img src="https://github.com/stabgan/openrouter-mcp-multimodal/actions/workflows/publish.yml/badge.svg" alt="CI status" /></a>
+  <a href="https://github.com/stabgan/openrouter-mcp-multimodal/actions/workflows/ci.yml"><img src="https://github.com/stabgan/openrouter-mcp-multimodal/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
   <a href="https://www.apache.org/licenses/LICENSE-2.0"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="Apache 2.0 license" /></a>
-  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%E2%89%A518-43853d?logo=node.js&logoColor=white" alt="Node.js 18+" /></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%E2%89%A520-43853d?logo=node.js&logoColor=white" alt="Node.js 20+" /></a>
 </p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@stabgan/openrouter-mcp-multimodal"><img src="https://img.shields.io/npm/dt/@stabgan/openrouter-mcp-multimodal.svg?label=npm%20downloads&color=cb3837&logo=npm" alt="npm downloads" /></a>
   <a href="https://hub.docker.com/r/stabgan/openrouter-mcp-multimodal"><img src="https://img.shields.io/docker/pulls/stabgan/openrouter-mcp-multimodal.svg?label=docker%20pulls&color=2496ed&logo=docker&logoColor=white" alt="Docker pulls" /></a>
-  <a href="https://smithery.ai/servers/stabgan/openrouter-mcp-multimodal"><img src="https://smithery.ai/badge/stabgan/openrouter-mcp-multimodal" alt="Smithery MCP registry" /></a>
+  <a href="https://registry.modelcontextprotocol.io/servers/io.github.stabgan/openrouter-multimodal"><img src="https://img.shields.io/badge/MCP_Registry-listed-6366f1" alt="MCP Registry" /></a>
+  <a href="https://smithery.ai/server/@stabgan/openrouter-mcp-multimodal"><img src="https://img.shields.io/badge/Smithery-Install-6366f1" alt="Smithery MCP registry" /></a>
 </p>
 
 <p align="center">
@@ -34,21 +36,21 @@
 
 ---
 
-[![Verified on MseeP](https://mseep.ai/badge.svg)](https://mseep.ai/app/8f27d6d4-0877-4b86-b377-8a33f451e755)
-
 ## What is this?
 
-**OpenRouter MCP Multimodal** is a [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that connects AI coding agents — [Cursor](https://cursor.com), [Claude Desktop](https://claude.ai/download), [VS Code](https://code.visualstudio.com), [Windsurf](https://codeium.com/windsurf), [Cline](https://github.com/cline/cline), and others — to [OpenRouter](https://openrouter.ai)'s unified LLM API.
+**OpenRouter MCP Multimodal** is a production-grade [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server — listed on the [official MCP Registry](https://registry.modelcontextprotocol.io/servers/io.github.stabgan/openrouter-multimodal) as `io.github.stabgan/openrouter-multimodal`. It connects AI coding agents ([Cursor](https://cursor.com), [Claude Desktop](https://claude.ai/download), [VS Code](https://code.visualstudio.com), [Windsurf](https://codeium.com/windsurf), [Cline](https://github.com/cline/cline), and others) to [OpenRouter](https://openrouter.ai)'s unified LLM API over stdio.
 
-Unlike text-only MCP servers, this package covers the **full multimodal surface** in one dependency:
+Unlike text-only MCP servers, one install covers the **full multimodal surface**:
 
-- **Chat** with 300+ models, provider routing, web search, caching, and reasoning tokens
-- **Vision** — analyze images (OCR, captioning, VQA)
-- **Audio** — transcribe and generate speech/music
-- **Video** — understand clips and generate video (Veo, Sora, Seedance, Wan)
-- **Catalog tools** — search models, validate IDs, rerank documents, health checks
+| Capability | Tools | Highlights |
+| :--- | :--- | :--- |
+| **Chat** | `chat_completion` | 300+ models, `:nitro` / `:exacto` suffixes, provider routing, web search, response caching, reasoning tokens |
+| **Vision** | `analyze_image`, `generate_image` | OCR, captioning, VQA, image generation with reference inputs |
+| **Audio** | `analyze_audio`, `generate_audio` | Transcription, speech/music generation |
+| **Video** | `analyze_video`, `generate_video`, `generate_video_from_image`, `get_video_status` | Clip understanding, Veo / Sora / Seedance / Wan generation with progress notifications |
+| **Catalog** | `search_models`, `get_model_info`, `validate_model`, `rerank_documents`, `health_check` | Model discovery, validation, reranking, ops health |
 
-Built for production agents: path sandboxes, SSRF guards, structured errors (`_meta.code`), MCP 2025 structured outputs, and async video progress notifications.
+**Production hardening:** input/output path sandboxes (including analyze\_\* local files as of v4.5.2), SSRF guards, structured errors with `_meta.code`, MCP 2025-06-18 structured outputs, async video progress notifications, and **650+** automated tests (unit, mock, regression, and live integration).
 
 ## Quick start
 
@@ -74,7 +76,7 @@ npx -y @stabgan/openrouter-mcp-multimodal
 <tr><td><strong>VS Code</strong></td><td><a href="https://insiders.vscode.dev/redirect/mcp/install?name=openrouter&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40stabgan%2Fopenrouter-mcp-multimodal%22%5D%2C%22env%22%3A%7B%22OPENROUTER_API_KEY%22%3A%22sk-or-v1-...%22%7D%7D"><img src="https://img.shields.io/badge/Add_to-VS_Code-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white" alt="Add to VS Code" /></a></td></tr>
 <tr><td><strong>Kiro</strong></td><td><a href="https://kiro.dev/launch/mcp/add?name=openrouter&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40stabgan%2Fopenrouter-mcp-multimodal%22%5D%2C%22env%22%3A%7B%22OPENROUTER_API_KEY%22%3A%22sk-or-v1-...%22%7D%2C%22disabled%22%3Afalse%2C%22autoApprove%22%3A%5B%5D%7D"><img src="https://img.shields.io/badge/Add_to-Kiro-232F3E?style=for-the-badge&logo=amazonaws&logoColor=white" alt="Add to Kiro" /></a></td></tr>
 <tr><td><strong>Claude Desktop / Windsurf / Cline</strong></td><td><a href="#manual-config">Manual JSON config</a></td></tr>
-<tr><td><strong>Smithery</strong></td><td><code>npx -y @smithery/cli install @stabgan/openrouter-mcp-multimodal --client claude</code></td></tr>
+<tr><td><strong>Smithery</strong></td><td><a href="https://smithery.ai/server/@stabgan/openrouter-mcp-multimodal"><code>npx -y @smithery/cli install @stabgan/openrouter-mcp-multimodal --client claude</code></a></td></tr>
 </table>
 
 Paste your `OPENROUTER_API_KEY` when prompted — deeplinks use placeholders so secrets never appear in URLs.
@@ -295,7 +297,7 @@ Fixed in 4.5.2+ — see [GHSA-3q7p-736f-x44v](https://github.com/stabgan/openrou
 
 ## Compatibility
 
-Works with any MCP client. Protocol: **MCP 2025-06-18**. Node **≥ 18**.
+Works with any MCP client. Protocol: **MCP 2025-06-18**. Node **≥ 20** (Docker image uses Node 22).
 
 ## License
 

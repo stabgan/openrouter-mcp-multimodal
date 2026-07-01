@@ -27,3 +27,4 @@ dist/
 
 # Local test harness scratch (metrics harvester smoke tests, etc.)
 .test-tmp/
+*.tgz

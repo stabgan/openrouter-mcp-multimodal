@@ -1,15 +1,13 @@
-name: CI/CD Pipeline
+name: Release
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
     tags: ['v*']
-  pull_request:
-    branches: [main]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: release-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -23,36 +21,14 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: package-lock.json
 
-      - name: Install and verify
-        run: |
-          node --version
-          npm --version
-          npm ci
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Format check
-        run: npm run format:check
+      - run: npm ci
 
       - name: Build TypeScript
         run: npm run build
-
-      - name: Unit tests
-        run: npm test
-
-      - name: Regression tests
-        run: npm run test:regression
-
-      - name: Integration tests
-        run: npm run test:integration
-        env:
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        timeout-minutes: 10
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -64,10 +40,6 @@ jobs:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    # Token-based publish using NPMJS_TOKEN secret. We keep the id-token
-    # permission available so we can flip to OIDC once the npm-side
-    # trusted-publisher binding is configured — see
-    # https://docs.npmjs.com/trusted-publishers/
     permissions:
       id-token: write
       contents: read
@@ -95,7 +67,8 @@ jobs:
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPMJS_TOKEN }}
-        run: npm publish --access=public --provenance
+        run: |
+          npm publish --access=public --provenance || npm publish --access=public
 
   docker:
     needs: build
@@ -153,7 +126,7 @@ jobs:
             type=ref,event=branch
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64

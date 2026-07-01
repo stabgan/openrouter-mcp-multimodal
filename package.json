@@ -19,9 +19,9 @@
     "lint": "eslint src",
     "format": "prettier --write \"src/**/*.ts\" *.json \"*.md\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
-    "test": "node --experimental-vm-modules node_modules/.bin/vitest run",
-    "test:regression": "node --experimental-vm-modules node_modules/.bin/vitest run --config vitest.regression.config.ts",
-    "test:integration": "node --experimental-vm-modules node_modules/.bin/vitest run --config vitest.integration.config.ts",
+    "test": "vitest run",
+    "test:regression": "vitest run --config vitest.regression.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "npm run build && node scripts/live-e2e.mjs",
     "test:all": "npm test && npm run test:regression && npm run test:integration",
     "ci": "npm run lint && npm run format:check && npm run build && npm run test:all"
@@ -48,11 +48,11 @@
   "homepage": "https://github.com/stabgan/openrouter-mcp-multimodal#readme",
   "license": "Apache-2.0",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "dotenv": "^16.6.1",
+    "dotenv": "^17.4.2",
     "openai": "^4.104.0",
     "sharp": "^0.35.3"
   },
@@ -64,9 +64,9 @@
     "form-data": "^4.0.6",
     "js-yaml": "^4.3.0",
     "prettier": "^3.9.4",
-    "shx": "^0.3.4",
+    "shx": "^0.4.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.62.1",
-    "vitest": "^3.2.6"
+    "vitest": "^4.1.9"
   }
 }
