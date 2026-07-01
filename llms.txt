@@ -2,13 +2,24 @@
 
 > MCP (Model Context Protocol) server that gives any MCP client — Claude Desktop, Cursor, Kiro, VS Code, Windsurf, Cline — access to 300+ LLMs through OpenRouter. Covers text chat plus the full multimodal matrix: image / audio / video analysis and image / audio / video generation (Veo 3.1, Sora 2 Pro, Seedance, Wan).
 
-## Install
+## Install methods
 
-- npm: `npx -y @stabgan/openrouter-mcp-multimodal`
-- Docker: `docker run --rm -i -e OPENROUTER_API_KEY=... stabgan/openrouter-mcp-multimodal:latest`
-- Smithery: `npx -y @smithery/cli install @stabgan/openrouter-mcp-multimodal --client claude`
+| Method | Command / package |
+| :--- | :--- |
+| **npx** (Node, recommended) | `npx -y @stabgan/openrouter-mcp-multimodal` |
+| **uvx** (Python launcher → npx; needs Node too) | `uvx mcp-server-openrouter-multimodal` |
+| **npm global** | `npm i -g @stabgan/openrouter-mcp-multimodal` → `openrouter-multimodal` |
+| **Docker Hub** | `docker run --rm -i -e OPENROUTER_API_KEY=... stabgan/openrouter-mcp-multimodal:latest` |
+| **GHCR** | `docker run --rm -i -e OPENROUTER_API_KEY=... ghcr.io/stabgan/openrouter-mcp-multimodal:latest` |
+| **Smithery** | `npx -y @smithery/cli install @stabgan/openrouter-mcp-multimodal --client claude` |
+| **MCP Registry** | `io.github.stabgan/openrouter-multimodal` — npm + OCI |
+| **Claude Code CLI** | `claude mcp add openrouter -- npx -y @stabgan/openrouter-mcp-multimodal` |
+| **MCP Inspector** | `npx -y @modelcontextprotocol/inspector npx -y @stabgan/openrouter-mcp-multimodal` |
+| **Windows** | `"command": "cmd", "args": ["/c", "npx", "-y", "@stabgan/openrouter-mcp-multimodal"]` |
 
 Get a free API key at https://openrouter.ai/keys.
+
+Full install matrix: https://github.com/stabgan/openrouter-mcp-multimodal#install
 
 ## Tools
 
@@ -42,6 +53,8 @@ All error responses carry `_meta.code` from a closed taxonomy: `INVALID_INPUT`, 
 - Issues: https://github.com/stabgan/openrouter-mcp-multimodal/issues
 - Changelog: https://github.com/stabgan/openrouter-mcp-multimodal/blob/main/CHANGELOG.md
 - npm: https://www.npmjs.com/package/@stabgan/openrouter-mcp-multimodal
+- PyPI (uvx launcher): https://pypi.org/project/mcp-server-openrouter-multimodal/ (publish pending)
 - Docker Hub: https://hub.docker.com/r/stabgan/openrouter-mcp-multimodal
 - GHCR: https://github.com/stabgan/openrouter-mcp-multimodal/pkgs/container/openrouter-mcp-multimodal
+- MCP Registry: https://registry.modelcontextprotocol.io/servers/io.github.stabgan/openrouter-multimodal
 - License: Apache-2.0
