@@ -56,8 +56,8 @@ describe('regression: GHSA-3q7p-736f-x44v path sandbox on analyze_*', () => {
 });
 
 describe('regression: tool catalog completeness', () => {
-  it('has exactly 14 tools with non-empty descriptions', () => {
-    expect(TOOL_NAMES.length).toBe(14);
+  it('has exactly 19 tools with non-empty descriptions', () => {
+    expect(TOOL_NAMES.length).toBe(19);
     for (const name of TOOL_NAMES) {
       expect(TOOL_DESCRIPTIONS[name].length).toBeGreaterThan(100);
     }
