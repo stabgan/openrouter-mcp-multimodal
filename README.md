@@ -32,6 +32,7 @@
   <a href="#examples">Examples</a> ·
   <a href="#security">Security</a> ·
   <a href="#development">Development</a> ·
+  <a href="#releasing">Releasing</a> ·
   <a href="#faq">FAQ</a>
 </p>
 
@@ -492,7 +493,21 @@ Mock tests live under `src/__tests__/mock/` and cover handlers, path sandboxes, 
 ```bash
 npm run lint
 npm run format:check
+npm run version:check   # package.json vs src/version.ts, server.json, pyproject.toml
 ```
+
+## Releasing
+
+Published artifacts (**npm**, **PyPI/uvx**, **Docker**, **GHCR**) all ship from the **same semver** on a git tag (`vX.Y.Z`). Pushing to `main` runs tests but does **not** publish to npm or PyPI.
+
+**Normal flow:** merge conventional commits to `main` → [Release Please](https://github.com/googleapis/release-please) opens a Release PR → merge it → tag is created → CI publishes everywhere.
+
+**Manual flow:** bump all version files → `npm run version:check` → `npm run ci` + smoke tests → commit → `git tag vX.Y.Z` → `git push origin vX.Y.Z`.
+
+Full checklist, file list, CI secrets, and agent instructions:
+
+- **[`docs/RELEASING.md`](docs/RELEASING.md)** — maintainer release guide
+- **[`AGENTS.md`](AGENTS.md)** — quick reference for AI agents
 
 ## FAQ
 
@@ -522,4 +537,6 @@ Apache 2.0 — see [LICENSE](./LICENSE).
 
 ## Contributing
 
-Issues and PRs welcome. For large changes, open an issue first. Run `npm run ci` before submitting.
+Issues and PRs welcome. For large changes, open an issue first.
+
+Before submitting: run **`npm run ci`**. Use [Conventional Commits](https://www.conventionalcommits.org/) (`fix:`, `feat:`, etc.) so [Release Please](docs/RELEASING.md) can cut the next release. See **[`docs/RELEASING.md`](docs/RELEASING.md)** if you need to ship a version.
