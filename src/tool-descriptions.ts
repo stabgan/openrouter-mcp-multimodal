@@ -41,6 +41,8 @@ export const REQUIRED_DESCRIPTION_SECTIONS = [
 
 export const TOOL_NAMES = [
   'chat_completion',
+  'start_chat_completion',
+  'get_chat_completion_status',
   'analyze_image',
   'analyze_audio',
   'analyze_video',
@@ -48,7 +50,10 @@ export const TOOL_NAMES = [
   'get_model_info',
   'validate_model',
   'generate_image',
+  'generate_image_dedicated',
   'generate_audio',
+  'text_to_speech',
+  'speech_to_text',
   'generate_video',
   'generate_video_from_image',
   'get_video_status',
@@ -62,8 +67,8 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
   chat_completion: buildToolDescription({
     summary:
       'Send messages to an OpenRouter chat model and get a text reply. Supports provider routing, ' +
-      'model suffixes (`:nitro` fastest, `:floor` cheapest, `:exacto` tool accuracy), reasoning ' +
-      'tokens, web search (`online: true`), and response caching.',
+      'model suffixes (`:nitro` fastest, `:floor` cheapest, `:free` zero-cost, `:online` web search, ' +
+      '`:exacto` tool accuracy), reasoning tokens, web search (`online: true`), and response caching.',
     useWhen: [
       'You need text generation, Q&A, summarization, or multi-turn dialogue',
       'You want web-grounded answers (`online: true`)',
@@ -91,6 +96,63 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
       'MODEL_NOT_FOUND: model slug does not exist on OpenRouter',
     ],
     worksWith: ['validate_model', 'search_models'],
+  }),
+
+  start_chat_completion: buildToolDescription({
+    summary:
+      'Start a chat completion as an async background job. Returns a job_id immediately without waiting ' +
+      'for the model to respond. Use `get_chat_completion_status` to poll for results. Designed for ' +
+      'reasoning models or any request that may exceed MCP timeout limits (~60s).',
+    useWhen: [
+      'Using a reasoning model that may take >60 seconds (DeepSeek R1, Claude Opus, etc.)',
+      'Connected through a remote MCP bridge with short timeouts',
+      'You want to fire-and-forget a completion and check back later',
+    ],
+    notWhen: [
+      'Fast models that respond within seconds → use chat_completion directly',
+      'You need streaming output → use chat_completion',
+      'Messages array is empty',
+    ],
+    goodExamples: [
+      '`{ "messages": [{ "role": "user", "content": "Prove the Riemann hypothesis" }], "model": "deepseek/r1" }`',
+      '`{ "messages": [...], "include_reasoning": true }` for long chain-of-thought',
+    ],
+    badExamples: [
+      '`{ "messages": [] }` → INVALID_INPUT',
+      'Using this for simple "hello world" prompts (unnecessary overhead)',
+    ],
+    failsWhen: [
+      'INVALID_INPUT: empty messages array',
+      'Job may fail in background if model errors or credits exhausted',
+    ],
+    worksWith: ['get_chat_completion_status', 'chat_completion'],
+  }),
+
+  get_chat_completion_status: buildToolDescription({
+    summary:
+      'Check the status of an async chat completion job started with `start_chat_completion`. ' +
+      'Returns the full response when completed, or current status (running/failed) otherwise.',
+    useWhen: [
+      'You previously called start_chat_completion and need to check if it finished',
+      'Polling for a long-running reasoning model result',
+    ],
+    notWhen: [
+      'You haven\'t started a job yet → use start_chat_completion first',
+      'You want to start a new completion',
+    ],
+    goodExamples: [
+      '`{ "job_id": "chat_20260806_001" }`',
+    ],
+    badExamples: [
+      '`{ "job_id": "" }` → INVALID_INPUT',
+      '`{ "job_id": "nonexistent" }` → job not found',
+    ],
+    failsWhen: [
+      'INVALID_INPUT: empty job_id',
+      'JOB_FAILED: the background completion encountered an error',
+      'Job not found: invalid job_id or job from a previous session',
+    ],
+    worksWith: ['start_chat_completion', 'chat_completion'],
   }),
 
   analyze_image: buildToolDescription({
@@ -298,6 +360,40 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
     worksWith: ['analyze_image', 'generate_video_from_image'],
   }),
 
+  generate_image_dedicated: buildToolDescription({
+    summary:
+      'Generate images via OpenRouter\'s dedicated Image API (POST /api/v1/images). Supports ' +
+      'normalized resolution tiers, quality levels, output format selection, and reference images. ' +
+      'New image models are added exclusively to this endpoint. Default model: google/gemini-2.5-flash-image.',
+    useWhen: [
+      'You need image generation with fine control over resolution, quality, and format',
+      'You want to use newer image models only available on the dedicated API',
+      'You need image-to-image with `input_references`',
+    ],
+    notWhen: [
+      'You want to analyze an existing image → analyze_image',
+      'You want video → generate_video or generate_video_from_image',
+      'Prompt is empty or only whitespace',
+    ],
+    goodExamples: [
+      '`{ "prompt": "A watercolor fox", "resolution": "2K", "quality": "high" }`',
+      '`{ "prompt": "Product shot", "input_references": ["product.jpg"], "aspect_ratio": "16:9" }`',
+      '`{ "prompt": "Logo", "output_format": "svg", "save_path": "out/logo.svg" }`',
+    ],
+    badExamples: [
+      '`{ "prompt": "" }` → INVALID_INPUT',
+      '`{ "resolution": "8K" }` → not in allowed enum',
+      '`{ "quality": "ultra" }` → not in allowed enum',
+    ],
+    failsWhen: [
+      'INVALID_INPUT: empty prompt, invalid resolution/quality/output_format',
+      'UNSAFE_PATH: save_path or input_references escaped sandbox',
+      'UPSTREAM_REFUSED: content policy, model doesn\'t support requested options',
+      'MODEL_NOT_FOUND: invalid model slug',
+    ],
+    worksWith: ['analyze_image', 'generate_video_from_image'],
+  }),
+
   generate_audio: buildToolDescription({
     summary:
       'Generate speech or music from a text prompt. Output format is auto-detected; file extension auto-corrected on save.',
@@ -320,6 +416,70 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
       'UPSTREAM_REFUSED: content policy or credits',
     ],
     worksWith: ['analyze_audio'],
+  }),
+
+  text_to_speech: buildToolDescription({
+    summary:
+      'Convert text to speech via OpenRouter\'s dedicated TTS endpoint (POST /api/v1/audio/speech). ' +
+      'Faster and cheaper than chat completions for pure TTS. Models: OpenAI GPT-4o Mini TTS, Google Gemini Flash TTS, Mistral Voxtral.',
+    useWhen: [
+      'You need text-to-speech with specific voice control',
+      'You want fast, dedicated TTS without chat overhead',
+      'You need a specific audio format (mp3, opus, wav, etc.)',
+    ],
+    notWhen: [
+      'You want to generate music or sound effects → generate_audio',
+      'You want to transcribe audio → speech_to_text or analyze_audio',
+      'Input text is empty',
+    ],
+    goodExamples: [
+      '`{ "input": "Hello, welcome to our app!" }`',
+      '`{ "input": "...", "voice": "nova", "response_format": "mp3", "save_path": "out/welcome.mp3" }`',
+      '`{ "input": "...", "instructions": "speak slowly and clearly", "speed": 0.8 }`',
+    ],
+    badExamples: [
+      '`{ "input": "" }` → INVALID_INPUT',
+      '`{ "prompt": "text" }` → wrong key; use `input`',
+      '`{ "response_format": "mp4" }` → not a valid audio format',
+    ],
+    failsWhen: [
+      'INVALID_INPUT: empty input, invalid response_format',
+      'UNSAFE_PATH: save_path escaped sandbox',
+      'UPSTREAM_REFUSED: content policy or credits',
+    ],
+    worksWith: ['speech_to_text', 'analyze_audio'],
+  }),
+
+  speech_to_text: buildToolDescription({
+    summary:
+      'Transcribe audio via OpenRouter\'s dedicated STT endpoint (POST /api/v1/audio/transcriptions). ' +
+      'Faster and cheaper than chat completions for pure transcription. Models: Whisper-1, GPT-4o Transcribe, Voxtral.',
+    useWhen: [
+      'You need fast transcription of audio files',
+      'You want pure speech-to-text without analysis or Q&A',
+      'You need structured output (SRT, VTT, verbose JSON)',
+    ],
+    notWhen: [
+      'You want to ask questions about audio → analyze_audio',
+      'You want music analysis or sound identification → analyze_audio',
+      'You want TTS → text_to_speech or generate_audio',
+    ],
+    goodExamples: [
+      '`{ "audio_path": "recording.mp3" }`',
+      '`{ "audio_path": "meeting.wav", "language": "en", "response_format": "srt" }`',
+      '`{ "audio_path": "https://example.com/audio.mp3", "model": "openai/gpt-4o-transcribe" }`',
+    ],
+    badExamples: [
+      '`{ "audio_path": "" }` → INVALID_INPUT',
+      '`{ "path": "audio.mp3" }` → wrong key; use `audio_path`',
+      '`{ "audio_path": "/etc/shadow" }` → UNSAFE_PATH',
+    ],
+    failsWhen: [
+      'INVALID_INPUT: empty audio_path, invalid response_format, unreadable file',
+      'UNSAFE_PATH: audio_path escaped sandbox',
+      'UPSTREAM_REFUSED: unsupported format or credits exhausted',
+    ],
+    worksWith: ['text_to_speech', 'analyze_audio'],
   }),
 
   generate_video: buildToolDescription({

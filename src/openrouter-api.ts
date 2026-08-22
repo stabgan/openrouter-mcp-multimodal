@@ -184,6 +184,84 @@ export class OpenRouterAPIClient {
     return { buffer: Buffer.concat(chunks), contentType: res.headers.get('content-type') };
   }
 
+  /**
+   * POST /images — dedicated image generation endpoint.
+   * Returns structured response with base64 image data.
+   */
+  async generateImage(
+    body: Record<string, unknown>,
+    headers?: Record<string, string>,
+  ): Promise<ImageGenerationResponse> {
+    const res = await fetchWithRetry(
+      `${BASE_URL}/images`,
+      {
+        method: 'POST',
+        headers: this.authHeaders({ 'Content-Type': 'application/json', ...headers }),
+        body: JSON.stringify(body),
+      },
+      { retries: 2, timeoutMs: 120_000 },
+    );
+    if (!res.ok) {
+      const detail = await safeReadText(res);
+      throw new Error(`POST /images failed: HTTP ${res.status}${detail ? ` — ${detail}` : ''}`);
+    }
+    return (await res.json()) as ImageGenerationResponse;
+  }
+
+  /**
+   * POST /audio/speech — dedicated text-to-speech endpoint.
+   * Returns raw audio bytes.
+   */
+  async generateSpeech(
+    body: Record<string, unknown>,
+    headers?: Record<string, string>,
+  ): Promise<{ buffer: Buffer; contentType: string }> {
+    const res = await fetchWithRetry(
+      `${BASE_URL}/audio/speech`,
+      {
+        method: 'POST',
+        headers: this.authHeaders({ 'Content-Type': 'application/json', ...headers }),
+        body: JSON.stringify(body),
+      },
+      { retries: 2, timeoutMs: 60_000 },
+    );
+    if (!res.ok) {
+      const detail = await safeReadText(res);
+      throw new Error(
+        `POST /audio/speech failed: HTTP ${res.status}${detail ? ` — ${detail}` : ''}`,
+      );
+    }
+    const contentType = res.headers.get('content-type') || 'audio/mpeg';
+    const buf = Buffer.from(await res.arrayBuffer());
+    return { buffer: buf, contentType };
+  }
+
+  /**
+   * POST /audio/transcriptions — dedicated speech-to-text endpoint.
+   * Accepts base64-encoded audio and returns transcription text.
+   */
+  async transcribeAudio(
+    body: Record<string, unknown>,
+    headers?: Record<string, string>,
+  ): Promise<TranscriptionResponse> {
+    const res = await fetchWithRetry(
+      `${BASE_URL}/audio/transcriptions`,
+      {
+        method: 'POST',
+        headers: this.authHeaders({ 'Content-Type': 'application/json', ...headers }),
+        body: JSON.stringify(body),
+      },
+      { retries: 2, timeoutMs: 60_000 },
+    );
+    if (!res.ok) {
+      const detail = await safeReadText(res);
+      throw new Error(
+        `POST /audio/transcriptions failed: HTTP ${res.status}${detail ? ` — ${detail}` : ''}`,
+      );
+    }
+    return (await res.json()) as TranscriptionResponse;
+  }
+
   /** POST /rerank — re-order documents by relevance to a query. */
   async rerank(params: {
     model: string;
@@ -218,6 +296,21 @@ export interface VideoJobEnvelope {
   id: string;
   status?: VideoJobStatusName;
   polling_url?: string;
+  [key: string]: unknown;
+}
+
+export interface ImageGenerationResponse {
+  data?: Array<{ b64_json?: string; url?: string; revised_prompt?: string }>;
+  usage?: { cost?: number; [key: string]: unknown };
+  [key: string]: unknown;
+}
+
+export interface TranscriptionResponse {
+  text?: string;
+  segments?: Array<{ start: number; end: number; text: string }>;
+  language?: string;
+  duration?: number;
+  usage?: { cost?: number; [key: string]: unknown };
   [key: string]: unknown;
 }
 

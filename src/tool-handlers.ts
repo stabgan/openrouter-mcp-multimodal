@@ -25,6 +25,15 @@ import {
 } from './tool-handlers/generate-video.js';
 import { handleRerankDocuments } from './tool-handlers/rerank.js';
 import { handleHealthCheck } from './tool-handlers/health-check.js';
+import {
+  handleGenerateImageDedicated,
+} from './tool-handlers/generate-image-dedicated.js';
+import { handleTextToSpeech } from './tool-handlers/text-to-speech.js';
+import { handleSpeechToText } from './tool-handlers/speech-to-text.js';
+import {
+  handleStartChatCompletion,
+  handleGetChatCompletionStatus,
+} from './tool-handlers/async-chat.js';
 import type { ChatCompletionToolRequest } from './tool-handlers/chat-completion.js';
 import type { AnalyzeImageToolRequest } from './tool-handlers/analyze-image.js';
 import type { SearchModelsArgs } from './tool-handlers/search-models.js';
@@ -38,6 +47,13 @@ import type {
   GenerateVideoFromImageRequest,
 } from './tool-handlers/generate-video.js';
 import type { RerankDocumentsRequest } from './tool-handlers/rerank.js';
+import type { GenerateImageDedicatedRequest } from './tool-handlers/generate-image-dedicated.js';
+import type { TextToSpeechRequest } from './tool-handlers/text-to-speech.js';
+import type { SpeechToTextRequest } from './tool-handlers/speech-to-text.js';
+import type {
+  StartChatCompletionRequest,
+  GetChatCompletionStatusRequest,
+} from './tool-handlers/async-chat.js';
 import { TOOL_DESCRIPTIONS } from './tool-descriptions.js';
 
 function wrapToolArgs<T extends object>(a: T | undefined): { params: { arguments: T } } {
@@ -137,8 +153,9 @@ export class ToolHandlers {
                 type: 'string',
                 description:
                   'Model ID (optional, uses default). Append `:nitro` for the fastest variant, ' +
-                  '`:floor` for the cheapest, or `:exacto` for the best tool-calling accuracy. ' +
-                  'Example: `openai/gpt-4o:nitro`.',
+                  '`:floor` for the cheapest, `:free` for the free tier, `:online` for web search, ' +
+                  'or `:exacto` for the best tool-calling accuracy. ' +
+                  'Example: `openai/gpt-4o:nitro`. Or pass `online: true` for programmatic web search control.',
               },
               messages: {
                 type: 'array',
@@ -218,6 +235,63 @@ export class ToolHandlers {
               },
             },
             required: ['messages'],
+          },
+        },
+        {
+          name: 'start_chat_completion',
+          description: TOOL_DESCRIPTIONS.start_chat_completion,
+          annotations: {
+            title: 'Start async chat completion',
+            readOnlyHint: false,
+            destructiveHint: false,
+            idempotentHint: false,
+            openWorldHint: true,
+          },
+          inputSchema: {
+            type: 'object',
+            properties: {
+              model: { type: 'string', description: 'Model ID (same as chat_completion).' },
+              messages: {
+                type: 'array',
+                minItems: 1,
+                items: {
+                  type: 'object',
+                  properties: {
+                    role: { type: 'string', enum: ['system', 'user', 'assistant'] },
+                    content: { oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'object' } }] },
+                  },
+                  required: ['role', 'content'],
+                },
+              },
+              temperature: { type: 'number', minimum: 0, maximum: 2 },
+              max_tokens: { type: 'number', minimum: 1 },
+              provider: { type: 'object' },
+              include_reasoning: { type: 'boolean' },
+              online: { type: 'boolean' },
+              web_max_results: { type: 'number', minimum: 1 },
+              cache: { type: 'boolean' },
+              cache_ttl: { type: 'string' },
+              cache_clear: { type: 'boolean' },
+            },
+            required: ['messages'],
+          },
+        },
+        {
+          name: 'get_chat_completion_status',
+          description: TOOL_DESCRIPTIONS.get_chat_completion_status,
+          annotations: {
+            title: 'Get async chat completion status',
+            readOnlyHint: true,
+            destructiveHint: false,
+            idempotentHint: true,
+            openWorldHint: false,
+          },
+          inputSchema: {
+            type: 'object',
+            properties: {
+              job_id: { type: 'string', description: 'The job_id returned by start_chat_completion.' },
+            },
+            required: ['job_id'],
           },
         },
         {
@@ -454,6 +528,71 @@ export class ToolHandlers {
           },
         },
         {
+          name: 'generate_image_dedicated',
+          description: TOOL_DESCRIPTIONS.generate_image_dedicated,
+          annotations: {
+            title: 'Generate image (dedicated API)',
+            readOnlyHint: false,
+            destructiveHint: false,
+            idempotentHint: false,
+            openWorldHint: true,
+          },
+          inputSchema: {
+            type: 'object',
+            properties: {
+              prompt: {
+                type: 'string',
+                description: 'Text prompt describing the image to generate.',
+              },
+              model: {
+                type: 'string',
+                description:
+                  'Image model ID. Default: google/gemini-2.5-flash-image. Browse available at https://openrouter.ai/collections/image-models',
+              },
+              resolution: {
+                type: 'string',
+                enum: ['512', '0.5K', '1K', '2K', '4K'],
+                description: 'Normalized resolution tier. Provider maps to closest supported size.',
+              },
+              aspect_ratio: {
+                type: 'string',
+                description: 'Aspect ratio (e.g. "1:1", "16:9", "9:16", "4:3", "21:9").',
+              },
+              quality: {
+                type: 'string',
+                enum: ['auto', 'low', 'medium', 'high'],
+                description: 'Image quality level.',
+              },
+              output_format: {
+                type: 'string',
+                enum: ['png', 'jpeg', 'webp', 'svg'],
+                description: 'Output image format.',
+              },
+              n: {
+                type: 'number',
+                minimum: 1,
+                maximum: 10,
+                description: 'Number of images to generate (model-dependent, default 1).',
+              },
+              input_references: {
+                type: 'array',
+                items: { type: 'string' },
+                description:
+                  'Reference images for image-to-image workflows. Each entry: local path, http(s) URL, or data URL.',
+              },
+              save_path: { type: 'string', description: 'Save generated image to this path.' },
+              provider: {
+                type: 'object',
+                description: 'Provider routing overrides (order, sort, allow_fallbacks, etc.).',
+              },
+              cache: { type: 'boolean' },
+              cache_ttl: { type: 'string' },
+              cache_clear: { type: 'boolean' },
+            },
+            required: ['prompt'],
+          },
+        },
+        {
           name: 'generate_audio',
           description: TOOL_DESCRIPTIONS.generate_audio,
           annotations: {
@@ -473,6 +612,100 @@ export class ToolHandlers {
               save_path: { type: 'string' },
             },
             required: ['prompt'],
+          },
+        },
+        {
+          name: 'text_to_speech',
+          description: TOOL_DESCRIPTIONS.text_to_speech,
+          annotations: {
+            title: 'Text to speech (dedicated API)',
+            readOnlyHint: false,
+            destructiveHint: false,
+            idempotentHint: false,
+            openWorldHint: true,
+          },
+          inputSchema: {
+            type: 'object',
+            properties: {
+              input: {
+                type: 'string',
+                description: 'Text to convert to speech.',
+              },
+              model: {
+                type: 'string',
+                description:
+                  'TTS model. Default: openai/gpt-4o-mini-tts-2025-12-15. Also: google/gemini-flash-tts, mistral/voxtral-mini-tts.',
+              },
+              voice: {
+                type: 'string',
+                description: 'Voice ID (model-specific). Default: alloy. OpenAI voices: alloy, echo, fable, onyx, nova, shimmer.',
+              },
+              response_format: {
+                type: 'string',
+                enum: ['mp3', 'opus', 'aac', 'flac', 'wav', 'pcm'],
+                description: 'Output audio format. Default: mp3.',
+              },
+              speed: {
+                type: 'number',
+                minimum: 0.25,
+                maximum: 4.0,
+                description: 'Speed of speech (0.25 to 4.0). Default: 1.0.',
+              },
+              instructions: {
+                type: 'string',
+                description: 'Tone/style instructions (e.g. "speak in a warm, friendly tone"). OpenAI models only.',
+              },
+              save_path: { type: 'string', description: 'Save audio to this path.' },
+              cache: { type: 'boolean' },
+              cache_ttl: { type: 'string' },
+              cache_clear: { type: 'boolean' },
+            },
+            required: ['input'],
+          },
+        },
+        {
+          name: 'speech_to_text',
+          description: TOOL_DESCRIPTIONS.speech_to_text,
+          annotations: {
+            title: 'Speech to text (dedicated API)',
+            readOnlyHint: true,
+            destructiveHint: false,
+            idempotentHint: false,
+            openWorldHint: true,
+          },
+          inputSchema: {
+            type: 'object',
+            properties: {
+              audio_path: {
+                type: 'string',
+                description:
+                  'Audio file: local path (sandboxed), http(s) URL, or base64 data URL. Formats: mp3, wav, flac, ogg, webm, mp4.',
+              },
+              model: {
+                type: 'string',
+                description:
+                  'STT model. Default: openai/whisper-1. Also: openai/gpt-4o-transcribe, openai/gpt-4o-mini-transcribe.',
+              },
+              language: {
+                type: 'string',
+                description: 'ISO-639-1 language code (e.g. "en", "es", "fr"). Improves accuracy.',
+              },
+              response_format: {
+                type: 'string',
+                enum: ['json', 'text', 'srt', 'verbose_json', 'vtt'],
+                description: 'Output format for transcription. Default: json.',
+              },
+              temperature: {
+                type: 'number',
+                minimum: 0,
+                maximum: 1,
+                description: 'Sampling temperature for transcription (0-1).',
+              },
+              cache: { type: 'boolean' },
+              cache_ttl: { type: 'string' },
+              cache_clear: { type: 'boolean' },
+            },
+            required: ['audio_path'],
           },
         },
         {
@@ -645,6 +878,16 @@ export class ToolHandlers {
               this.openai,
               this.defaultModel,
             );
+          case 'start_chat_completion':
+            return handleStartChatCompletion(
+              wrapToolArgs(args as StartChatCompletionRequest | undefined),
+              this.openai,
+              this.defaultModel,
+            );
+          case 'get_chat_completion_status':
+            return handleGetChatCompletionStatus(
+              wrapToolArgs(args as GetChatCompletionStatusRequest | undefined),
+            );
           case 'analyze_image':
             return handleAnalyzeImage(
               wrapToolArgs(args as AnalyzeImageToolRequest | undefined),
@@ -686,10 +929,25 @@ export class ToolHandlers {
               wrapToolArgs(args as GenerateImageToolRequest | undefined),
               this.openai,
             );
+          case 'generate_image_dedicated':
+            return handleGenerateImageDedicated(
+              wrapToolArgs(args as GenerateImageDedicatedRequest | undefined),
+              this.apiClient,
+            );
           case 'generate_audio':
             return handleGenerateAudio(
               wrapToolArgs(args as GenerateAudioToolRequest | undefined),
               this.openai,
+            );
+          case 'text_to_speech':
+            return handleTextToSpeech(
+              wrapToolArgs(args as TextToSpeechRequest | undefined),
+              this.apiClient,
+            );
+          case 'speech_to_text':
+            return handleSpeechToText(
+              wrapToolArgs(args as SpeechToTextRequest | undefined),
+              this.apiClient,
             );
           case 'generate_video':
             return handleGenerateVideo(

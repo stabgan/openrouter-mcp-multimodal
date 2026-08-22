@@ -14,11 +14,36 @@
  */
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
+import os from 'node:os';
 
+/**
+ * Resolve the output root directory. On Windows, `process.cwd()` can be
+ * a system directory (e.g. `C:\Windows\System32`) when spawned by MCP
+ * clients without a working directory override. We detect that case and
+ * fall back to a writable temp directory to avoid EPERM errors.
+ */
 function getOutputRoot(): string {
   const override = process.env.OPENROUTER_OUTPUT_DIR;
   if (override && override.length > 0) return path.resolve(override);
-  return process.cwd();
+
+  const cwd = process.cwd();
+
+  // On Windows, avoid using system directories as the default output root.
+  // Common non-writable defaults when MCP clients spawn without a cwd:
+  //   C:\Windows\System32, C:\Windows, C:\Program Files\...
+  if (process.platform === 'win32') {
+    const cwdLower = cwd.toLowerCase().replace(/\\/g, '/');
+    if (
+      cwdLower.startsWith('c:/windows') ||
+      cwdLower.startsWith('c:/program files') ||
+      cwdLower.startsWith('c:/program files (x86)')
+    ) {
+      const fallback = path.join(os.homedir(), 'openrouter-mcp-output');
+      return fallback;
+    }
+  }
+
+  return cwd;
 }
 
 function isUnsafeMode(): boolean {
@@ -103,16 +128,26 @@ async function findExistingAncestor(dir: string): Promise<string> {
 /**
  * Root-resolution for caller-supplied INPUT paths. Prefers
  * `OPENROUTER_INPUT_DIR`, then `OPENROUTER_OUTPUT_DIR`, then `process.cwd()`.
- * This mirrors the semantics `generate_image`'s `input_images` originally
- * shipped with; exposing it here lets `generate_video`'s frame and
- * reference images use the same sandbox.
+ * On Windows, applies the same system-directory detection as getOutputRoot.
  */
 function getInputRoot(): string {
   const inputDir = process.env.OPENROUTER_INPUT_DIR;
   if (inputDir && inputDir.length > 0) return path.resolve(inputDir);
   const outputDir = process.env.OPENROUTER_OUTPUT_DIR;
   if (outputDir && outputDir.length > 0) return path.resolve(outputDir);
-  return process.cwd();
+
+  const cwd = process.cwd();
+  if (process.platform === 'win32') {
+    const cwdLower = cwd.toLowerCase().replace(/\\/g, '/');
+    if (
+      cwdLower.startsWith('c:/windows') ||
+      cwdLower.startsWith('c:/program files') ||
+      cwdLower.startsWith('c:/program files (x86)')
+    ) {
+      return path.join(os.homedir(), 'openrouter-mcp-output');
+    }
+  }
+  return cwd;
 }
 
 /**

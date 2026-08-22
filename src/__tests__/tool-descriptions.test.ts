@@ -7,8 +7,8 @@ import {
 } from '../tool-descriptions.js';
 
 describe('tool descriptions structure', () => {
-  it('defines all 14 tools', () => {
-    expect(TOOL_NAMES).toHaveLength(14);
+  it('defines all 19 tools', () => {
+    expect(TOOL_NAMES).toHaveLength(19);
     for (const name of TOOL_NAMES) {
       expect(TOOL_DESCRIPTIONS[name]).toBeTruthy();
     }

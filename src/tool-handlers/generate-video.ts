@@ -18,6 +18,39 @@ const DEFAULT_MAX_WAIT_MS = 10 * 60_000;
 const MIN_POLL_INTERVAL_MS = 50; // just to avoid a 0ms busy-loop if a caller omits
 const INLINE_RETURN_CEILING_BYTES = 10 * 1024 * 1024;
 
+/** Models deprecated by OpenAI — removal date: 2026-09-24. */
+const SORA_DEPRECATED_MODELS = new Set([
+  'openai/sora-2',
+  'openai/sora-2-pro',
+  'openai/sora-2-2025-10-06',
+  'openai/sora-2-2025-12-08',
+  'openai/sora-2-pro-2025-10-06',
+]);
+
+const SORA_ALTERNATIVES = [
+  'google/veo-3.1 (recommended — fast, audio support)',
+  'google/veo-3.1-fast (budget-friendly)',
+  'bytedance/seedance-2.0 (high quality)',
+  'bytedance/seedance-2.0-fast (fast turnaround)',
+  'alibaba/wan-2.7 (good for artistic styles)',
+];
+
+/**
+ * Check if the model is a deprecated Sora model and return a warning string,
+ * or null if no deprecation applies.
+ */
+function checkSoraDeprecation(model: string): string | null {
+  const normalized = model.toLowerCase().trim();
+  if (!SORA_DEPRECATED_MODELS.has(normalized) && !normalized.startsWith('openai/sora')) {
+    return null;
+  }
+  return (
+    `⚠️ DEPRECATION WARNING: ${model} is deprecated by OpenAI and will be removed from the API on September 24, 2026. ` +
+    `Your request will still be attempted, but may fail. Recommended alternatives:\n` +
+    SORA_ALTERNATIVES.map((a) => `  • ${a}`).join('\n')
+  );
+}
+
 export interface GenerateVideoToolRequest {
   prompt: string;
   model?: string;
@@ -140,8 +173,9 @@ async function attachFrameImages(
           ? {
               kind: 'frame' as const,
               entry: {
+                type: 'image_url',
+                image_url: { url: `data:${img.mime};base64,${img.data}` },
                 frame_type: 'first_frame',
-                image: { url: `data:${img.mime};base64,${img.data}` },
               },
             }
           : null,
@@ -155,8 +189,9 @@ async function attachFrameImages(
           ? {
               kind: 'frame' as const,
               entry: {
+                type: 'image_url',
+                image_url: { url: `data:${img.mime};base64,${img.data}` },
                 frame_type: 'last_frame',
-                image: { url: `data:${img.mime};base64,${img.data}` },
               },
             }
           : null,
@@ -176,7 +211,10 @@ async function attachFrameImages(
     );
     const refs = refResults
       .filter((img): img is NonNullable<typeof img> => img !== null)
-      .map((img) => ({ image: { url: `data:${img.mime};base64,${img.data}` } }));
+      .map((img) => ({
+        type: 'image_url',
+        image_url: { url: `data:${img.mime};base64,${img.data}` },
+      }));
     if (refs.length) body.input_references = refs;
   }
 }
@@ -323,6 +361,10 @@ export async function handleGenerateVideo(
 
   const model = args.model || process.env.OPENROUTER_DEFAULT_VIDEO_GEN_MODEL || FALLBACK_MODEL;
 
+  // Sora deprecation warning — OpenAI is removing the Videos API and all
+  // Sora 2 model aliases on September 24, 2026. Warn and suggest alternatives.
+  const deprecationWarning = checkSoraDeprecation(model);
+
   // Audit entry — video is the most expensive tool we have. Always log
   // model, resolution, duration, and a safe prompt preview so unintended
   // spend can be traced.
@@ -388,13 +430,16 @@ export async function handleGenerateVideo(
     });
   }
   if (outcome.kind === 'timeout') {
+    const timeoutContent: Array<{ type: string; text: string }> = [];
+    if (deprecationWarning) {
+      timeoutContent.push({ type: 'text' as const, text: deprecationWarning });
+    }
+    timeoutContent.push({
+      type: 'text' as const,
+      text: `Video still generating after ${maxWaitMs}ms. Use get_video_status with video_id=${envelope.id} to resume.`,
+    });
     return {
-      content: [
-        {
-          type: 'text' as const,
-          text: `Video still generating after ${maxWaitMs}ms. Use get_video_status with video_id=${envelope.id} to resume.`,
-        },
-      ],
+      content: timeoutContent,
       isError: false as const,
       _meta: {
         server_version: SERVER_VERSION,
@@ -408,6 +453,11 @@ export async function handleGenerateVideo(
 
   try {
     const { content, _meta } = await finalizeCompletedJob(apiClient, outcome.status, safeSavePath);
+    // Prepend deprecation warning if applicable
+    if (deprecationWarning) {
+      content.unshift({ type: 'text', text: deprecationWarning });
+      (_meta as Record<string, unknown>).deprecated_model = true;
+    }
     return { content, _meta };
   } catch (err) {
     if (err instanceof UnsafeOutputPathError) {
