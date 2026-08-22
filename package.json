@@ -1,6 +1,6 @@
 {
   "name": "@stabgan/openrouter-mcp-multimodal",
-  "version": "4.6.1",
+  "version": "4.6.2",
   "mcpName": "io.github.stabgan/openrouter-multimodal",
   "description": "MCP server for OpenRouter — chat with 300+ LLMs, analyze images/audio/video, generate images (dedicated API), TTS/STT, video generation (Veo 3.1 / Seedance / Wan), async completions, response caching",
   "type": "module",
@@ -30,7 +30,8 @@
     "test:smoke:uvx:git": "MCP_UVX_FROM_GIT=1 node scripts/smoke-uvx-mcp.mjs",
     "test:smoke": "npm run test:smoke:npm && npm run test:smoke:docker && npm run test:smoke:uvx:local",
     "test:all": "npm test && npm run test:regression && npm run test:integration",
-    "ci": "npm run lint && npm run format:check && npm run build && npm run test:all"
+    "version:check": "node scripts/check-version-sync.mjs",
+    "ci": "npm run lint && npm run format:check && npm run version:check && npm run build && npm run test:all"
   },
   "keywords": [
     "mcp",

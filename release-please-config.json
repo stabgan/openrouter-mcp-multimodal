@@ -1,0 +1,26 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "component": "openrouter-mcp-multimodal",
+      "changelog-path": "CHANGELOG.md",
+      "include-component-in-tag": false,
+      "include-v-in-tag": true,
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "src/version.ts"
+        },
+        {
+          "type": "generic",
+          "path": "python/pyproject.toml"
+        },
+        {
+          "type": "generic",
+          "path": "server.json"
+        }
+      ]
+    }
+  }
+}

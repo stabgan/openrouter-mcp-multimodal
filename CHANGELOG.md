@@ -2,6 +2,22 @@
 
 All notable changes to `@stabgan/openrouter-mcp-multimodal` are recorded here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.2] — 2026-08-23
+
+Patch release shipping the v4.6.1 refactor work: shared chat/image/path helpers, extracted tool schemas, expanded test suite, and release automation.
+
+### Changed
+
+- **`src/tool-definitions.ts`** — Tool JSON schemas extracted from the handler router (980 → 246 lines in `tool-handlers.ts`).
+- **`src/tool-handlers/chat-request.ts`** — Shared `ChatToolRequest`, `buildChatCompletionBody()`, and OpenAI body mapping for chat tools.
+- **`src/tool-handlers/image-source.ts`** — Thin media input layer over `image-utils.fetchImageWithMime()`.
+- **`src/tool-handlers/path-safety.ts`** — `resolveOptionalOutputPath()` and `isToolErrorResult()` shared across generate/analyze handlers.
+- **`src/tool-handlers/async-chat.ts`** — Disk persistence via `loadJobFromDisk` / `resolveJob`; upstream errors via `classifyUpstreamError`.
+- **Deslop pass** — Removed essay/step comments and Unicode dividers across handlers without changing behavior.
+- **773 automated tests** (was 682): new coverage for chat-request, async-chat, image-source, chat-completion handler, save-path handlers, and video frame sandbox.
+- **Smoke scripts** — Expect 19 tools; npm smoke installs the tarball before spawning the bin.
+- **Release CI** — [Release Please](https://github.com/googleapis/release-please) opens version-bump PRs from conventional commits; tag pushes publish npm, PyPI, and Docker together.
+
 ## [4.5.3] — 2026-07-02
 
 Distribution release: PyPI `uvx` launcher, full install matrix in README, and CI publish for npm + PyPI + Docker.

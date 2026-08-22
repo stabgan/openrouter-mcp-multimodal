@@ -31,6 +31,9 @@ jobs:
           npm --version
           npm ci
 
+      - name: Version sync check
+        run: npm run version:check
+
       - name: Lint
         run: npm run lint
 
