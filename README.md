@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>The MCP server for multimodal AI agents.</strong><br/>
-  One install · 14 tools · 300+ OpenRouter models · text, vision, audio &amp; video — analysis and generation.
+  One install · 19 tools · 300+ OpenRouter models · text, vision, audio &amp; video — analysis and generation.
 </p>
 
 <p align="center">
@@ -45,13 +45,13 @@ Unlike text-only MCP servers, one install covers the **full multimodal surface**
 
 | Capability  | Tools                                                                                   | Highlights                                                                                                   |
 | :---------- | :-------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------- |
-| **Chat**    | `chat_completion`                                                                       | 300+ models, `:nitro` / `:exacto` suffixes, provider routing, web search, response caching, reasoning tokens |
-| **Vision**  | `analyze_image`, `generate_image`                                                       | OCR, captioning, VQA, image generation with reference inputs                                                 |
-| **Audio**   | `analyze_audio`, `generate_audio`                                                       | Transcription, speech/music generation                                                                       |
-| **Video**   | `analyze_video`, `generate_video`, `generate_video_from_image`, `get_video_status`      | Clip understanding, Veo / Sora / Seedance / Wan generation with progress notifications                       |
+| **Chat**    | `chat_completion`, `start_chat_completion`, `get_chat_completion_status`                 | 300+ models, `:nitro` / `:floor` / `:free` / `:online` / `:exacto` suffixes, provider routing, web search, response caching, reasoning tokens, async jobs for long-running models |
+| **Vision**  | `analyze_image`, `generate_image`, `generate_image_dedicated`                           | OCR, captioning, VQA, image generation with reference inputs, dedicated Image API with resolution/quality/format control |
+| **Audio**   | `analyze_audio`, `generate_audio`, `text_to_speech`, `speech_to_text`                   | Transcription, speech/music generation, dedicated TTS (OpenAI/Gemini/Voxtral voices), dedicated STT (Whisper/GPT-4o Transcribe) |
+| **Video**   | `analyze_video`, `generate_video`, `generate_video_from_image`, `get_video_status`      | Clip understanding, Veo 3.1 / Seedance 2.0 / Wan 2.7 generation with progress notifications                 |
 | **Catalog** | `search_models`, `get_model_info`, `validate_model`, `rerank_documents`, `health_check` | Model discovery, validation, reranking, ops health                                                           |
 
-**Production hardening:** input/output path sandboxes (including analyze\_\* local files as of v4.5.2), SSRF guards, structured errors with `_meta.code`, MCP 2025-06-18 structured outputs, async video progress notifications, and **650+** automated tests (unit, mock, regression, and live integration).
+**Production hardening:** input/output path sandboxes (including analyze\_\* local files as of v4.5.2), SSRF guards, structured errors with `_meta.code`, MCP 2025-06-18 structured outputs, tool icons (2025-11-25), async video progress notifications, and **680+** automated tests (unit, mock, regression, and live integration).
 
 ## Quick start
 
@@ -349,24 +349,29 @@ If still failing, use the full path from `where npx` as the command.
 
 ## Tools
 
-14 MCP tools. Each description includes **Use when**, **Good/Bad examples**, **Fails when**, and **Works with** so agents pick the right tool and recover from errors.
+19 MCP tools. Each description includes **Use when**, **Good/Bad examples**, **Fails when**, and **Works with** so agents pick the right tool and recover from errors.
 
-| Tool                        | Purpose                                                     |
-| :-------------------------- | :---------------------------------------------------------- |
-| `chat_completion`           | Text chat, web search, provider routing, caching, reasoning |
-| `analyze_image`             | Vision — local path, URL, or data URL + `question`          |
-| `analyze_audio`             | Transcribe / analyze audio files                            |
-| `analyze_video`             | Describe / Q&A over video files                             |
-| `generate_image`            | Text-to-image with optional reference images                |
-| `generate_audio`            | Text-to-speech / music                                      |
-| `generate_video`            | Text-to-video (async, resumable)                            |
-| `generate_video_from_image` | Image-to-video (narrower schema)                            |
-| `get_video_status`          | Poll / resume video jobs                                    |
-| `search_models`             | Paginated model catalog search                              |
-| `get_model_info`            | Pricing, context, modalities                                |
-| `validate_model`            | Cheap model ID existence check                              |
-| `rerank_documents`          | Relevance ranking for RAG                                   |
-| `health_check`              | API key + reachability probe                                |
+| Tool                          | Purpose                                                      |
+| :---------------------------- | :----------------------------------------------------------- |
+| `chat_completion`             | Text chat, web search, provider routing, caching, reasoning  |
+| `start_chat_completion`       | Async background job for long-running reasoning models       |
+| `get_chat_completion_status`  | Poll / retrieve async completion results                     |
+| `analyze_image`               | Vision — local path, URL, or data URL + `question`           |
+| `analyze_audio`               | Transcribe / analyze audio files                             |
+| `analyze_video`               | Describe / Q&A over video files                              |
+| `generate_image`              | Text-to-image via chat completions with reference images     |
+| `generate_image_dedicated`    | Text-to-image via dedicated `/api/v1/images` (resolution, quality, format) |
+| `generate_audio`              | Text-to-speech / music via chat completions                  |
+| `text_to_speech`              | Dedicated TTS (`/api/v1/audio/speech`) — voices, speed, format |
+| `speech_to_text`              | Dedicated STT (`/api/v1/audio/transcriptions`) — Whisper, GPT-4o |
+| `generate_video`              | Text-to-video (async, resumable)                             |
+| `generate_video_from_image`   | Image-to-video (narrower schema)                             |
+| `get_video_status`            | Poll / resume video jobs                                     |
+| `search_models`               | Paginated model catalog search                               |
+| `get_model_info`              | Pricing, context, modalities                                 |
+| `validate_model`              | Cheap model ID existence check                               |
+| `rerank_documents`            | Relevance ranking for RAG                                    |
+| `health_check`                | API key + reachability probe                                 |
 
 Errors use a closed `_meta.code` taxonomy: `INVALID_INPUT` · `UNSAFE_PATH` · `UPSTREAM_*` · `MODEL_NOT_FOUND` · `JOB_STILL_RUNNING` · and more.
 
