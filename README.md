@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.svg" alt="OpenRouter MCP Multimodal — MCP server for chat, vision, audio, and video AI tools" width="128" height="128" />
+  <img src="assets/logo.png" alt="OpenRouter MCP Multimodal — MCP server for chat, vision, audio, and video AI tools" width="128" height="128" />
 </p>
 
 <h1 align="center">OpenRouter MCP Multimodal</h1>
