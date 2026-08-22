@@ -53,6 +53,7 @@ import type {
   GetChatCompletionStatusRequest,
 } from './tool-handlers/async-chat.js';
 import { TOOL_DESCRIPTIONS } from './tool-descriptions.js';
+import { TOOL_ICONS } from './tool-icons.js';
 
 function wrapToolArgs<T extends object>(a: T | undefined): { params: { arguments: T } } {
   return { params: { arguments: a ?? ({} as T) } };
@@ -133,7 +134,7 @@ export class ToolHandlers {
 
   private register(server: Server) {
     server.setRequestHandler(ListToolsRequestSchema, async () => ({
-      tools: [
+      tools: ([
         {
           name: 'chat_completion',
           description: TOOL_DESCRIPTIONS.chat_completion,
@@ -863,7 +864,10 @@ export class ToolHandlers {
             ],
           },
         },
-      ],
+      ] as Array<Record<string, unknown>>).map((tool) => ({
+        ...tool,
+        icons: TOOL_ICONS[tool.name as string],
+      })),
     }));
 
     server.setRequestHandler(CallToolRequestSchema, async (request): Promise<CallToolResult> => {
