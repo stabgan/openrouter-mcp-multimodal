@@ -22,11 +22,6 @@ export interface AnalyzeAudioToolRequest extends CacheOptions {
   audio_path: string;
   question?: string;
   model?: string;
-  /**
-   * Attach `cache_control: {type: 'ephemeral'}` to the audio block so
-   * Claude / Gemini 2.5+ prompt-caches it. Repeat questions about the
-   * same audio then cost dramatically less for the audio portion.
-   */
   cache_input?: boolean;
 }
 

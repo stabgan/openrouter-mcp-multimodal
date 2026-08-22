@@ -1,8 +1,9 @@
-import { promises as fs } from 'fs';
-import { extname } from 'path';
+import { promises as fs } from 'node:fs';
+import { extname } from 'node:path';
 import OpenAI from 'openai';
-import { resolveSafeOutputPath, UnsafeOutputPathError } from './path-safety.js';
-import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
+import { resolveOptionalOutputPath, isToolErrorResult } from './path-safety.js';
+import { asOpenAIChatBody } from './chat-request.js';
+import { ErrorCode, toolError } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
@@ -122,7 +123,6 @@ export async function handleGenerateAudio(
     return toolError(ErrorCode.INVALID_INPUT, 'prompt is required.');
   }
 
-  // Audit entry. See generate_image for rationale.
   logger.audit('generate_audio.start', {
     model: model || DEFAULT_MODEL,
     voice: voice?.trim() || DEFAULT_VOICE,
@@ -131,16 +131,9 @@ export async function handleGenerateAudio(
     save_path: save_path ? 'provided' : 'none',
   });
 
-  // Fail-fast on unsafe paths BEFORE spending tokens.
-  let safeBase: string | null = null;
-  if (save_path) {
-    try {
-      safeBase = await resolveSafeOutputPath(save_path);
-    } catch (e) {
-      if (e instanceof UnsafeOutputPathError) return toolErrorFrom(ErrorCode.UNSAFE_PATH, e);
-      return toolErrorFrom(ErrorCode.INTERNAL, e);
-    }
-  }
+  const savePathResult = await resolveOptionalOutputPath(save_path);
+  if (isToolErrorResult(savePathResult)) return savePathResult;
+  const safeBase = savePathResult.path;
 
   const selectedFormat: OutputFormat = (VALID_FORMATS as readonly string[]).includes(format ?? '')
     ? (format as OutputFormat)
@@ -149,14 +142,15 @@ export async function handleGenerateAudio(
 
   let stream: AsyncIterable<Record<string, unknown>>;
   try {
-    stream = (await openai.chat.completions.create({
-      model: model || DEFAULT_MODEL,
-      messages: [{ role: 'user', content: prompt }],
-      modalities: ['text', 'audio'],
-      audio: { voice: selectedVoice, format: selectedFormat },
-      stream: true,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any)) as unknown as AsyncIterable<Record<string, unknown>>;
+    stream = (await openai.chat.completions.create(
+      asOpenAIChatBody({
+        model: model || DEFAULT_MODEL,
+        messages: [{ role: 'user', content: prompt }],
+        modalities: ['text', 'audio'],
+        audio: { voice: selectedVoice, format: selectedFormat },
+        stream: true,
+      }),
+    )) as unknown as AsyncIterable<Record<string, unknown>>;
   } catch (err) {
     return classifyUpstreamError(err, 'generate_audio');
   }
@@ -191,7 +185,6 @@ export async function handleGenerateAudio(
     let audioBuffer = Buffer.from(fullAudioBase64, 'base64');
     const detected = detectAudioFormat(audioBuffer);
 
-    // Always wrap raw PCM in WAV so it's playable
     if (detected.ext === 'pcm') {
       audioBuffer = Buffer.from(wrapPcmInWav(audioBuffer));
       detected.ext = 'wav';

@@ -1,52 +1,23 @@
-/**
- * Async chat completions — resumable workflow for long-running requests.
- *
- * Problem: Remote MCP bridges (Cowork, etc.) kill tool calls after ~60s.
- * Reasoning models can take much longer. Unlike video, `chat_completion`
- * currently has no background job mechanism.
- *
- * Solution: Two tools that mirror the video pattern:
- *  - `start_chat_completion` — fires off the request in the background,
- *    returns a `job_id` immediately.
- *  - `get_chat_completion_status` — returns queued/running/completed/failed,
- *    with the final response on completion.
- *
- * Job state is held in memory (survives within a single MCP session).
- * Optionally persisted to OPENROUTER_OUTPUT_DIR/openrouter-jobs/ for
- * crash recovery.
- */
-import { promises as fs } from 'fs';
+/** Async chat completions — in-memory jobs, optionally persisted under OPENROUTER_OUTPUT_DIR/openrouter-jobs/. */
+import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import OpenAI from 'openai';
-import type {
-  ChatCompletion,
-  ChatCompletionMessageParam,
-} from 'openai/resources/chat/completions.js';
+import type { ChatCompletion } from 'openai/resources/chat/completions.js';
 import { ErrorCode, toolError } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import { extractCompletionText, buildCompletionMeta } from './completion-utils.js';
+import { classifyUpstreamError } from './openrouter-errors.js';
 import {
-  type ProviderRoutingOptions,
-  readProviderDefaults,
-  mergeProviderOptions,
-  buildProviderBody,
-  resolveMaxTokens,
-} from './provider-routing.js';
-import { type CacheOptions, buildCacheHeaders } from './cache.js';
+  DEFAULT_CHAT_MODEL,
+  type ChatToolRequest,
+  buildChatCompletionBody,
+  buildChatCompletionRequestOpts,
+  asOpenAIChatBody,
+  readIncludeReasoningDefault,
+} from './chat-request.js';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-export interface StartChatCompletionRequest extends CacheOptions {
-  messages: ChatCompletionMessageParam[];
-  model?: string;
-  temperature?: number;
-  max_tokens?: number;
-  provider?: ProviderRoutingOptions;
-  include_reasoning?: boolean;
-  online?: boolean;
-  web_max_results?: number;
-}
+export type StartChatCompletionRequest = ChatToolRequest;
 
 export interface GetChatCompletionStatusRequest {
   job_id: string;
@@ -54,7 +25,7 @@ export interface GetChatCompletionStatusRequest {
 
 export type AsyncJobStatus = 'queued' | 'running' | 'completed' | 'failed';
 
-interface AsyncJob {
+export interface AsyncJob {
   id: string;
   status: AsyncJobStatus;
   createdAt: string;
@@ -64,9 +35,8 @@ interface AsyncJob {
     meta: Record<string, unknown>;
   };
   error?: string;
+  error_code?: ErrorCode;
 }
-
-// ─── Job Store ───────────────────────────────────────────────────────────────
 
 const jobs = new Map<string, AsyncJob>();
 let jobCounter = 0;
@@ -101,13 +71,28 @@ async function persistJob(job: AsyncJob): Promise<void> {
   }
 }
 
-// ─── Handlers ────────────────────────────────────────────────────────────────
+/** Load a persisted job from disk (exported for tests). */
+export async function loadJobFromDisk(jobId: string): Promise<AsyncJob | null> {
+  const dir = getJobsDir();
+  if (!dir) return null;
+  try {
+    const raw = await fs.readFile(path.join(dir, jobId, 'status.json'), 'utf8');
+    return JSON.parse(raw) as AsyncJob;
+  } catch {
+    return null;
+  }
+}
 
-const DEFAULT_MODEL = 'nvidia/nemotron-nano-12b-v2-vl:free';
+async function resolveJob(jobId: string): Promise<AsyncJob | undefined> {
+  const inMemory = jobs.get(jobId);
+  if (inMemory) return inMemory;
 
-function readIncludeReasoningDefault(): boolean {
-  const raw = (process.env.OPENROUTER_INCLUDE_REASONING ?? '').trim().toLowerCase();
-  return raw === '1' || raw === 'true' || raw === 'yes';
+  const fromDisk = await loadJobFromDisk(jobId);
+  if (fromDisk) {
+    jobs.set(jobId, fromDisk);
+    return fromDisk;
+  }
+  return undefined;
 }
 
 export async function handleStartChatCompletion(
@@ -134,10 +119,9 @@ export async function handleStartChatCompletion(
     return toolError(ErrorCode.INVALID_INPUT, 'Messages array cannot be empty.');
   }
 
-  const effectiveModel = model || defaultModel || DEFAULT_MODEL;
+  const effectiveModel = model || defaultModel || DEFAULT_CHAT_MODEL;
   const jobId = generateJobId();
 
-  // Create the job immediately
   const job: AsyncJob = {
     id: jobId,
     status: 'running',
@@ -152,8 +136,7 @@ export async function handleStartChatCompletion(
     message_count: messages.length,
   });
 
-  // Fire and forget — the completion runs in the background
-  runCompletionInBackground(job, openai, {
+  void runCompletionInBackground(job, openai, {
     messages,
     model: effectiveModel,
     temperature,
@@ -167,7 +150,6 @@ export async function handleStartChatCompletion(
     cache_clear,
   });
 
-  // Return immediately with the job ID
   return {
     content: [
       {
@@ -189,40 +171,15 @@ async function runCompletionInBackground(
   openai: OpenAI,
   opts: StartChatCompletionRequest & { model: string },
 ): Promise<void> {
-  const providerOptions = mergeProviderOptions(readProviderDefaults(), opts.provider);
-  const providerBody = buildProviderBody(providerOptions);
-  const effectiveMaxTokens = resolveMaxTokens(opts.max_tokens);
   const wantsReasoning = opts.include_reasoning ?? readIncludeReasoningDefault();
-
-  const body: Record<string, unknown> = {
-    model: opts.model,
-    messages: opts.messages,
-    temperature: opts.temperature ?? 1,
-  };
-  if (typeof effectiveMaxTokens === 'number') body.max_tokens = effectiveMaxTokens;
-  if (providerBody) body.provider = providerBody;
-  if (wantsReasoning) body.include_reasoning = true;
-  if (opts.online) {
-    const plugin: Record<string, unknown> = { id: 'web' };
-    if (typeof opts.web_max_results === 'number' && opts.web_max_results > 0) {
-      plugin.max_results = opts.web_max_results;
-    }
-    body.plugins = [plugin];
-  }
-
-  const headers = buildCacheHeaders({
-    cache: opts.cache,
-    cache_ttl: opts.cache_ttl,
-    cache_clear: opts.cache_clear,
-  });
-  const requestOpts = Object.keys(headers).length > 0 ? { headers } : undefined;
+  const body = buildChatCompletionBody(opts);
+  const requestOpts = buildChatCompletionRequestOpts(opts);
 
   try {
     const completion = (await openai.chat.completions.create(
-      body as unknown as Parameters<typeof openai.chat.completions.create>[0],
+      asOpenAIChatBody(body),
       requestOpts,
     )) as ChatCompletion;
-
     const extracted = extractCompletionText(completion);
 
     if (!extracted.text) {
@@ -240,8 +197,10 @@ async function runCompletionInBackground(
     }
   } catch (err) {
     job.status = 'failed';
-    job.error = err instanceof Error ? err.message : String(err);
-    logger.warn('async_chat.failed', { job_id: job.id, error: job.error });
+    const classified = classifyUpstreamError(err);
+    job.error = classified.content[0]?.text ?? 'Job failed.';
+    job.error_code = classified._meta.code;
+    logger.warn('async_chat.failed', { job_id: job.id, error: job.error, code: job.error_code });
   }
 
   await persistJob(job);
@@ -257,12 +216,12 @@ export async function handleGetChatCompletionStatus(request: {
     return toolError(ErrorCode.INVALID_INPUT, 'job_id is required.');
   }
 
-  const job = jobs.get(jobId);
+  const job = await resolveJob(jobId);
   if (!job) {
-    return toolError(
-      ErrorCode.INVALID_INPUT,
-      `No job found with id "${jobId}". Jobs are stored in memory for the current session only.`,
-    );
+    const hint = getJobsDir()
+      ? ' Jobs persist under OPENROUTER_OUTPUT_DIR/openrouter-jobs/ when that env var is set.'
+      : ' Jobs are stored in memory for the current session only.';
+    return toolError(ErrorCode.INVALID_INPUT, `No job found with id "${jobId}".${hint}`);
   }
 
   if (job.status === 'completed' && job.result) {
@@ -280,14 +239,13 @@ export async function handleGetChatCompletionStatus(request: {
   }
 
   if (job.status === 'failed') {
-    return toolError(ErrorCode.JOB_FAILED, job.error || 'Job failed.', {
+    return toolError(job.error_code ?? ErrorCode.JOB_FAILED, job.error || 'Job failed.', {
       job_id: jobId,
       model: job.model,
       created_at: job.createdAt,
     });
   }
 
-  // Still running
   return {
     content: [
       {

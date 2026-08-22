@@ -5,10 +5,11 @@ import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import {
-  resolveSafeOutputPath,
-  resolveSafeInputPath,
+  resolveOptionalOutputPath,
+  isToolErrorResult,
   UnsafeOutputPathError,
 } from './path-safety.js';
+import { resolveImageBase64 } from './image-source.js';
 import { readEnvInt } from './fetch-utils.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
 
@@ -35,10 +36,7 @@ const SORA_ALTERNATIVES = [
   'alibaba/wan-2.7 (good for artistic styles)',
 ];
 
-/**
- * Check if the model is a deprecated Sora model and return a warning string,
- * or null if no deprecation applies.
- */
+/** Return a deprecation warning for Sora models, or null. */
 function checkSoraDeprecation(model: string): string | null {
   const normalized = model.toLowerCase().trim();
   if (!SORA_DEPRECATED_MODELS.has(normalized) && !normalized.startsWith('openai/sora')) {
@@ -97,57 +95,21 @@ function getDefaultMaxWait(): number {
 }
 
 function getMaxDownloadBytes(): number {
-  // Generation output can be bigger than the input cap since it's our own
-  // content. Default 256 MB, override via env.
   return readEnvInt('OPENROUTER_VIDEO_GEN_MAX_BYTES', 256 * 1024 * 1024, 1024 * 1024);
 }
 
-/**
- * Fold a caller-supplied image source (local path, http URL, or data URL)
- * into the `{ url: "data:video|image/...base64,..." }` shape OpenRouter
- * expects inside `frame_images[].image` / `input_references[]`.
- *
- * We reuse `prepareVideoData` for videos but images live in `image-utils`.
- * Since generate_video's references are images, not videos, we do a small
- * image-specific fetch here (data URL pass-through, HTTP via fetch-utils,
- * local via fs). We deliberately do NOT run them through sharp — the model
- * wants the pristine frame.
- */
-async function prepareImageInput(source: string): Promise<{ data: string; mime: string } | null> {
+async function imageFrameEntry(
+  source: string,
+  frameType?: 'first_frame' | 'last_frame',
+): Promise<{ kind: 'frame'; entry: Record<string, unknown> } | null> {
   if (!source) return null;
-  if (source.startsWith('data:')) {
-    const match = source.match(/^data:([^;,]+)(?:;[^,]*)*;base64,(.+)$/);
-    if (!match) throw new Error(`Invalid image data URL: ${source.slice(0, 40)}…`);
-    return { mime: match[1]!, data: match[2]! };
-  }
-  if (source.startsWith('http://') || source.startsWith('https://')) {
-    const { fetchHttpResource } = await import('./fetch-utils.js');
-    const { buffer, contentType } = await fetchHttpResource(source, {
-      timeoutMs: 30_000,
-      maxBytes: 25 * 1024 * 1024,
-      maxRedirects: 8,
-    });
-    const mime = (contentType?.split(';')[0]?.trim() || 'image/jpeg').toLowerCase();
-    return { mime, data: buffer.toString('base64') };
-  }
-  // Local file: sandbox via path-safety's resolveSafeInputPath so
-  // generate_video's first_frame_image / last_frame_image /
-  // reference_images fields enforce the same OPENROUTER_INPUT_DIR
-  // / OPENROUTER_OUTPUT_DIR / cwd scope that generate_image's
-  // input_images already uses. Callers can still bypass with
-  // OPENROUTER_ALLOW_UNSAFE_PATHS=1 for legacy scripts.
-  const abs = await resolveSafeInputPath(source);
-  const buf = await fs.readFile(abs);
-  const ext = extname(abs).toLowerCase();
-  const mime =
-    ext === '.png'
-      ? 'image/png'
-      : ext === '.webp'
-        ? 'image/webp'
-        : ext === '.gif'
-          ? 'image/gif'
-          : 'image/jpeg';
-  return { mime, data: buf.toString('base64') };
+  const img = await resolveImageBase64(source);
+  const entry: Record<string, unknown> = {
+    type: 'image_url',
+    image_url: { url: `data:${img.mime};base64,${img.data}` },
+  };
+  if (frameType) entry.frame_type = frameType;
+  return { kind: 'frame', entry };
 }
 
 function buildRequestBody(args: GenerateVideoToolRequest, model: string): Record<string, unknown> {
@@ -167,36 +129,10 @@ async function attachFrameImages(
   const frameTasks: Array<Promise<{ kind: 'frame'; entry: Record<string, unknown> } | null>> = [];
 
   if (args.first_frame_image) {
-    frameTasks.push(
-      prepareImageInput(args.first_frame_image).then((img) =>
-        img
-          ? {
-              kind: 'frame' as const,
-              entry: {
-                type: 'image_url',
-                image_url: { url: `data:${img.mime};base64,${img.data}` },
-                frame_type: 'first_frame',
-              },
-            }
-          : null,
-      ),
-    );
+    frameTasks.push(imageFrameEntry(args.first_frame_image, 'first_frame'));
   }
   if (args.last_frame_image) {
-    frameTasks.push(
-      prepareImageInput(args.last_frame_image).then((img) =>
-        img
-          ? {
-              kind: 'frame' as const,
-              entry: {
-                type: 'image_url',
-                image_url: { url: `data:${img.mime};base64,${img.data}` },
-                frame_type: 'last_frame',
-              },
-            }
-          : null,
-      ),
-    );
+    frameTasks.push(imageFrameEntry(args.last_frame_image, 'last_frame'));
   }
 
   const frameResults = await Promise.all(frameTasks);
@@ -207,14 +143,12 @@ async function attachFrameImages(
 
   if (args.reference_images?.length) {
     const refResults = await Promise.all(
-      args.reference_images.map((src) => prepareImageInput(src)),
+      args.reference_images.map((src) => resolveImageBase64(src)),
     );
-    const refs = refResults
-      .filter((img): img is NonNullable<typeof img> => img !== null)
-      .map((img) => ({
-        type: 'image_url',
-        image_url: { url: `data:${img.mime};base64,${img.data}` },
-      }));
+    const refs = refResults.map((img) => ({
+      type: 'image_url',
+      image_url: { url: `data:${img.mime};base64,${img.data}` },
+    }));
     if (refs.length) body.input_references = refs;
   }
 }
@@ -322,7 +256,6 @@ async function finalizeCompletedJob(
     return { content, _meta: baseMeta };
   }
 
-  // No save_path — return inline if small enough, otherwise just the URL.
   if (buffer.length <= getMaxInlineBytes()) {
     return {
       content: [
@@ -361,13 +294,8 @@ export async function handleGenerateVideo(
 
   const model = args.model || process.env.OPENROUTER_DEFAULT_VIDEO_GEN_MODEL || FALLBACK_MODEL;
 
-  // Sora deprecation warning — OpenAI is removing the Videos API and all
-  // Sora 2 model aliases on September 24, 2026. Warn and suggest alternatives.
   const deprecationWarning = checkSoraDeprecation(model);
 
-  // Audit entry — video is the most expensive tool we have. Always log
-  // model, resolution, duration, and a safe prompt preview so unintended
-  // spend can be traced.
   logger.audit('generate_video.start', {
     model,
     prompt_preview: args.prompt.slice(0, 80),
@@ -380,23 +308,14 @@ export async function handleGenerateVideo(
     save_path: args.save_path ? 'provided' : 'none',
   });
 
-  // Fail-fast on unsafe save_path BEFORE spending credits on the job.
-  let safeSavePath: string | null = null;
-  if (args.save_path) {
-    try {
-      safeSavePath = await resolveSafeOutputPath(args.save_path);
-    } catch (err) {
-      if (err instanceof UnsafeOutputPathError) return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
-      return toolErrorFrom(ErrorCode.INTERNAL, err);
-    }
-  }
+  const savePathResult = await resolveOptionalOutputPath(args.save_path);
+  if (isToolErrorResult(savePathResult)) return savePathResult;
+  const safeSavePath = savePathResult.path;
 
   const body = buildRequestBody(args, model);
   try {
     await attachFrameImages(args, body);
   } catch (err) {
-    // Sandbox violation → UNSAFE_PATH; all other decode failures stay
-    // as UNSUPPORTED_FORMAT (couldn't read, invalid data URL, etc.).
     if (err instanceof UnsafeOutputPathError) {
       return toolErrorFrom(ErrorCode.UNSAFE_PATH, err, 'Reference/frame image');
     }
@@ -453,7 +372,6 @@ export async function handleGenerateVideo(
 
   try {
     const { content, _meta } = await finalizeCompletedJob(apiClient, outcome.status, safeSavePath);
-    // Prepend deprecation warning if applicable
     if (deprecationWarning) {
       content.unshift({ type: 'text', text: deprecationWarning });
       (_meta as Record<string, unknown>).deprecated_model = true;
@@ -475,16 +393,9 @@ export async function handleGetVideoStatus(
   const id = args.video_id?.trim();
   if (!id) return toolError(ErrorCode.INVALID_INPUT, 'video_id is required.');
 
-  // Pre-resolve save_path so the poll surfaces a fast error before hitting OpenRouter.
-  let safeSavePath: string | null = null;
-  if (args.save_path) {
-    try {
-      safeSavePath = await resolveSafeOutputPath(args.save_path);
-    } catch (err) {
-      if (err instanceof UnsafeOutputPathError) return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
-      return toolErrorFrom(ErrorCode.INTERNAL, err);
-    }
-  }
+  const savePathResult = await resolveOptionalOutputPath(args.save_path);
+  if (isToolErrorResult(savePathResult)) return savePathResult;
+  const safeSavePath = savePathResult.path;
 
   let status: VideoJobStatus;
   try {
@@ -525,13 +436,7 @@ export async function handleGetVideoStatus(
   };
 }
 
-/**
- * Image-to-video convenience wrapper. Takes a single `image` argument
- * (first frame) and delegates to `handleGenerateVideo` with the broader
- * parameter surface hidden. Based on arxiv 2511.03497's finding that
- * tool-calling success degrades with parameter count — a narrower tool
- * gives the model a cleaner decision path.
- */
+/** Image-to-video wrapper — delegates to `handleGenerateVideo` with a narrower schema. */
 export interface GenerateVideoFromImageRequest {
   image: string;
   prompt: string;

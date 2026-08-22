@@ -1,16 +1,4 @@
-/**
- * Response caching helpers for OpenRouter's X-OpenRouter-Cache header family.
- * See https://openrouter.ai/docs/guides/features/response-caching
- *
- * Three caller inputs:
- *   - cache:       enable caching for this request
- *   - cache_ttl:   TTL string (1s .. 24h), e.g. "5m", "1h"; pass-through
- *   - cache_clear: bust the cache entry for this request
- *
- * Server-wide default: OPENROUTER_CACHE_RESPONSES=1 enables cache on every
- * request unless the caller explicitly passes cache=false.
- */
-
+/** OpenRouter response caching via X-OpenRouter-Cache headers. */
 export interface CacheOptions {
   cache?: boolean;
   cache_ttl?: string;
@@ -23,17 +11,11 @@ export function readCacheDefault(): boolean {
   return raw === '1' || raw === 'true' || raw === 'yes';
 }
 
-/**
- * Build the headers object to pass as the second argument to
- * `openai.chat.completions.create(body, { headers })`. Returns an empty
- * object when nothing should be sent, so the caller can always spread the
- * result without a conditional.
- */
+/** Build X-OpenRouter-Cache headers for chat/analyze requests. */
 export function buildCacheHeaders(opts: CacheOptions | undefined): Record<string, string> {
   const headers: Record<string, string> = {};
   const defaultOn = readCacheDefault();
 
-  // Caller-explicit `cache` wins. If unset, fall back to env default.
   const enabled = opts?.cache ?? defaultOn;
   if (enabled) headers['X-OpenRouter-Cache'] = 'true';
 

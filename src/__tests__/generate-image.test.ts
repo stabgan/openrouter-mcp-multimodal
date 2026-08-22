@@ -1,19 +1,20 @@
 import { describe, it, expect } from 'vitest';
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
-import { resolveInputImage, buildUserContent } from '../tool-handlers/generate-image-input.js';
+import { buildUserContent } from '../tool-handlers/generate-image-input.js';
+import { resolveImageUrl } from '../tool-handlers/image-source.js';
 import { UnsafeOutputPathError } from '../tool-handlers/path-safety.js';
 import { withInputSandbox } from './helpers/input-sandbox.js';
 
-describe('resolveInputImage', () => {
+describe('resolveImageUrl', () => {
   it('passes data: URLs through unchanged', async () => {
     const url = 'data:image/png;base64,iVBORw0KGgo=';
-    expect(await resolveInputImage(url)).toBe(url);
+    expect(await resolveImageUrl(url)).toBe(url);
   });
 
   it('passes http(s) URLs through unchanged', async () => {
-    expect(await resolveInputImage('https://example.com/a.png')).toBe('https://example.com/a.png');
-    expect(await resolveInputImage('http://example.com/a.jpg')).toBe('http://example.com/a.jpg');
+    expect(await resolveImageUrl('https://example.com/a.png')).toBe('https://example.com/a.png');
+    expect(await resolveImageUrl('http://example.com/a.jpg')).toBe('http://example.com/a.jpg');
   });
 
   it('reads a relative file under the root and inlines as base64 data URL', async () => {
@@ -21,7 +22,7 @@ describe('resolveInputImage', () => {
       const bytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
       await fs.writeFile(path.join(root, 'ref.png'), bytes);
 
-      const url = await resolveInputImage('ref.png');
+      const url = await resolveImageUrl('ref.png');
       expect(url).toBe(`data:image/png;base64,${bytes.toString('base64')}`);
     });
   });
@@ -31,16 +32,16 @@ describe('resolveInputImage', () => {
       const bytes = Buffer.from([0xff, 0xd8, 0xff, 0xe0]);
       await fs.writeFile(path.join(root, 'photo.jpeg'), bytes);
 
-      const url = await resolveInputImage('photo.jpeg');
+      const url = await resolveImageUrl('photo.jpeg');
       expect(url.startsWith('data:image/jpeg;base64,')).toBe(true);
     });
   });
 
-  it('falls back to image/png for unknown extensions', async () => {
+  it('falls back to image/jpeg for unknown extensions', async () => {
     await withInputSandbox('mcp-input-image-', async (root) => {
       await fs.writeFile(path.join(root, 'mystery.bin'), Buffer.from([0x00]));
-      const url = await resolveInputImage('mystery.bin');
-      expect(url.startsWith('data:image/png;base64,')).toBe(true);
+      const url = await resolveImageUrl('mystery.bin');
+      expect(url.startsWith('data:image/jpeg;base64,')).toBe(true);
     });
   });
 
@@ -50,22 +51,20 @@ describe('resolveInputImage', () => {
       const abs = path.join(root, 'inside.webp');
       await fs.writeFile(abs, bytes);
 
-      const url = await resolveInputImage(abs);
+      const url = await resolveImageUrl(abs);
       expect(url).toBe(`data:image/webp;base64,${bytes.toString('base64')}`);
     });
   });
 
   it('propagates sandbox traversal errors from resolveSafeInputPath', async () => {
     await withInputSandbox('mcp-input-image-', async () => {
-      await expect(resolveInputImage('../escape.png')).rejects.toBeInstanceOf(
-        UnsafeOutputPathError,
-      );
+      await expect(resolveImageUrl('../escape.png')).rejects.toBeInstanceOf(UnsafeOutputPathError);
     });
   });
 
   it('rejects empty entries', async () => {
-    await expect(resolveInputImage('')).rejects.toThrow(/empty/);
-    await expect(resolveInputImage('   ')).rejects.toThrow(/empty/);
+    await expect(resolveImageUrl('')).rejects.toThrow(/empty/);
+    await expect(resolveImageUrl('   ')).rejects.toThrow(/empty/);
   });
 });
 

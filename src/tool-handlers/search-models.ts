@@ -9,12 +9,6 @@ export interface SearchModelsArgs {
   provider?: string;
   capabilities?: { vision?: boolean; audio?: boolean; video?: boolean };
   limit?: number;
-  /**
-   * Skip this many matching results before returning `limit`. Paired with
-   * `limit` and the returned `next_offset` to let large model lists be
-   * paged safely. Follows Phil Schmid's "paginate large results" best
-   * practice.
-   */
   offset?: number;
 }
 

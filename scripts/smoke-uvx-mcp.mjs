@@ -11,7 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const { version: PKG_VERSION } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
-const EXPECTED_TOOLS = 14;
+const EXPECTED_TOOLS = 19;
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 
@@ -51,6 +51,7 @@ const proc = spawn('uvx', uvxArgs, {
   env: {
     ...process.env,
     OPENROUTER_LOG_LEVEL: 'warn',
+    OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || 'sk-or-v1-smoke-placeholder',
     ...(npmSpecOverride ? { OPENROUTER_MCP_NPM_SPEC: npmSpecOverride } : {}),
     ...(process.env.OPENROUTER_MCP_NPM_VERSION
       ? { OPENROUTER_MCP_NPM_VERSION: process.env.OPENROUTER_MCP_NPM_VERSION }

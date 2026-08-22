@@ -1,8 +1,5 @@
 /**
- * Shared mapping from OpenRouter / OpenAI SDK error shapes to our closed
- * `ErrorCode` enum. Every tool handler that calls the OpenAI client routes
- * its `catch` block through `classifyUpstreamError` so error taxonomies
- * don't drift.
+ * Map OpenRouter / OpenAI SDK errors to our closed `ErrorCode` enum.
  */
 import { ErrorCode, toolError, type ToolErrorResult } from '../errors.js';
 
@@ -36,8 +33,6 @@ function extractRetryAfterSeconds(err: unknown): number | undefined {
   if (!raw) return undefined;
   const n = Number(raw);
   if (Number.isFinite(n) && n >= 0) return n;
-  // Retry-After can also be an HTTP-date; return undefined for those (caller
-  // can still retry on its own backoff schedule).
   return undefined;
 }
 
@@ -45,12 +40,9 @@ function extractStatus(err: unknown): number | undefined {
   if (typeof err !== 'object' || err === null) return undefined;
   const s = (err as SdkLikeError).status;
   if (typeof s === 'number') return s;
-  // openai-node sometimes puts the status in `code` for `APIError`.
   const c = (err as SdkLikeError).code;
   if (typeof c === 'number') return c;
   if (typeof c === 'string' && /^\d{3}$/.test(c)) return parseInt(c, 10);
-  // Fall back: parse the message for `HTTP NNN` — our internal client wraps
-  // fetch failures as `POST /videos failed: HTTP 400 — <detail>`.
   if (err instanceof Error) {
     const m = err.message.match(/\bHTTP (\d{3})\b/);
     if (m) return parseInt(m[1]!, 10);
@@ -71,31 +63,14 @@ function extractMessage(err: unknown): string {
   return 'unknown error';
 }
 
-/**
- * Classify a caught error from `openai.*` or a raw `fetch` to the
- * OpenRouter REST API into the closed `ErrorCode` set.
- *
- * Matching strategy:
- *   1. HTTP status first (when available).
- *   2. Message heuristics for common OpenRouter strings (credits, ZDR,
- *      "model does not exist", content policy, etc.).
- *   3. Default to INTERNAL to avoid leaking raw shapes.
- *
- * When the error carries a `Retry-After` header (on 429 / 503) we populate
- * `_meta.retry_after_seconds` so agents can back off intelligently. We
- * also attach canonical `suggestions[]` for common cases.
- */
+/** Classify upstream errors into the closed `ErrorCode` set. */
 export function classifyUpstreamError(err: unknown, contextMessage?: string): ToolErrorResult {
   const rawMsg = extractMessage(err);
   const status = extractStatus(err);
   const lower = rawMsg.toLowerCase();
-  // Prefix every user-visible message with the handler context when the
-  // caller supplied one (e.g. `rerank`, `generate_video.submit`). Makes
-  // server-side triage possible without digging through logs.
   const fullMsg = contextMessage ? `${contextMessage}: ${rawMsg}` : rawMsg;
   const retryAfterSeconds = extractRetryAfterSeconds(err);
 
-  // Explicit credit / balance signals.
   if (
     lower.includes('insufficient balance') ||
     lower.includes('insufficient credits') ||
@@ -116,7 +91,6 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
     );
   }
 
-  // Zero Data Retention.
   if (lower.includes('zdr') || lower.includes('zero data retention')) {
     return toolError(
       ErrorCode.ZDR_INCOMPATIBLE,
@@ -131,7 +105,6 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
     );
   }
 
-  // Model lookup failures.
   if (
     lower.includes('model') &&
     (lower.includes('does not exist') ||
@@ -151,7 +124,6 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
     );
   }
 
-  // Content policy / moderation — surface as UPSTREAM_REFUSED so callers can distinguish from 5xx.
   if (
     lower.includes('content policy') ||
     lower.includes('moderation') ||
@@ -167,7 +139,6 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
     );
   }
 
-  // Rate-limit specific.
   if (status === 429 || lower.includes('rate limit')) {
     return toolError(
       ErrorCode.UPSTREAM_REFUSED,
@@ -185,7 +156,6 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
     );
   }
 
-  // Timeouts (AbortError from `AbortSignal.timeout`).
   if (
     lower.includes('timed out') ||
     lower.includes('timeout') ||
@@ -202,12 +172,10 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
     );
   }
 
-  // Anything in the 4xx band that isn't covered above — user supplied a bad request.
   if (typeof status === 'number' && status >= 400 && status < 500) {
     return toolError(ErrorCode.INVALID_INPUT, fullMsg, { status });
   }
 
-  // 5xx / network errors.
   if (typeof status === 'number' && status >= 500) {
     return toolError(
       ErrorCode.UPSTREAM_HTTP,

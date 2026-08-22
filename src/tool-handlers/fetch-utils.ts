@@ -9,22 +9,13 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 /**
- * User-Agent we send on outbound fetches from `fetchHttpResource`. Some
- * CDNs/WAFs (notably Wikimedia/Varnish) reject requests without a UA, so
- * we identify ourselves with the package name + current version + a repo
- * URL so origin operators can contact us if our traffic misbehaves.
- *
- * Version is read from package.json at module load so version bumps don't
- * require hand-edits here. Falls back to `dev` if package.json can't be
- * located (e.g. in certain bundled environments).
+ * User-Agent for outbound fetches — some CDNs reject requests without one.
  */
 export const FETCH_USER_AGENT: string = (() => {
   const fallback =
     'openrouter-mcp-multimodal/dev (+https://github.com/stabgan/openrouter-mcp-multimodal)';
   try {
     const here = path.dirname(fileURLToPath(import.meta.url));
-    // Walk up a few levels looking for package.json (handles both
-    // dist/tool-handlers/… and src/tool-handlers/… layouts).
     for (let hop = 0; hop < 5; hop++) {
       const candidate = path.resolve(here, '../'.repeat(hop), 'package.json');
       try {
@@ -71,23 +62,14 @@ export function isBlockedIPv4(ip: string): boolean {
   return false;
 }
 
-/**
- * Expand an IPv6 literal to eight 16-bit groups as lowercase hex without
- * separators. Accepts compressed forms (::), zone ids (%eth0), and IPv4-mapped
- * / IPv4-compatible tails. Returns null if the input is not a valid IPv6
- * literal.
- */
+/** Expand an IPv6 literal to eight 16-bit groups, or null if invalid. */
 function expandIPv6(ip: string): number[] | null {
-  // Strip optional brackets (URL host form) and zone id before validation.
   const noZone = ip.includes('%') ? ip.split('%')[0]! : ip;
   const noBrackets = noZone.replace(/^\[|\]$/g, '');
   if (!net.isIPv6(noBrackets)) return null;
 
   let addr = noBrackets.toLowerCase();
 
-  // Pull out any IPv4 tail (`::ffff:a.b.c.d`, `::a.b.c.d`, `x:y::a.b.c.d`)
-  // and substitute two 16-bit zero groups in its place. This way the rest
-  // of the parser only needs to handle pure-hex 8-group form.
   let v4Tail: [number, number] | null = null;
   const dotIndex = addr.indexOf('.');
   if (dotIndex >= 0) {
@@ -99,13 +81,12 @@ function expandIPv6(ip: string): number[] | null {
       return null;
     }
     v4Tail = [((parts[0]! << 8) | parts[1]!) & 0xffff, ((parts[2]! << 8) | parts[3]!) & 0xffff];
-    // Substitute "g6:g7" in hex. E.g. "::ffff:127.0.0.1" -> "::ffff:7f00:0001"
+
     const hex6 = v4Tail[0].toString(16);
     const hex7 = v4Tail[1].toString(16);
     addr = addr.slice(0, lastColon) + ':' + hex6 + ':' + hex7;
   }
 
-  // Split on "::" at most once; fill the gap with zero groups.
   const halves = addr.split('::');
   if (halves.length > 2) return null;
   const left = halves[0] ? halves[0].split(':') : [];
@@ -128,16 +109,7 @@ function expandIPv6(ip: string): number[] | null {
   return out.length === 8 ? out : null;
 }
 
-/**
- * Comprehensive IPv6 SSRF block list. Covers loopback, unspecified,
- * IPv4-mapped, IPv4-compatible, link-local, site-local, ULA, multicast,
- * discard, documentation, Teredo, 6to4 (re-validates the embedded IPv4
- * against `isBlockedIPv4`), and ORCHID. Returns `true` for any input that
- * is a valid IPv6 literal in a reserved or private range.
- *
- * For non-IPv6 input returns `false` (the caller is expected to also run
- * `isBlockedIPv4` for IPv4 input).
- */
+/** SSRF block list for IPv6 literals (private/reserved ranges). */
 export function isBlockedIPv6(ip: string): boolean {
   const groups = expandIPv6(ip);
   if (!groups) return false;
@@ -152,7 +124,6 @@ export function isBlockedIPv6(ip: string): boolean {
     number,
   ];
 
-  // ::  (unspecified)
   if (
     g0 === 0 &&
     g1 === 0 &&
@@ -165,7 +136,7 @@ export function isBlockedIPv6(ip: string): boolean {
   ) {
     return true;
   }
-  // ::1 (loopback)
+
   if (
     g0 === 0 &&
     g1 === 0 &&
@@ -178,40 +149,38 @@ export function isBlockedIPv6(ip: string): boolean {
   ) {
     return true;
   }
-  // ::ffff:0:0/96 — IPv4-mapped. Re-check the embedded IPv4.
+
   if (g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0xffff) {
     const v4 = ((g6 << 16) >>> 0) | g7;
     const dotted = `${(v4 >>> 24) & 0xff}.${(v4 >>> 16) & 0xff}.${(v4 >>> 8) & 0xff}.${v4 & 0xff}`;
     return isBlockedIPv4(dotted);
   }
-  // ::/96 IPv4-compatible (deprecated but still routable in places).
+
   if (g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0) {
-    // Only treat as IPv4-compat if g6/g7 actually look like an IPv4 (both
-    // are nonzero or this is the all-zeros case handled above).
     if (g6 !== 0 || g7 !== 0) {
       const v4 = ((g6 << 16) >>> 0) | g7;
       const dotted = `${(v4 >>> 24) & 0xff}.${(v4 >>> 16) & 0xff}.${(v4 >>> 8) & 0xff}.${v4 & 0xff}`;
       return isBlockedIPv4(dotted);
     }
   }
-  // fc00::/7 — ULA
+
   if ((g0 & 0xfe00) === 0xfc00) return true;
-  // fe80::/10 — link-local
+
   if ((g0 & 0xffc0) === 0xfe80) return true;
-  // fec0::/10 — deprecated site-local
+
   if ((g0 & 0xffc0) === 0xfec0) return true;
-  // ff00::/8 — multicast (all forms)
+
   if ((g0 & 0xff00) === 0xff00) return true;
-  // 100::/64 — discard prefix (RFC 6666)
+
   if (g0 === 0x0100 && g1 === 0 && g2 === 0 && g3 === 0) return true;
-  // 2001:db8::/32 — documentation
+
   if (g0 === 0x2001 && g1 === 0x0db8) return true;
-  // 2001::/32 — Teredo
+
   if (g0 === 0x2001 && g1 === 0x0000) return true;
-  // 2001:10::/28, 2001:20::/28 — ORCHID / deprecated
+
   if (g0 === 0x2001 && (g1 & 0xfff0) === 0x0010) return true;
   if (g0 === 0x2001 && (g1 & 0xfff0) === 0x0020) return true;
-  // 2002::/16 — 6to4; re-check embedded IPv4 for private/reserved use.
+
   if (g0 === 0x2002) {
     const v4 = ((g1 << 16) >>> 0) | g2;
     const dotted = `${(v4 >>> 24) & 0xff}.${(v4 >>> 16) & 0xff}.${(v4 >>> 8) & 0xff}.${v4 & 0xff}`;
@@ -359,10 +328,6 @@ export async function fetchHttpResource(
         redirect: 'manual',
         signal: controller.signal,
         headers: {
-          // Some CDNs/WAFs (notably Wikimedia/Varnish) reject requests
-          // without a User-Agent with HTTP 400. Identify ourselves so
-          // analyze_image / analyze_audio / analyze_video work against
-          // those origins. See https://github.com/stabgan/openrouter-mcp-multimodal/issues/13
           'User-Agent': FETCH_USER_AGENT,
           Accept: 'image/*, audio/*, video/*, */*;q=0.8',
         },

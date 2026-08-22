@@ -1,21 +1,5 @@
-import { promises as fs } from 'fs';
-import path from 'node:path';
 import OpenAI from 'openai';
-import { resolveSafeInputPath } from './path-safety.js';
-import { mimeFromExtension } from './image-utils.js';
-
-export async function resolveInputImage(ref: string): Promise<string> {
-  const trimmed = ref.trim();
-  if (!trimmed) throw new Error('empty input_images entry');
-
-  if (trimmed.startsWith('data:')) return trimmed;
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-
-  const abs = await resolveSafeInputPath(trimmed);
-  const buf = await fs.readFile(abs);
-  const mime = mimeFromExtension(path.extname(abs)) || 'image/png';
-  return `data:${mime};base64,${buf.toString('base64')}`;
-}
+import { resolveImageUrl } from './image-source.js';
 
 export async function buildUserContent(
   prompt: string,
@@ -35,7 +19,7 @@ export async function buildUserContent(
     },
   ];
 
-  const urls = await Promise.all(inputImages.map((ref) => resolveInputImage(ref)));
+  const urls = await Promise.all(inputImages.map((ref) => resolveImageUrl(ref)));
   for (const url of urls) {
     parts.push({
       type: 'image_url',

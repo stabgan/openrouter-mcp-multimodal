@@ -1,13 +1,6 @@
 /**
- * OpenRouter provider routing. Merges caller-supplied `provider` args on
- * top of env-var defaults and emits the `provider` object that goes into
- * `POST /chat/completions`. See
- * https://openrouter.ai/docs/features/provider-routing for the spec.
- *
- * Precedence: explicit tool arg > env var > unset. Empty arrays / empty
- * objects are dropped so we don't send noise to the API.
+ * OpenRouter provider routing — merges tool args over OPENROUTER_PROVIDER_* env defaults.
  */
-
 import { logger } from '../logger.js';
 
 export type ProviderSort = 'price' | 'throughput' | 'latency';
@@ -42,9 +35,6 @@ function parseCsv(raw: string | undefined): string[] | undefined {
 function parseJsonArray(raw: string | undefined, name: string): string[] | undefined {
   if (!raw) return undefined;
   const trimmed = raw.trim();
-  // If the value looks like a JSON array (`[...]`), require it to BE valid JSON.
-  // Otherwise fall back to CSV parsing — that way `a,b,c` works too, but a
-  // malformed `[bogus]` doesn't silently become a single-element string array.
   if (trimmed.startsWith('[')) {
     try {
       const parsed = JSON.parse(trimmed) as unknown;
@@ -100,10 +90,6 @@ export function readProviderDefaults(): ProviderRoutingOptions {
     const order = parseJsonArray(env.OPENROUTER_PROVIDER_ORDER, 'OPENROUTER_PROVIDER_ORDER');
     if (order) out.order = order;
   } catch (err) {
-    // Don't crash the server on a malformed env var — log once so an
-    // operator notices instead of wondering why their ordering is being
-    // ignored. All other OPENROUTER_PROVIDER_* fields follow the same
-    // "silent drop" policy for consistency.
     logger.warn('OPENROUTER_PROVIDER_ORDER ignored', {
       err: err instanceof Error ? err.message : String(err),
     });

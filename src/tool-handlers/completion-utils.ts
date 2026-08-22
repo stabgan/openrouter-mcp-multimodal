@@ -1,11 +1,5 @@
 /**
- * Shared helpers for tools that call `openai.chat.completions.create` and
- * return the assistant's message as text. Handles:
- *   - plain string content (the common case)
- *   - multimodal array content (concatenate text parts)
- *   - reasoning-only responses (`content: null` + `reasoning`/`reasoning_details`)
- *   - `finish_reason === 'length'` — warn the caller so they know to raise
- *     `max_tokens` instead of silently getting nothing back.
+ * Helpers for chat completion responses — text extraction, reasoning, finish reasons.
  */
 import type { ChatCompletion } from 'openai/resources/chat/completions.js';
 import { ErrorCode, toolError, type ToolErrorResult } from '../errors.js';
@@ -15,18 +9,7 @@ export interface ExtractedText {
   /** True when `text` came from the reasoning trace (not a final answer). */
   reasonedOnly: boolean;
   finishReason: ChatCompletion.Choice['finish_reason'] | undefined;
-  /**
-   * OpenRouter's `native_finish_reason`, when present. Carries the
-   * provider-native value before OpenRouter normalizes it. Surfaced in
-   * `_meta.native_finish_reason` for debuggability.
-   */
   nativeFinishReason: string | undefined;
-  /**
-   * Raw reasoning trace (content of `reasoning` or joined `reasoning_details`).
-   * Populated whenever the upstream response carried one, even when the
-   * assistant also produced a final `content` answer. Surfaced to callers
-   * via `_meta.reasoning` when they opt in with `include_reasoning: true`.
-   */
   reasoning?: string;
   usage?: ChatCompletion['usage'];
 }
@@ -58,8 +41,6 @@ export function extractCompletionText(completion: ChatCompletion): ExtractedText
   const choice = completion.choices?.[0];
   const msg = choice?.message as unknown as ChatMessageLike | undefined;
   const finishReason = choice?.finish_reason;
-  // `native_finish_reason` is an OpenRouter extension, not in the OpenAI
-  // SDK types — read it via an unknown-cast.
   const nativeFinishReason =
     (choice as unknown as ChoiceLike | undefined)?.native_finish_reason ?? undefined;
   const usage = completion.usage ?? undefined;

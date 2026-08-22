@@ -1,10 +1,6 @@
 /**
- * Closed error-code taxonomy for MCP tool responses. Every handler uses
- * `toolError(code, message, details?, opts?)` instead of ad-hoc text so
- * clients can switch on `_meta.code` without regex-parsing free text.
- *
- * Adding a new code requires a design.md note — this set is intentionally
- * small and stable.
+ * Closed error-code taxonomy for MCP tool responses.
+ * Every handler uses `toolError()` so clients can switch on `_meta.code`.
  */
 export const ErrorCode = {
   INVALID_INPUT: 'INVALID_INPUT',
@@ -26,12 +22,7 @@ export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 export interface ToolErrorMeta {
   code: ErrorCode;
   details?: Record<string, unknown>;
-  /**
-   * Optional human-readable next steps the agent can take. Inspired by
-   * the Apigene "structured errors" best practice: rather than a raw
-   * string for the agent to interpret, list concrete options like
-   * "Wait and retry" or "Lower resolution to 480p".
-   */
+  /** Optional next steps for the agent (e.g. "Wait and retry"). */
   suggestions?: string[];
   /**
    * For rate-limit / backoff errors, the number of seconds the caller

@@ -6,19 +6,45 @@
  * anything is off.
  */
 import 'dotenv/config';
-import { readFileSync } from 'node:fs';
-import { spawn } from 'node:child_process';
+import { readFileSync, mkdirSync, readdirSync } from 'node:fs';
+import { spawn, execSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 const { version: PKG_VERSION } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
-const EXPECTED_TOOLS = 14;
+const EXPECTED_TOOLS = 19;
+
+function resolveTarball() {
+  const exact = path.join(repoRoot, `stabgan-openrouter-mcp-multimodal-${PKG_VERSION}.tgz`);
+  try {
+    readFileSync(exact);
+    return exact;
+  } catch {
+    const match = readdirSync(repoRoot).find(
+      (f) => f.startsWith('stabgan-openrouter-mcp-multimodal-') && f.endsWith('.tgz'),
+    );
+    if (!match) throw new Error(`No npm pack tarball in ${repoRoot}; run npm pack first`);
+    return path.join(repoRoot, match);
+  }
+}
 
 const scratch = path.resolve('.mcp-smoke-output/npm-install-test');
+mkdirSync(scratch, { recursive: true });
+const tarball = resolveTarball();
+execSync(`npm install --prefix "${scratch}" "${tarball}"`, { stdio: 'inherit' });
+
 const bin = path.join(scratch, 'node_modules', '.bin', 'openrouter-multimodal');
 
+const smokeEnv = {
+  ...process.env,
+  OPENROUTER_LOG_LEVEL: 'warn',
+  OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || 'sk-or-v1-smoke-placeholder',
+};
+
 const proc = spawn(bin, [], {
-  env: { ...process.env, OPENROUTER_LOG_LEVEL: 'warn' },
+  env: smokeEnv,
   stdio: ['pipe', 'pipe', 'pipe'],
 });
 proc.stderr.on('data', (c) => process.stderr.write(c));

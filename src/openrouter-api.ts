@@ -47,8 +47,6 @@ async function fetchWithRetry(
       if (res.status === 429 || res.status >= 500) {
         if (attempt < retries) {
           const retryAfter = parseRetryAfter(res.headers.get('retry-after'));
-          // Release the connection before retrying so undici/pool doesn't
-          // keep it open while we sleep.
           try {
             await res.body?.cancel();
           } catch {
@@ -129,12 +127,7 @@ export class OpenRouterAPIClient {
     return (await res.json()) as VideoJobStatus;
   }
 
-  /** Download the generated video binary. Returns `{ buffer, contentType }`.
-   * This intentionally does NOT go through our SSRF-guarded `fetchHttpResource`
-   * because the URL is always OpenRouter itself (trusted origin) — and it can
-   * return arbitrarily large bodies that the caller bounds via
-   * `OPENROUTER_VIDEO_MAX_DOWNLOAD_BYTES`.
-   */
+  /** Download generated video binary (trusted OpenRouter origin). */
   async downloadVideoContent(
     id: string,
     index = 0,
@@ -184,10 +177,7 @@ export class OpenRouterAPIClient {
     return { buffer: Buffer.concat(chunks), contentType: res.headers.get('content-type') };
   }
 
-  /**
-   * POST /images — dedicated image generation endpoint.
-   * Returns structured response with base64 image data.
-   */
+  /** POST /images — dedicated image generation. */
   async generateImage(
     body: Record<string, unknown>,
     headers?: Record<string, string>,
@@ -208,10 +198,7 @@ export class OpenRouterAPIClient {
     return (await res.json()) as ImageGenerationResponse;
   }
 
-  /**
-   * POST /audio/speech — dedicated text-to-speech endpoint.
-   * Returns raw audio bytes.
-   */
+  /** POST /audio/speech — text-to-speech. */
   async generateSpeech(
     body: Record<string, unknown>,
     headers?: Record<string, string>,
@@ -236,10 +223,7 @@ export class OpenRouterAPIClient {
     return { buffer: buf, contentType };
   }
 
-  /**
-   * POST /audio/transcriptions — dedicated speech-to-text endpoint.
-   * Accepts base64-encoded audio and returns transcription text.
-   */
+  /** POST /audio/transcriptions — speech-to-text. */
   async transcribeAudio(
     body: Record<string, unknown>,
     headers?: Record<string, string>,

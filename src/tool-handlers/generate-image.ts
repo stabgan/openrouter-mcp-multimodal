@@ -1,9 +1,14 @@
-import { promises as fs } from 'fs';
+import { promises as fs } from 'node:fs';
 import OpenAI from 'openai';
 import type { ChatCompletion } from 'openai/resources/chat/completions.js';
-import { resolveSafeOutputPath, UnsafeOutputPathError } from './path-safety.js';
+import {
+  resolveOptionalOutputPath,
+  isToolErrorResult,
+  UnsafeOutputPathError,
+} from './path-safety.js';
 import { parseBase64DataUrl } from './fetch-utils.js';
 import { buildUserContent } from './generate-image-input.js';
+import { asOpenAIChatBody } from './chat-request.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
@@ -76,17 +81,9 @@ export async function handleGenerateImage(
     return invalidEnumError('image_size', image_size, VALID_IMAGE_SIZES);
   }
 
-  let safePathResolved: string | null = null;
-  if (save_path) {
-    try {
-      safePathResolved = await resolveSafeOutputPath(save_path);
-    } catch (err) {
-      if (err instanceof UnsafeOutputPathError) {
-        return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
-      }
-      return toolErrorFrom(ErrorCode.INTERNAL, err);
-    }
-  }
+  const savePathResult = await resolveOptionalOutputPath(save_path);
+  if (isToolErrorResult(savePathResult)) return savePathResult;
+  const safePathResolved = savePathResult.path;
 
   let content: string | OpenAI.Chat.Completions.ChatCompletionContentPart[];
   try {
@@ -112,9 +109,7 @@ export async function handleGenerateImage(
 
   let completion: ChatCompletion;
   try {
-    completion = (await openai.chat.completions.create(
-      body as unknown as Parameters<typeof openai.chat.completions.create>[0],
-    )) as ChatCompletion;
+    completion = (await openai.chat.completions.create(asOpenAIChatBody(body))) as ChatCompletion;
   } catch (err) {
     return classifyUpstreamError(err, 'generate_image');
   }

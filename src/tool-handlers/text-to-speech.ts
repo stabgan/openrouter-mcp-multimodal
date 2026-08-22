@@ -1,15 +1,8 @@
-/**
- * text_to_speech — uses OpenRouter's dedicated POST /api/v1/audio/speech
- * endpoint (launched May 2026) for text-to-speech. Faster and more cost-efficient
- * than routing through chat completions with audio modality.
- *
- * Supported providers: OpenAI (GPT-4o Mini TTS), Google (Gemini Flash TTS),
- * Mistral (Voxtral Mini TTS).
- */
-import { promises as fs } from 'fs';
-import { extname } from 'path';
+/** Dedicated POST /api/v1/audio/speech — OpenAI, Gemini Flash TTS, Voxtral. */
+import { promises as fs } from 'node:fs';
+import { extname } from 'node:path';
 import type { OpenRouterAPIClient } from '../openrouter-api.js';
-import { resolveSafeOutputPath, UnsafeOutputPathError } from './path-safety.js';
+import { resolveOptionalOutputPath, isToolErrorResult } from './path-safety.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
@@ -68,18 +61,10 @@ export async function handleTextToSpeech(
     save_path: save_path ? 'provided' : 'none',
   });
 
-  // Resolve save path early
-  let safeSavePath: string | null = null;
-  if (save_path) {
-    try {
-      safeSavePath = await resolveSafeOutputPath(save_path);
-    } catch (err) {
-      if (err instanceof UnsafeOutputPathError) return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
-      return toolErrorFrom(ErrorCode.INTERNAL, err);
-    }
-  }
+  const savePathResult = await resolveOptionalOutputPath(save_path);
+  if (isToolErrorResult(savePathResult)) return savePathResult;
+  const safeSavePath = savePathResult.path;
 
-  // Build request body
   const body: Record<string, unknown> = {
     model: model || DEFAULT_MODEL,
     input,
@@ -101,7 +86,6 @@ export async function handleTextToSpeech(
   const { buffer, contentType } = result;
   const mimeType = contentType.split(';')[0]?.trim() || 'audio/mpeg';
 
-  // Determine file extension from format
   const ext = response_format || 'mp3';
 
   const baseMeta: Record<string, unknown> = {
@@ -113,7 +97,6 @@ export async function handleTextToSpeech(
   };
 
   if (safeSavePath) {
-    // Ensure extension matches
     const currentExt = extname(safeSavePath).toLowerCase().slice(1);
     const actualPath = currentExt === ext ? safeSavePath : `${safeSavePath}.${ext}`;
     try {

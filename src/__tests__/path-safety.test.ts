@@ -5,8 +5,11 @@ import { tmpdir } from 'node:os';
 import {
   resolveSafeOutputPath,
   resolveSafeInputPath,
+  resolveOptionalOutputPath,
+  isToolErrorResult,
   UnsafeOutputPathError,
 } from '../tool-handlers/path-safety.js';
+import { ErrorCode, toolError } from '../errors.js';
 
 describe('resolveSafeOutputPath', () => {
   let root: string;
@@ -114,5 +117,68 @@ describe('resolveSafeInputPath', () => {
     vi.stubEnv('OPENROUTER_ALLOW_UNSAFE_PATHS', '1');
     const resolved = await resolveSafeInputPath('/etc/hosts');
     expect(resolved).toBe('/etc/hosts');
+  });
+});
+
+describe('resolveOptionalOutputPath', () => {
+  let root: string;
+
+  beforeEach(async () => {
+    root = await fs.mkdtemp(path.join(tmpdir(), 'mcp-optional-out-'));
+    vi.stubEnv('OPENROUTER_OUTPUT_DIR', root);
+    vi.stubEnv('OPENROUTER_ALLOW_UNSAFE_PATHS', '');
+  });
+
+  afterEach(async () => {
+    vi.unstubAllEnvs();
+    await fs.rm(root, { recursive: true, force: true });
+  });
+
+  it('returns null path when savePath is omitted', async () => {
+    await expect(resolveOptionalOutputPath(undefined)).resolves.toEqual({ path: null });
+  });
+
+  it('returns resolved path for safe relative save_path', async () => {
+    const result = await resolveOptionalOutputPath('saved.png');
+    expect(result).toEqual({ path: path.join(await fs.realpath(root), 'saved.png') });
+  });
+
+  it('returns UNSAFE_PATH tool error for traversal attempts', async () => {
+    const result = await resolveOptionalOutputPath('../escape.png');
+    expect(result).toMatchObject({
+      isError: true,
+      _meta: { code: ErrorCode.UNSAFE_PATH },
+    });
+    expect((result as { content: Array<{ text: string }> }).content[0]!.text).toContain(
+      'OPENROUTER_OUTPUT_DIR',
+    );
+  });
+
+  it('returns UNSAFE_PATH tool error for absolute paths outside the root', async () => {
+    const result = await resolveOptionalOutputPath('/etc/outside.png');
+    expect(result).toMatchObject({
+      isError: true,
+      _meta: { code: ErrorCode.UNSAFE_PATH },
+    });
+  });
+
+  it('treats empty string savePath as a path to resolve (not null)', async () => {
+    const result = await resolveOptionalOutputPath('');
+    expect(result).toEqual({ path: null });
+  });
+});
+
+describe('isToolErrorResult', () => {
+  it('narrows tool errors', () => {
+    const err = toolError(ErrorCode.INVALID_INPUT, 'bad');
+    expect(isToolErrorResult(err)).toBe(true);
+    if (isToolErrorResult(err)) {
+      expect(err._meta.code).toBe(ErrorCode.INVALID_INPUT);
+    }
+  });
+
+  it('returns false for successful optional path results', () => {
+    expect(isToolErrorResult({ path: null })).toBe(false);
+    expect(isToolErrorResult({ path: '/tmp/out.png' })).toBe(false);
   });
 });

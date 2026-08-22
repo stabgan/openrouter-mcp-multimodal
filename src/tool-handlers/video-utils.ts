@@ -1,11 +1,4 @@
-/**
- * Video format detection and fetch utilities. Mirrors the structure of
- * `audio-utils.ts`: all network/security logic comes from `fetch-utils.ts`,
- * this module owns format detection, base64 encoding, and MIME mapping.
- *
- * OpenRouter's video-understanding docs (accessed 2026-04-20) list four
- * supported container formats: mp4, mpeg, mov, webm.
- */
+/** Video format detection and fetch utilities. */
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
 import { readEnvInt, fetchHttpResource, parseBase64DataUrl } from './fetch-utils.js';
@@ -124,14 +117,8 @@ export interface VideoData {
   sizeBytes: number; // raw bytes before base64
 }
 
-/**
- * Prepare a video from any source (data URL / HTTP URL / local file) as
- * base64 + MIME. OpenRouter requires the client to send video as either a
- * URL or a data URL; we always base64 it so the tool works regardless of
- * provider quirks.
- */
+/** Prepare video from data URL, HTTP URL, or sandboxed local file. */
 export async function prepareVideoData(source: string): Promise<VideoData> {
-  // --- data URL ---
   if (source.startsWith('data:')) {
     const parsed = parseBase64DataUrl(source);
     if (!parsed) throw new Error('Invalid video data URL');
@@ -154,7 +141,6 @@ export async function prepareVideoData(source: string): Promise<VideoData> {
     };
   }
 
-  // --- HTTP(S) URL ---
   if (source.startsWith('http://') || source.startsWith('https://')) {
     const { buffer, contentType } = await fetchHttpResource(source, {
       timeoutMs: getFetchTimeoutMs(),
@@ -177,7 +163,6 @@ export async function prepareVideoData(source: string): Promise<VideoData> {
     };
   }
 
-  // --- local file ---
   const safe = await resolveSafeInputPath(source);
   const buffer = await fs.readFile(safe);
   const format = detectVideoFormat(buffer) ?? getVideoFormat(safe);

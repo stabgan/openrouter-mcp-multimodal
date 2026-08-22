@@ -17,22 +17,12 @@ import {
 import { type CacheOptions, buildCacheHeaders, extractCacheMeta } from './cache.js';
 import { awaitCompletionWithHeaders } from './openai-withresponse.js';
 
-/**
- * Default model — `google/gemini-2.5-flash` has the widest video-input
- * support on OpenRouter at time of writing. Override via env
- * `OPENROUTER_DEFAULT_VIDEO_MODEL` or per-call `model`.
- */
 const FALLBACK_DEFAULT_MODEL = 'google/gemini-2.5-flash';
 
 export interface AnalyzeVideoToolRequest extends CacheOptions {
   video_path: string;
   question?: string;
   model?: string;
-  /**
-   * Attach `cache_control: {type: 'ephemeral'}` to the video block so
-   * Claude / Gemini 2.5+ prompt-caches it. Very valuable for large
-   * videos where repeat questions save 10x on Anthropic pricing.
-   */
   cache_input?: boolean;
 }
 
@@ -72,8 +62,6 @@ export async function handleAnalyzeVideo(
   }
 
   const videoBlock: Record<string, unknown> = {
-    // The `video_url` content type is an OpenRouter extension; the OpenAI
-    // SDK's typings don't know about it yet.
     type: 'video_url',
     video_url: { url: `data:${videoData.mediaType};base64,${videoData.data}` },
   };

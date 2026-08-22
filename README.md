@@ -43,15 +43,15 @@
 
 Unlike text-only MCP servers, one install covers the **full multimodal surface**:
 
-| Capability  | Tools                                                                                   | Highlights                                                                                                   |
-| :---------- | :-------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------- |
-| **Chat**    | `chat_completion`, `start_chat_completion`, `get_chat_completion_status`                 | 300+ models, `:nitro` / `:floor` / `:free` / `:online` / `:exacto` suffixes, provider routing, web search, response caching, reasoning tokens, async jobs for long-running models |
-| **Vision**  | `analyze_image`, `generate_image`, `generate_image_dedicated`                           | OCR, captioning, VQA, image generation with reference inputs, dedicated Image API with resolution/quality/format control |
-| **Audio**   | `analyze_audio`, `generate_audio`, `text_to_speech`, `speech_to_text`                   | Transcription, speech/music generation, dedicated TTS (OpenAI/Gemini/Voxtral voices), dedicated STT (Whisper/GPT-4o Transcribe) |
-| **Video**   | `analyze_video`, `generate_video`, `generate_video_from_image`, `get_video_status`      | Clip understanding, Veo 3.1 / Seedance 2.0 / Wan 2.7 generation with progress notifications                 |
-| **Catalog** | `search_models`, `get_model_info`, `validate_model`, `rerank_documents`, `health_check` | Model discovery, validation, reranking, ops health                                                           |
+| Capability  | Tools                                                                                   | Highlights                                                                                                                                                                        |
+| :---------- | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Chat**    | `chat_completion`, `start_chat_completion`, `get_chat_completion_status`                | 300+ models, `:nitro` / `:floor` / `:free` / `:online` / `:exacto` suffixes, provider routing, web search, response caching, reasoning tokens, async jobs for long-running models |
+| **Vision**  | `analyze_image`, `generate_image`, `generate_image_dedicated`                           | OCR, captioning, VQA, image generation with reference inputs, dedicated Image API with resolution/quality/format control                                                          |
+| **Audio**   | `analyze_audio`, `generate_audio`, `text_to_speech`, `speech_to_text`                   | Transcription, speech/music generation, dedicated TTS (OpenAI/Gemini/Voxtral voices), dedicated STT (Whisper/GPT-4o Transcribe)                                                   |
+| **Video**   | `analyze_video`, `generate_video`, `generate_video_from_image`, `get_video_status`      | Clip understanding, Veo 3.1 / Seedance 2.0 / Wan 2.7 generation with progress notifications                                                                                       |
+| **Catalog** | `search_models`, `get_model_info`, `validate_model`, `rerank_documents`, `health_check` | Model discovery, validation, reranking, ops health                                                                                                                                |
 
-**Production hardening:** input/output path sandboxes (including analyze\_\* local files as of v4.5.2), SSRF guards, structured errors with `_meta.code`, MCP 2025-06-18 structured outputs, tool icons (2025-11-25), async video progress notifications, and **680+** automated tests (unit, mock, regression, and live integration).
+**Production hardening:** input/output path sandboxes (including analyze\_\* local files as of v4.5.2), SSRF guards, structured errors with `_meta.code`, MCP 2025-06-18 structured outputs, tool icons (2025-11-25), async video progress notifications, and **770+** automated tests (unit, mock, regression, and live integration).
 
 ## Quick start
 
@@ -72,23 +72,23 @@ npx -y @stabgan/openrouter-mcp-multimodal
 
 MCP servers are distributed through several packaging models. **This server is implemented in Node.js/TypeScript**; the table below maps each ecosystem method to how you run it here.
 
-| Method | Runtime | Best for | This server |
-| :--- | :--- | :--- | :--- |
-| **[npx](#npx-recommended)** | Node.js 20+ | Most MCP clients (default) | ✅ `@stabgan/openrouter-mcp-multimodal` |
-| **[uvx / pipx](#uvx--pipx-python-launcher)** | Python 3.10+ **and** Node.js 20+ | Python-first workflows, same pattern as PyPI MCP servers | ✅ [`mcp-server-openrouter-multimodal`](https://pypi.org/project/mcp-server-openrouter-multimodal/) |
-| **[npm global](#npm-global)** | Node.js 20+ | Pin a version without re-downloading | ✅ |
-| **[node (local)](#node-local-clone)** | Node.js 20+ | Contributors / air-gapped builds | ✅ |
-| **[Docker Hub](#docker)** | Docker | Isolation, no Node on host | ✅ `stabgan/openrouter-mcp-multimodal` |
-| **[GHCR](#ghcr-github-container-registry)** | Docker | GitHub-native OCI pulls | ✅ `ghcr.io/stabgan/openrouter-mcp-multimodal` |
-| **[Smithery CLI](#smithery)** | Node.js (via installer) | Interactive install into Claude/Cursor/etc. | ✅ |
-| **[MCP Registry](#mcp-registry)** | npm or OCI | Official discovery (`io.github.stabgan/openrouter-multimodal`) | ✅ [listing](https://registry.modelcontextprotocol.io/servers/io.github.stabgan/openrouter-multimodal) |
-| **[One-click deeplinks](#one-click)** | Node.js | Cursor, VS Code, Kiro | ✅ |
-| **[Claude Code CLI](#claude-code-cli)** | Node.js | Terminal-first Claude Code users | ✅ |
-| **[MCP Inspector](#mcp-inspector)** | Node.js | Debug / list tools locally | ✅ |
-| **Windows `cmd /c npx`** | Node.js | Claude Desktop / Cursor when `npx` not on GUI PATH | ✅ [see below](#windows-npx) |
-| pip / uv (direct) | — | Native Python MCP servers only | — use **uvx** row above |
-| DXT desktop extensions | — | Bundled Claude Desktop `.dxt` | not yet |
-| Remote HTTP / SSE | — | Hosted Smithery / Cloudflare endpoints | via [Smithery](https://smithery.ai/server/@stabgan/openrouter-mcp-multimodal) |
+| Method                                       | Runtime                          | Best for                                                       | This server                                                                                            |
+| :------------------------------------------- | :------------------------------- | :------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------- |
+| **[npx](#npx-recommended)**                  | Node.js 20+                      | Most MCP clients (default)                                     | ✅ `@stabgan/openrouter-mcp-multimodal`                                                                |
+| **[uvx / pipx](#uvx--pipx-python-launcher)** | Python 3.10+ **and** Node.js 20+ | Python-first workflows, same pattern as PyPI MCP servers       | ✅ [`mcp-server-openrouter-multimodal`](https://pypi.org/project/mcp-server-openrouter-multimodal/)    |
+| **[npm global](#npm-global)**                | Node.js 20+                      | Pin a version without re-downloading                           | ✅                                                                                                     |
+| **[node (local)](#node-local-clone)**        | Node.js 20+                      | Contributors / air-gapped builds                               | ✅                                                                                                     |
+| **[Docker Hub](#docker)**                    | Docker                           | Isolation, no Node on host                                     | ✅ `stabgan/openrouter-mcp-multimodal`                                                                 |
+| **[GHCR](#ghcr-github-container-registry)**  | Docker                           | GitHub-native OCI pulls                                        | ✅ `ghcr.io/stabgan/openrouter-mcp-multimodal`                                                         |
+| **[Smithery CLI](#smithery)**                | Node.js (via installer)          | Interactive install into Claude/Cursor/etc.                    | ✅                                                                                                     |
+| **[MCP Registry](#mcp-registry)**            | npm or OCI                       | Official discovery (`io.github.stabgan/openrouter-multimodal`) | ✅ [listing](https://registry.modelcontextprotocol.io/servers/io.github.stabgan/openrouter-multimodal) |
+| **[One-click deeplinks](#one-click)**        | Node.js                          | Cursor, VS Code, Kiro                                          | ✅                                                                                                     |
+| **[Claude Code CLI](#claude-code-cli)**      | Node.js                          | Terminal-first Claude Code users                               | ✅                                                                                                     |
+| **[MCP Inspector](#mcp-inspector)**          | Node.js                          | Debug / list tools locally                                     | ✅                                                                                                     |
+| **Windows `cmd /c npx`**                     | Node.js                          | Claude Desktop / Cursor when `npx` not on GUI PATH             | ✅ [see below](#windows-npx)                                                                           |
+| pip / uv (direct)                            | —                                | Native Python MCP servers only                                 | — use **uvx** row above                                                                                |
+| DXT desktop extensions                       | —                                | Bundled Claude Desktop `.dxt`                                  | not yet                                                                                                |
+| Remote HTTP / SSE                            | —                                | Hosted Smithery / Cloudflare endpoints                         | via [Smithery](https://smithery.ai/server/@stabgan/openrouter-mcp-multimodal)                          |
 
 > **uvx vs npx:** In the MCP ecosystem, **`npx` runs npm (Node) packages** and **`uvx` runs PyPI (Python) packages**. Because this server is Node-based, `uvx` uses a thin [Python launcher](./python/) that execs `npx -y @stabgan/openrouter-mcp-multimodal` — you still need Node installed.
 
@@ -129,7 +129,7 @@ npx -y @stabgan/openrouter-mcp-multimodal
 }
 ```
 
-Pin a release: `"args": ["-y", "@stabgan/openrouter-mcp-multimodal@4.5.3"]`
+Pin a release: `"args": ["-y", "@stabgan/openrouter-mcp-multimodal@4.6.1"]`
 
 </details>
 
@@ -141,7 +141,7 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/) (includes 
 ```bash
 export OPENROUTER_API_KEY=sk-or-v1-...
 uvx mcp-server-openrouter-multimodal
-# pin npm version: OPENROUTER_MCP_NPM_VERSION=4.5.3 uvx mcp-server-openrouter-multimodal
+# pin npm version: OPENROUTER_MCP_NPM_VERSION=4.6.1 uvx mcp-server-openrouter-multimodal
 ```
 
 ```json
@@ -160,7 +160,7 @@ uvx mcp-server-openrouter-multimodal
 
 **pipx equivalent:** `pipx run mcp-server-openrouter-multimodal`
 
-Optional: `OPENROUTER_MCP_NPM_VERSION=4.5.3` pins the underlying npm package.
+Optional: `OPENROUTER_MCP_NPM_VERSION=4.6.1` pins the underlying npm package.
 
 </details>
 
@@ -241,7 +241,7 @@ Use `-i` (interactive stdio). Avoid `-t` (TTY corrupts MCP framing on some hosts
 
 ```bash
 docker run --rm -i -e OPENROUTER_API_KEY=sk-or-v1-... \
-  ghcr.io/stabgan/openrouter-mcp-multimodal:4.5.3
+  ghcr.io/stabgan/openrouter-mcp-multimodal:4.6.1
 ```
 
 ```json
@@ -250,8 +250,11 @@ docker run --rm -i -e OPENROUTER_API_KEY=sk-or-v1-... \
     "openrouter": {
       "command": "docker",
       "args": [
-        "run", "--rm", "-i",
-        "-e", "OPENROUTER_API_KEY=sk-or-v1-...",
+        "run",
+        "--rm",
+        "-i",
+        "-e",
+        "OPENROUTER_API_KEY=sk-or-v1-...",
         "ghcr.io/stabgan/openrouter-mcp-multimodal:latest"
       ]
     }
@@ -351,27 +354,27 @@ If still failing, use the full path from `where npx` as the command.
 
 19 MCP tools. Each description includes **Use when**, **Good/Bad examples**, **Fails when**, and **Works with** so agents pick the right tool and recover from errors.
 
-| Tool                          | Purpose                                                      |
-| :---------------------------- | :----------------------------------------------------------- |
-| `chat_completion`             | Text chat, web search, provider routing, caching, reasoning  |
-| `start_chat_completion`       | Async background job for long-running reasoning models       |
-| `get_chat_completion_status`  | Poll / retrieve async completion results                     |
-| `analyze_image`               | Vision — local path, URL, or data URL + `question`           |
-| `analyze_audio`               | Transcribe / analyze audio files                             |
-| `analyze_video`               | Describe / Q&A over video files                              |
-| `generate_image`              | Text-to-image via chat completions with reference images     |
-| `generate_image_dedicated`    | Text-to-image via dedicated `/api/v1/images` (resolution, quality, format) |
-| `generate_audio`              | Text-to-speech / music via chat completions                  |
-| `text_to_speech`              | Dedicated TTS (`/api/v1/audio/speech`) — voices, speed, format |
-| `speech_to_text`              | Dedicated STT (`/api/v1/audio/transcriptions`) — Whisper, GPT-4o |
-| `generate_video`              | Text-to-video (async, resumable)                             |
-| `generate_video_from_image`   | Image-to-video (narrower schema)                             |
-| `get_video_status`            | Poll / resume video jobs                                     |
-| `search_models`               | Paginated model catalog search                               |
-| `get_model_info`              | Pricing, context, modalities                                 |
-| `validate_model`              | Cheap model ID existence check                               |
-| `rerank_documents`            | Relevance ranking for RAG                                    |
-| `health_check`                | API key + reachability probe                                 |
+| Tool                         | Purpose                                                                    |
+| :--------------------------- | :------------------------------------------------------------------------- |
+| `chat_completion`            | Text chat, web search, provider routing, caching, reasoning                |
+| `start_chat_completion`      | Async background job for long-running reasoning models                     |
+| `get_chat_completion_status` | Poll / retrieve async completion results                                   |
+| `analyze_image`              | Vision — local path, URL, or data URL + `question`                         |
+| `analyze_audio`              | Transcribe / analyze audio files                                           |
+| `analyze_video`              | Describe / Q&A over video files                                            |
+| `generate_image`             | Text-to-image via chat completions with reference images                   |
+| `generate_image_dedicated`   | Text-to-image via dedicated `/api/v1/images` (resolution, quality, format) |
+| `generate_audio`             | Text-to-speech / music via chat completions                                |
+| `text_to_speech`             | Dedicated TTS (`/api/v1/audio/speech`) — voices, speed, format             |
+| `speech_to_text`             | Dedicated STT (`/api/v1/audio/transcriptions`) — Whisper, GPT-4o           |
+| `generate_video`             | Text-to-video (async, resumable)                                           |
+| `generate_video_from_image`  | Image-to-video (narrower schema)                                           |
+| `get_video_status`           | Poll / resume video jobs                                                   |
+| `search_models`              | Paginated model catalog search                                             |
+| `get_model_info`             | Pricing, context, modalities                                               |
+| `validate_model`             | Cheap model ID existence check                                             |
+| `rerank_documents`           | Relevance ranking for RAG                                                  |
+| `health_check`               | API key + reachability probe                                               |
 
 Errors use a closed `_meta.code` taxonomy: `INVALID_INPUT` · `UNSAFE_PATH` · `UPSTREAM_*` · `MODEL_NOT_FOUND` · `JOB_STILL_RUNNING` · and more.
 
@@ -476,7 +479,7 @@ npm run build
 
 | Command                    | What it runs                                               |
 | :------------------------- | :--------------------------------------------------------- |
-| `npm test`                 | **652** unit + mock tests (no API key, &lt;2s)             |
+| `npm test`                 | **773** unit + mock tests (no API key, &lt;20s)            |
 | `npm run test:regression`  | Security + schema regression guards                        |
 | `npm run test:integration` | **16** live OpenRouter scenarios (**requires** `.env` key) |
 | `npm run test:e2e`         | Full MCP stdio smoke (`scripts/live-e2e.mjs`)              |

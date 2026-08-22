@@ -52,12 +52,6 @@ export class ModelCache {
   private static instance: ModelCache;
   private models: Record<string, OpenRouterModelRecord> = {};
   private fetchedAt = 0;
-  /**
-   * Separate from `fetchedAt`: set whenever we successfully CALL the
-   * fetcher (even if the response happens to be empty). Used by
-   * `isValid()` so a successful-but-empty fetch still counts as "fresh"
-   * and we don't hot-loop re-fetching the upstream.
-   */
   private populatedAt = 0;
   private inflight: Promise<OpenRouterModelRecord[]> | null = null;
 
@@ -76,11 +70,7 @@ export class ModelCache {
     this.populatedAt = this.fetchedAt;
   }
 
-  /**
-   * Force the cache back into an uninitialized state. Used by tests that
-   * need to assert `ensureFresh()` actually calls the fetcher. Also useful
-   * for ops (`health_check --reset`) if we ever expose such a knob.
-   */
+  /** Reset cache state (tests). */
   reset(): void {
     this.models = {};
     this.fetchedAt = 0;
@@ -88,11 +78,6 @@ export class ModelCache {
     this.inflight = null;
   }
 
-  /**
-   * Populate the cache using `fetcher` if stale, coalescing concurrent callers
-   * so only one request hits the upstream API per stale window. Callers that
-   * arrive while a populate is in flight await the same promise.
-   */
   async ensureFresh(fetcher: () => Promise<OpenRouterModelRecord[]>): Promise<void> {
     if (this.isValid()) return;
     if (this.inflight) {
@@ -125,10 +110,6 @@ export class ModelCache {
     return id in this.models;
   }
 
-  /**
-   * Single-pass paginated search: O(n) time, O(limit) extra space for the page.
-   * Avoids materializing the full filtered array when only one page is needed.
-   */
   searchPaginated(
     params: ModelSearchParams,
     offset: number,

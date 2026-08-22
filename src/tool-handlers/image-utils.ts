@@ -185,6 +185,33 @@ export async function optimizeImage(buffer: Buffer): Promise<{ base64: string; m
   }
 }
 
+/** Load image bytes with a MIME type (respects OPENROUTER_IMAGE_* fetch limits). */
+export async function fetchImageWithMime(
+  source: string,
+): Promise<{ buffer: Buffer; mime: string }> {
+  if (source.startsWith('data:')) {
+    const parsed = parseBase64DataUrl(source);
+    if (!parsed) throw new Error('Invalid data URL');
+    return { buffer: Buffer.from(parsed.base64, 'base64'), mime: parsed.mediaType };
+  }
+  if (source.startsWith('http://') || source.startsWith('https://')) {
+    const { buffer, contentType } = await fetchHttpResource(source, {
+      timeoutMs: getFetchTimeoutMs(),
+      maxBytes: getMaxDownloadBytes(),
+      maxRedirects: getMaxRedirects(),
+    });
+    const mime = (
+      contentType?.split(';')[0]?.trim() ||
+      sniffImageMime(buffer) ||
+      'image/jpeg'
+    ).toLowerCase();
+    return { buffer, mime };
+  }
+  const safe = await resolveSafeInputPath(source);
+  const buffer = await fs.readFile(safe);
+  return { buffer, mime: getMimeType(safe) };
+}
+
 export async function prepareImageUrl(source: string): Promise<string> {
   if (source.startsWith('data:')) return source;
 

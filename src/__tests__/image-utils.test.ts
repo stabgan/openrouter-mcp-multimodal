@@ -3,6 +3,7 @@ import {
   getMimeType,
   mimeFromExtension,
   fetchImage,
+  fetchImageWithMime,
   optimizeImage,
   prepareImageUrl,
   isBlockedIPv4,
@@ -95,6 +96,29 @@ describe('isBlockedIPv4', () => {
     expect(isBlockedIPv4('127.0.0.1')).toBe(true);
     expect(isBlockedIPv4('10.0.0.1')).toBe(true);
     expect(isBlockedIPv4('8.8.8.8')).toBe(false);
+  });
+});
+
+describe('fetchImageWithMime', () => {
+  it('returns mime from data URL media type', async () => {
+    const payload = Buffer.from('png-bytes').toString('base64');
+    const result = await fetchImageWithMime(`data:image/png;base64,${payload}`);
+    expect(result.mime).toBe('image/png');
+    expect(result.buffer.toString()).toBe('png-bytes');
+  });
+
+  it('returns mime from local file extension', async () => {
+    await withInputSandbox('mcp-fetch-mime-', async (root) => {
+      writeFileSync(path.join(root, 'pic.webp'), Buffer.from([0x01, 0x02]));
+      const result = await fetchImageWithMime('pic.webp');
+      expect(result.mime).toBe('image/webp');
+    });
+  });
+
+  it('rejects sandbox escapes like fetchImage', async () => {
+    await withInputSandbox('mcp-fetch-mime-', async () => {
+      await expect(fetchImageWithMime('/etc/passwd')).rejects.toBeInstanceOf(UnsafeOutputPathError);
+    });
   });
 });
 

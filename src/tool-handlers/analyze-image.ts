@@ -22,12 +22,6 @@ export interface AnalyzeImageToolRequest extends CacheOptions {
   image_path: string;
   question?: string;
   model?: string;
-  /**
-   * When true, attach Anthropic-style `cache_control: {type: 'ephemeral'}`
-   * to the image block so Claude / Gemini 2.5+ prompt-caches it. Repeat
-   * questions about the same image then cost ~0.1x on Anthropic and
-   * ~0.25x on Gemini for the image input.
-   */
   cache_input?: boolean;
 }
 
@@ -58,9 +52,6 @@ export async function handleAnalyzeImage(
     return toolErrorFrom(ErrorCode.INVALID_INPUT, err);
   }
 
-  // Attach `cache_control` to the image block when requested. The openai
-  // SDK doesn't type this field but passes it through to the server,
-  // which forwards it to providers that support prompt caching.
   const imageBlock: Record<string, unknown> = {
     type: 'image_url',
     image_url: { url: imageUrl },
@@ -103,11 +94,7 @@ export async function handleAnalyzeImage(
   }
 
   const cacheMeta = extractCacheMeta(responseHeaders);
-  // Output originates from model interpretation of potentially
-  // attacker-controlled image content (typography attacks, QR codes,
-  // adversarial watermarks). Flag it so downstream agents know to treat
-  // this text as data, not instructions. Inspired by ClawGuard (arxiv
-  // 2604.11790) and tool-result-parsing defenses (2601.04795).
+  // Vision output may reflect untrusted image content — flag for downstream agents.
   const extra: Record<string, unknown> = {
     server_version: SERVER_VERSION,
     content_is_untrusted: true,

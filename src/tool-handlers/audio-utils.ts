@@ -1,9 +1,6 @@
-/**
- * Audio format detection, base64 encoding, and fetch utilities.
- * Network/security logic is delegated to fetch-utils.ts (zero duplication).
- */
-import path from 'path';
-import { promises as fs } from 'fs';
+/** Audio format detection and fetch utilities. */
+import path from 'node:path';
+import { promises as fs } from 'node:fs';
 import { readEnvInt, fetchHttpResource, parseBase64DataUrl } from './fetch-utils.js';
 import { resolveSafeInputPath } from './path-safety.js';
 
@@ -100,12 +97,8 @@ export interface AudioData {
   format: AudioFormat;
 }
 
-/**
- * Prepare audio from any source (data URL, HTTP URL, local file) as base64 + format.
- * OpenRouter requires audio to be base64-encoded; direct URLs are NOT supported.
- */
+/** Prepare audio from data URL, HTTP URL, or sandboxed local file. */
 export async function prepareAudioData(source: string): Promise<AudioData> {
-  // --- data URL ---
   if (source.startsWith('data:')) {
     const parsed = parseBase64DataUrl(source);
     if (!parsed) throw new Error('Invalid data URL format');
@@ -121,14 +114,12 @@ export async function prepareAudioData(source: string): Promise<AudioData> {
     return { data: parsed.base64, format };
   }
 
-  // --- HTTP(S) URL ---
   if (source.startsWith('http://') || source.startsWith('https://')) {
     const { buffer, contentType } = await fetchHttpResource(source, {
       timeoutMs: getFetchTimeoutMs(),
       maxBytes: getMaxDownloadBytes(),
       maxRedirects: getMaxRedirects(),
     });
-    // Try URL path extension first, fall back to Content-Type header
     const urlPath = new URL(source).pathname;
     const format = getAudioFormat(urlPath) ?? formatFromContentType(contentType);
     if (!format) {
@@ -139,7 +130,6 @@ export async function prepareAudioData(source: string): Promise<AudioData> {
     return { data: buffer.toString('base64'), format };
   }
 
-  // --- local file ---
   const safe = await resolveSafeInputPath(source);
   const format = getAudioFormat(safe);
   if (!format) {

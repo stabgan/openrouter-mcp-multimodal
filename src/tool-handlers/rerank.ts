@@ -43,8 +43,6 @@ export async function handleRerankDocuments(
     return classifyUpstreamError(err, 'rerank');
   }
 
-  // Normalize to a stable shape: always expose `score` (OpenRouter
-  // providers sometimes return `relevance_score`, sometimes `score`).
   const normalized = (response.results ?? []).map((r) => {
     const score = typeof r.score === 'number' ? r.score : r.relevance_score;
     const out: Record<string, unknown> = { index: r.index, score };

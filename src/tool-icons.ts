@@ -1,16 +1,8 @@
-/**
- * Tool icons for MCP 2025-11-25+ clients that render icons in the tool list.
- * Each icon is a minimal SVG data URI — no external hosting needed.
- *
- * Clients that don't support icons simply ignore the `icons` field.
- */
-
-/** Encode an SVG string as a data URI. */
+/** MCP tool icons — inline SVG data URIs; ignored by clients that don't support them. */
 function svgDataUri(svg: string): string {
   return `data:image/svg+xml,${encodeURIComponent(svg.trim())}`;
 }
 
-// Minimal 24x24 SVG icons using simple shapes
 const ICONS = {
   chat: svgDataUri(
     `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,

@@ -1,15 +1,9 @@
-/**
- * speech_to_text — uses OpenRouter's dedicated POST /api/v1/audio/transcriptions
- * endpoint (launched May 2026) for speech-to-text transcription. Faster and more
- * cost-efficient than routing through chat completions for pure transcription.
- *
- * Supported models: OpenAI Whisper-1, GPT-4o Transcribe, GPT-4o Mini Transcribe,
- * Mistral Voxtral Mini Transcribe.
- */
-import { promises as fs } from 'fs';
+/** Dedicated POST /api/v1/audio/transcriptions — Whisper, GPT-4o Transcribe, Voxtral. */
+import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { OpenRouterAPIClient, TranscriptionResponse } from '../openrouter-api.js';
 import { resolveSafeInputPath, UnsafeOutputPathError } from './path-safety.js';
+import { fetchHttpResource } from './fetch-utils.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
@@ -53,26 +47,17 @@ function audioFormatFromExt(ext: string): string {
   }
 }
 
-/**
- * Resolve audio input to base64 + format, supporting:
- * - data: URLs (pass through)
- * - http(s) URLs (fetch)
- * - local file paths (sandboxed read)
- */
 async function resolveAudioInput(audioPath: string): Promise<{ data: string; format: string }> {
   const trimmed = audioPath.trim();
   if (!trimmed) throw new Error('audio_path is empty');
 
-  // Data URL
   if (trimmed.startsWith('data:')) {
     const match = trimmed.match(/^data:audio\/([^;,]+)(?:;[^,]*)*;base64,(.+)$/);
     if (!match) throw new Error('Invalid audio data URL format');
     return { data: match[2]!, format: match[1]! };
   }
 
-  // HTTP URL
   if (/^https?:\/\//i.test(trimmed)) {
-    const { fetchHttpResource } = await import('./fetch-utils.js');
     const { buffer, contentType } = await fetchHttpResource(trimmed, {
       timeoutMs: 60_000,
       maxBytes: 100 * 1024 * 1024,
@@ -82,7 +67,6 @@ async function resolveAudioInput(audioPath: string): Promise<{ data: string; for
     return { data: buffer.toString('base64'), format };
   }
 
-  // Local file
   const abs = await resolveSafeInputPath(trimmed);
   const buf = await fs.readFile(abs);
   const ext = path.extname(abs);
@@ -124,7 +108,6 @@ export async function handleSpeechToText(
     response_format,
   });
 
-  // Resolve audio input
   let audioInput: { data: string; format: string };
   try {
     audioInput = await resolveAudioInput(audio_path);
@@ -135,7 +118,6 @@ export async function handleSpeechToText(
     return toolErrorFrom(ErrorCode.INVALID_INPUT, err);
   }
 
-  // Build request body
   const body: Record<string, unknown> = {
     model: model || DEFAULT_MODEL,
     input_audio: {

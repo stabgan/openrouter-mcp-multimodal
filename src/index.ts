@@ -12,18 +12,13 @@ import { SERVER_ICON } from './tool-icons.js';
 
 const DEFAULT_MODEL = 'nvidia/nemotron-nano-12b-v2-vl:free';
 
-// Exit on fatal errors to prevent silent zombie processes (issue #5).
-// We log an explicit whitelist of fields rather than the raw error object
-// to avoid ever echoing sensitive SDK internals (request bodies, auth
-// headers) in a future version. Defense-in-depth against a changed
-// APIError.toString() in openai-node.
+// Log whitelisted fields only — avoid leaking auth headers from SDK errors.
 function logFatal(kind: string, err: unknown): void {
   const e = err as { message?: string; name?: string; stack?: string } | null;
   logger.error('fatal', {
     kind,
     name: e?.name ?? 'unknown',
     msg: e?.message ?? String(err),
-    // Stack traces are developer-only — trim to avoid unbounded log lines.
     stack: e?.stack?.split('\n').slice(0, 10).join('\n'),
   });
 }
@@ -67,10 +62,7 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
-// Ensure stdin emits raw Buffers — some hosts (e.g. Claude Desktop) may set
-// encoding on the stdin pipe, which causes the MCP SDK's ReadBuffer to receive
-// strings instead of Buffers. ReadBuffer.readMessage() calls subarray() which
-// doesn't exist on strings, triggering an infinite error loop.
+// Stdin may arrive as strings on some MCP hosts; re-wrap as raw Buffers for the SDK.
 const stdinStream = process.stdin as NodeJS.ReadStream & {
   setEncoding?(encoding?: BufferEncoding | null): NodeJS.ReadStream;
 };

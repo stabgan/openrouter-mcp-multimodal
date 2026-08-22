@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import OpenAI from 'openai';
 import { handleChatCompletion } from '../../tool-handlers/chat-completion.js';
+import { handleStartChatCompletion } from '../../tool-handlers/async-chat.js';
 import { handleAnalyzeImage } from '../../tool-handlers/analyze-image.js';
 import { handleAnalyzeAudio } from '../../tool-handlers/analyze-audio.js';
 import { handleAnalyzeVideo } from '../../tool-handlers/analyze-video.js';
@@ -35,6 +36,15 @@ describe('mock strata: handler INVALID_INPUT guards', () => {
 
   it('chat_completion rejects empty messages array', async () => {
     const r = await handleChatCompletion({ params: { arguments: { messages: [] } } }, mockOpenAI());
+    expect(r.isError).toBe(true);
+    expect((r as { _meta: { code: string } })._meta.code).toBe('INVALID_INPUT');
+  });
+
+  it('start_chat_completion rejects empty messages array', async () => {
+    const r = await handleStartChatCompletion(
+      { params: { arguments: { messages: [] } } },
+      mockOpenAI(),
+    );
     expect(r.isError).toBe(true);
     expect((r as { _meta: { code: string } })._meta.code).toBe('INVALID_INPUT');
   });

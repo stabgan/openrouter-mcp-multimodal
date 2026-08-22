@@ -56,7 +56,7 @@ def main() -> None:
         raise SystemExit(1)
 
     npm_spec = _npm_spec()
-    # npx resolves package bins incorrectly when cwd is inside the uv/venv install tree.
+    # Run npx from the system temp dir so package install/cache side effects stay out of the user's cwd.
     rc = subprocess.call(
         [npx, *_npx_command(npm_spec)],
         env=env,
