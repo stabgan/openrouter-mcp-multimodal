@@ -25,9 +25,7 @@ import {
 } from './tool-handlers/generate-video.js';
 import { handleRerankDocuments } from './tool-handlers/rerank.js';
 import { handleHealthCheck } from './tool-handlers/health-check.js';
-import {
-  handleGenerateImageDedicated,
-} from './tool-handlers/generate-image-dedicated.js';
+import { handleGenerateImageDedicated } from './tool-handlers/generate-image-dedicated.js';
 import { handleTextToSpeech } from './tool-handlers/text-to-speech.js';
 import { handleSpeechToText } from './tool-handlers/speech-to-text.js';
 import {
@@ -258,7 +256,9 @@ export class ToolHandlers {
                   type: 'object',
                   properties: {
                     role: { type: 'string', enum: ['system', 'user', 'assistant'] },
-                    content: { oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'object' } }] },
+                    content: {
+                      oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'object' } }],
+                    },
                   },
                   required: ['role', 'content'],
                 },
@@ -289,7 +289,10 @@ export class ToolHandlers {
           inputSchema: {
             type: 'object',
             properties: {
-              job_id: { type: 'string', description: 'The job_id returned by start_chat_completion.' },
+              job_id: {
+                type: 'string',
+                description: 'The job_id returned by start_chat_completion.',
+              },
             },
             required: ['job_id'],
           },
@@ -638,7 +641,8 @@ export class ToolHandlers {
               },
               voice: {
                 type: 'string',
-                description: 'Voice ID (model-specific). Default: alloy. OpenAI voices: alloy, echo, fable, onyx, nova, shimmer.',
+                description:
+                  'Voice ID (model-specific). Default: alloy. OpenAI voices: alloy, echo, fable, onyx, nova, shimmer.',
               },
               response_format: {
                 type: 'string',
@@ -653,7 +657,8 @@ export class ToolHandlers {
               },
               instructions: {
                 type: 'string',
-                description: 'Tone/style instructions (e.g. "speak in a warm, friendly tone"). OpenAI models only.',
+                description:
+                  'Tone/style instructions (e.g. "speak in a warm, friendly tone"). OpenAI models only.',
               },
               save_path: { type: 'string', description: 'Save audio to this path.' },
               cache: { type: 'boolean' },

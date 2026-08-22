@@ -11,7 +11,11 @@
 import { promises as fs } from 'fs';
 import path from 'node:path';
 import type { OpenRouterAPIClient, ImageGenerationResponse } from '../openrouter-api.js';
-import { resolveSafeOutputPath, resolveSafeInputPath, UnsafeOutputPathError } from './path-safety.js';
+import {
+  resolveSafeOutputPath,
+  resolveSafeInputPath,
+  UnsafeOutputPathError,
+} from './path-safety.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
@@ -41,7 +45,9 @@ const VALID_OUTPUT_FORMATS = new Set(['png', 'jpeg', 'webp', 'svg']);
  * Resolve an input image reference (local path, URL, or data URL) into the
  * OpenRouter `input_references` shape: `{ type: "image_url", image_url: { url } }`.
  */
-async function resolveReference(source: string): Promise<{ type: string; image_url: { url: string } }> {
+async function resolveReference(
+  source: string,
+): Promise<{ type: string; image_url: { url: string } }> {
   const trimmed = source.trim();
   if (!trimmed) throw new Error('Empty input_references entry');
 
@@ -55,11 +61,15 @@ async function resolveReference(source: string): Promise<{ type: string; image_u
   const buf = await fs.readFile(abs);
   const ext = path.extname(abs).toLowerCase();
   const mime =
-    ext === '.png' ? 'image/png' :
-    ext === '.webp' ? 'image/webp' :
-    ext === '.gif' ? 'image/gif' :
-    ext === '.svg' ? 'image/svg+xml' :
-    'image/jpeg';
+    ext === '.png'
+      ? 'image/png'
+      : ext === '.webp'
+        ? 'image/webp'
+        : ext === '.gif'
+          ? 'image/gif'
+          : ext === '.svg'
+            ? 'image/svg+xml'
+            : 'image/jpeg';
   const dataUrl = `data:${mime};base64,${buf.toString('base64')}`;
   return { type: 'image_url', image_url: { url: dataUrl } };
 }
@@ -173,11 +183,16 @@ export async function handleGenerateImageDedicated(
 
   const firstImage = images[0]!;
   const imageData = firstImage.b64_json;
-  const mimeType = output_format === 'png' ? 'image/png' :
-    output_format === 'webp' ? 'image/webp' :
-    output_format === 'svg' ? 'image/svg+xml' :
-    output_format === 'jpeg' ? 'image/jpeg' :
-    'image/png'; // default
+  const mimeType =
+    output_format === 'png'
+      ? 'image/png'
+      : output_format === 'webp'
+        ? 'image/webp'
+        : output_format === 'svg'
+          ? 'image/svg+xml'
+          : output_format === 'jpeg'
+            ? 'image/jpeg'
+            : 'image/png'; // default
 
   const baseMeta: Record<string, unknown> = {
     server_version: SERVER_VERSION,
@@ -215,9 +230,7 @@ export async function handleGenerateImageDedicated(
 
   // URL-only response (some models return URLs instead of base64)
   return {
-    content: [
-      { type: 'text' as const, text: `Image generated. URL: ${firstImage.url}` },
-    ],
+    content: [{ type: 'text' as const, text: `Image generated. URL: ${firstImage.url}` }],
     _meta: { ...baseMeta, image_url: firstImage.url },
   };
 }

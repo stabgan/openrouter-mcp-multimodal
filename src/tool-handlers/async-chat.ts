@@ -18,14 +18,14 @@
 import { promises as fs } from 'fs';
 import path from 'node:path';
 import OpenAI from 'openai';
-import type { ChatCompletion, ChatCompletionMessageParam } from 'openai/resources/chat/completions.js';
+import type {
+  ChatCompletion,
+  ChatCompletionMessageParam,
+} from 'openai/resources/chat/completions.js';
 import { ErrorCode, toolError } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
-import {
-  extractCompletionText,
-  buildCompletionMeta,
-} from './completion-utils.js';
+import { extractCompletionText, buildCompletionMeta } from './completion-utils.js';
 import {
   type ProviderRoutingOptions,
   readProviderDefaults,
@@ -89,10 +89,7 @@ async function persistJob(job: AsyncJob): Promise<void> {
   try {
     const jobDir = path.join(dir, job.id);
     await fs.mkdir(jobDir, { recursive: true });
-    await fs.writeFile(
-      path.join(jobDir, 'status.json'),
-      JSON.stringify(job, null, 2),
-    );
+    await fs.writeFile(path.join(jobDir, 'status.json'), JSON.stringify(job, null, 2));
     if (job.status === 'completed' && job.result?.text) {
       await fs.writeFile(path.join(jobDir, 'response.md'), job.result.text);
     }
@@ -250,9 +247,9 @@ async function runCompletionInBackground(
   await persistJob(job);
 }
 
-export async function handleGetChatCompletionStatus(
-  request: { params: { arguments: GetChatCompletionStatusRequest } },
-) {
+export async function handleGetChatCompletionStatus(request: {
+  params: { arguments: GetChatCompletionStatusRequest };
+}) {
   const args = request.params.arguments ?? ({} as GetChatCompletionStatusRequest);
   const jobId = args.job_id?.trim();
 

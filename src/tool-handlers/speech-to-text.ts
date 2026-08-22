@@ -32,14 +32,24 @@ const VALID_RESPONSE_FORMATS = new Set(['json', 'text', 'srt', 'verbose_json', '
 function audioFormatFromExt(ext: string): string {
   const normalized = ext.toLowerCase().replace('.', '');
   switch (normalized) {
-    case 'mp3': return 'mp3';
-    case 'mp4': case 'm4a': return 'mp4';
-    case 'wav': return 'wav';
-    case 'flac': return 'flac';
-    case 'ogg': case 'oga': return 'ogg';
-    case 'webm': return 'webm';
-    case 'opus': return 'opus';
-    default: return 'mp3';
+    case 'mp3':
+      return 'mp3';
+    case 'mp4':
+    case 'm4a':
+      return 'mp4';
+    case 'wav':
+      return 'wav';
+    case 'flac':
+      return 'flac';
+    case 'ogg':
+    case 'oga':
+      return 'ogg';
+    case 'webm':
+      return 'webm';
+    case 'opus':
+      return 'opus';
+    default:
+      return 'mp3';
   }
 }
 
@@ -49,9 +59,7 @@ function audioFormatFromExt(ext: string): string {
  * - http(s) URLs (fetch)
  * - local file paths (sandboxed read)
  */
-async function resolveAudioInput(
-  audioPath: string,
-): Promise<{ data: string; format: string }> {
+async function resolveAudioInput(audioPath: string): Promise<{ data: string; format: string }> {
   const trimmed = audioPath.trim();
   if (!trimmed) throw new Error('audio_path is empty');
 

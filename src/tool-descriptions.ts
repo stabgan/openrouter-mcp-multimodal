@@ -137,12 +137,10 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
       'Polling for a long-running reasoning model result',
     ],
     notWhen: [
-      'You haven\'t started a job yet → use start_chat_completion first',
+      "You haven't started a job yet → use start_chat_completion first",
       'You want to start a new completion',
     ],
-    goodExamples: [
-      '`{ "job_id": "chat_20260806_001" }`',
-    ],
+    goodExamples: ['`{ "job_id": "chat_20260806_001" }`'],
     badExamples: [
       '`{ "job_id": "" }` → INVALID_INPUT',
       '`{ "job_id": "nonexistent" }` → job not found',
@@ -362,7 +360,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
 
   generate_image_dedicated: buildToolDescription({
     summary:
-      'Generate images via OpenRouter\'s dedicated Image API (POST /api/v1/images). Supports ' +
+      "Generate images via OpenRouter's dedicated Image API (POST /api/v1/images). Supports " +
       'normalized resolution tiers, quality levels, output format selection, and reference images. ' +
       'New image models are added exclusively to this endpoint. Default model: google/gemini-2.5-flash-image.',
     useWhen: [
@@ -388,7 +386,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
     failsWhen: [
       'INVALID_INPUT: empty prompt, invalid resolution/quality/output_format',
       'UNSAFE_PATH: save_path or input_references escaped sandbox',
-      'UPSTREAM_REFUSED: content policy, model doesn\'t support requested options',
+      "UPSTREAM_REFUSED: content policy, model doesn't support requested options",
       'MODEL_NOT_FOUND: invalid model slug',
     ],
     worksWith: ['analyze_image', 'generate_video_from_image'],
@@ -420,7 +418,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
 
   text_to_speech: buildToolDescription({
     summary:
-      'Convert text to speech via OpenRouter\'s dedicated TTS endpoint (POST /api/v1/audio/speech). ' +
+      "Convert text to speech via OpenRouter's dedicated TTS endpoint (POST /api/v1/audio/speech). " +
       'Faster and cheaper than chat completions for pure TTS. Models: OpenAI GPT-4o Mini TTS, Google Gemini Flash TTS, Mistral Voxtral.',
     useWhen: [
       'You need text-to-speech with specific voice control',
@@ -452,7 +450,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
 
   speech_to_text: buildToolDescription({
     summary:
-      'Transcribe audio via OpenRouter\'s dedicated STT endpoint (POST /api/v1/audio/transcriptions). ' +
+      "Transcribe audio via OpenRouter's dedicated STT endpoint (POST /api/v1/audio/transcriptions). " +
       'Faster and cheaper than chat completions for pure transcription. Models: Whisper-1, GPT-4o Transcribe, Voxtral.',
     useWhen: [
       'You need fast transcription of audio files',
