@@ -2,6 +2,53 @@
 
 All notable changes to `@stabgan/openrouter-mcp-multimodal` are recorded here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.0.0](https://github.com/stabgan/openrouter-mcp-multimodal/compare/v5.0.0...v6.0.0) (2026-09-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* minimum Node.js is now 22. Node 20 is no longer supported.
+
+### Features
+
+* add audio analysis and generation tools (v1.9.0) ([872153a](https://github.com/stabgan/openrouter-mcp-multimodal/commit/872153adbdc7ab6fc5dda3da2fca77a1cba55abd))
+* add generate_image tool for OpenRouter image generation ([006cb9e](https://github.com/stabgan/openrouter-mcp-multimodal/commit/006cb9e8444b079a2df2e9adc1c62c830ca61d1f))
+* add MCP tool icons and server metadata (2025-11-25 spec) ([4e95f38](https://github.com/stabgan/openrouter-mcp-multimodal/commit/4e95f38effa9943e4772cd28e96f6f5545bc0eb4))
+* Enhanced cross-platform path handling and MCP configuration support ([50c2c43](https://github.com/stabgan/openrouter-mcp-multimodal/commit/50c2c43fd94f691163d26da11ccc1ad0b4329746))
+* **generate_image:** add aspect_ratio and image_size params ([#8](https://github.com/stabgan/openrouter-mcp-multimodal/issues/8)) ([216b561](https://github.com/stabgan/openrouter-mcp-multimodal/commit/216b561422b1577c0cecf0d7a65e309e4d05c554))
+* **generate_image:** add max_tokens passthrough ([df12746](https://github.com/stabgan/openrouter-mcp-multimodal/commit/df1274620606dad4ca7cb807f261acd8a2105ab4))
+* **generate_image:** reference images + modalities override ([#16](https://github.com/stabgan/openrouter-mcp-multimodal/issues/16)) ([7912439](https://github.com/stabgan/openrouter-mcp-multimodal/commit/79124391f07f361feeaea70d9543402cc97f63b9))
+* security hardening, CI, lint, docs (v1.8.0) ([5c5b127](https://github.com/stabgan/openrouter-mcp-multimodal/commit/5c5b127eb8905b136d3c8f2e1c49edef5208978e))
+* v2.0.0 — audio analysis, audio generation, shared security layer, install buttons ([301f2fa](https://github.com/stabgan/openrouter-mcp-multimodal/commit/301f2fa1327a75dc3e09d2c25e1deec2a7c66f68))
+* **v3.0.0:** video analysis + generation, hardened taxonomy, SSRF v6 ([a3da06e](https://github.com/stabgan/openrouter-mcp-multimodal/commit/a3da06eae4e8c5972e080edcccd71bdda2d9c655))
+* v4.6.0 — dedicated Image/Audio APIs, async completions, video fix, Sora deprecation ([4ce18ec](https://github.com/stabgan/openrouter-mcp-multimodal/commit/4ce18ec79d9e5df6f7432c8cb46a96bec0f2a96f))
+* v4.7.0 MCP binary result policy and security hardening ([25bc74c](https://github.com/stabgan/openrouter-mcp-multimodal/commit/25bc74c3cef998fe830e4d3f11bcab93bb076661))
+* v4.8.0 security hardening, media correctness, and validation ([28bf3a1](https://github.com/stabgan/openrouter-mcp-multimodal/commit/28bf3a1aecf4ddff04a2ebcde9f18d94aa2b89c1))
+* v5.0.0 — replace retired default models, require Node 22, upgrade to openai v7 ([#28](https://github.com/stabgan/openrouter-mcp-multimodal/issues/28)) ([94641fb](https://github.com/stabgan/openrouter-mcp-multimodal/commit/94641fb010d7708617d9c78b215611d2bcf4598b))
+
+
+### Bug Fixes
+
+* add repository URL for npm provenance (trusted publishing) ([5fc0de2](https://github.com/stabgan/openrouter-mcp-multimodal/commit/5fc0de25526fefcc47c69ca8f24c4f8e02dc6137))
+* **ci:** add workflow_dispatch trigger ([a62f4c4](https://github.com/stabgan/openrouter-mcp-multimodal/commit/a62f4c43b8914c3ee32e6eae049fdf1877ca587b))
+* **ci:** drop integration job — secrets are not allowed in job if ([4fedc20](https://github.com/stabgan/openrouter-mcp-multimodal/commit/4fedc20f55f95de4536b1457b7011b71e2d46a4d))
+* **ci:** remove broken npm global upgrade step — Node 22 ships with OIDC-capable npm ([e6b1fc6](https://github.com/stabgan/openrouter-mcp-multimodal/commit/e6b1fc62b41e38ea33f9d8edaf21c3389ca042cd))
+* **ci:** use npm@latest for OIDC trusted publishing ([37f7d80](https://github.com/stabgan/openrouter-mcp-multimodal/commit/37f7d80fd1fc65867f5f2cc2441e60e6e6b24728))
+* **ci:** use NPMJS_TOKEN for npm publish (OIDC not configured server-side yet) ([c7ef201](https://github.com/stabgan/openrouter-mcp-multimodal/commit/c7ef201347d8c40e892749edac43144249de8caa))
+* **fetch:** send User-Agent so CDN-fronted hosts don't return HTTP 400 ([#14](https://github.com/stabgan/openrouter-mcp-multimodal/issues/14)) ([2463194](https://github.com/stabgan/openrouter-mcp-multimodal/commit/24631941bda9ae9f497a91b0f325935b5c1cae71))
+* import expect from vitest in integration soft-fail helper ([8f91928](https://github.com/stabgan/openrouter-mcp-multimodal/commit/8f919289a778cb0bdaf976024664a67558fb4b76))
+* Improved base64 image handling and Windows compatibility ([8512f03](https://github.com/stabgan/openrouter-mcp-multimodal/commit/8512f031f7af064f5856b5654c8cf6e53fa71557))
+* load .env file at startup via dotenv ([812ce56](https://github.com/stabgan/openrouter-mcp-multimodal/commit/812ce568b58a8bcdbb705b14cb6b8cbedc2ed784))
+* load .env file at startup via dotenv; move dotenv to dependencies ([4e34d43](https://github.com/stabgan/openrouter-mcp-multimodal/commit/4e34d43264b3a4610aae8d09a994ed8e8c70672f))
+* Optimize npm installation process for more reliable builds ([a0d9273](https://github.com/stabgan/openrouter-mcp-multimodal/commit/a0d92730db52879ae481fbad9839b01edb2c8277))
+* plug HTTP body leak, rescue MIME-param data URLs, align error shape ([7aa1f0f](https://github.com/stabgan/openrouter-mcp-multimodal/commit/7aa1f0f85fe788566b652263b0684465be6d2c2c))
+* **readme:** use HTTPS redirectors for Cursor + VS Code install buttons ([ceb2516](https://github.com/stabgan/openrouter-mcp-multimodal/commit/ceb2516cf390c35ba99ebd1ffe18619dc916d92d))
+* Replace npm ci with npm install to address missing package-lock.json issue ([f47fa29](https://github.com/stabgan/openrouter-mcp-multimodal/commit/f47fa293237fa69fbe1c5445a9c04ca993d4e566))
+* Resolve TypeScript type errors and improve npm installation in Docker build ([b410cad](https://github.com/stabgan/openrouter-mcp-multimodal/commit/b410cad83f225c981e1c7ca35c7584a461d8aa6d))
+* stdin Buffer transport + bump MCP SDK to ^1.27.1 (v1.7.0) ([151ae05](https://github.com/stabgan/openrouter-mcp-multimodal/commit/151ae052a665327d7b9517fb3fdf83f52657902f))
+* Update Docker build process to resolve npm install failures ([24e673d](https://github.com/stabgan/openrouter-mcp-multimodal/commit/24e673de737caa809ea3244de7b00eea81ba180b))
+* update Docker Hub username from stabgandocker to stabgan ([8c2ea08](https://github.com/stabgan/openrouter-mcp-multimodal/commit/8c2ea0823bdba1a61b943febe6e4f6c77bc1eb12))
+
 ## [5.0.0] — 2026-09-02
 
 Major release: retired default models replaced, minimum Node.js raised to 22, OpenAI SDK v7, modernized CI/CD and supply chain, and toolchain updates across Docker, GitHub Actions, and dev dependencies.
