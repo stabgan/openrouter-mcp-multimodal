@@ -28,7 +28,7 @@ Required env: `OPENROUTER_API_KEY`. Optional sandboxes: `OPENROUTER_INPUT_DIR`, 
 - `generate_image` — text-to-image via chat completions (+ reference images)
 - `generate_image_dedicated` — text-to-image via `/api/v1/images`
 - `generate_audio` — TTS / music via chat completions
-- `text_to_speech` — dedicated TTS API (voices, speed, format)
+- `text_to_speech` — dedicated TTS API; free default `deepgram/flux-tts:free` with `flux-alexis-en`, output `mp3`/`pcm`; discover models with `GET /api/v1/models?output_modalities=speech`
 - `speech_to_text` — dedicated STT API (Whisper, GPT-4o transcribe)
 - `generate_video` — async text-to-video
 - `generate_video_from_image` — image-to-video

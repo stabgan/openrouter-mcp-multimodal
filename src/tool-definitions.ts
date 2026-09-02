@@ -1,4 +1,9 @@
 import { TOOL_DESCRIPTIONS, TOOL_NAMES } from './tool-descriptions.js';
+import {
+  DEFAULT_TTS_MODEL,
+  DEFAULT_TTS_RESPONSE_FORMAT,
+  DEFAULT_TTS_VOICE,
+} from './tts-defaults.js';
 
 /** Aspect ratios accepted by generate_image and generate_image_dedicated handlers. */
 export const IMAGE_ASPECT_RATIOS = [
@@ -30,7 +35,7 @@ export const IMAGE_OUTPUT_FORMATS = ['png', 'jpeg', 'webp', 'svg'] as const;
 export const GENERATE_AUDIO_FORMATS = ['wav', 'mp3', 'flac', 'opus', 'pcm16'] as const;
 
 /** text_to_speech handler VALID_FORMATS */
-export const TTS_RESPONSE_FORMATS = ['mp3', 'opus', 'aac', 'flac', 'wav', 'pcm'] as const;
+export const TTS_RESPONSE_FORMATS = ['mp3', 'pcm'] as const;
 
 /** speech_to_text handler VALID_RESPONSE_FORMATS */
 export const STT_RESPONSE_FORMATS = ['json', 'text', 'srt', 'verbose_json', 'vtt'] as const;
@@ -583,18 +588,16 @@ export const TOOL_DEFINITIONS = [
         },
         model: {
           type: 'string',
-          description:
-            'TTS model for OpenRouter POST /audio/speech. Pass explicitly: the previous default was retired upstream and OpenRouter publishes no TTS model list.',
+          description: `TTS model for OpenRouter POST /audio/speech. Default: ${DEFAULT_TTS_MODEL}. Discover current models with GET /api/v1/models?output_modalities=speech.`,
         },
         voice: {
           type: 'string',
-          description:
-            'Voice ID (model-specific). Default: alloy. OpenAI voices: alloy, echo, fable, onyx, nova, shimmer.',
+          description: `Voice ID (model-specific). Default: ${DEFAULT_TTS_VOICE} for ${DEFAULT_TTS_MODEL}; pass a voice supported by another model.`,
         },
         response_format: {
           type: 'string',
           enum: [...TTS_RESPONSE_FORMATS],
-          description: 'Output audio format. Default: mp3.',
+          description: `Output audio format (mp3 or pcm). Default: ${DEFAULT_TTS_RESPONSE_FORMAT}.`,
         },
         speed: {
           type: 'number',

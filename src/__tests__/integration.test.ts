@@ -7,6 +7,7 @@ import { handleGetModelInfo } from '../tool-handlers/get-model-info.js';
 import { handleValidateModel } from '../tool-handlers/validate-model.js';
 import { handleAnalyzeAudio } from '../tool-handlers/analyze-audio.js';
 import { handleGenerateAudio } from '../tool-handlers/generate-audio.js';
+import { handleTextToSpeech } from '../tool-handlers/text-to-speech.js';
 import { OpenRouterAPIClient } from '../openrouter-api.js';
 import { ModelCache } from '../model-cache.js';
 import path from 'node:path';
@@ -269,6 +270,23 @@ describe('Integration: analyze_audio', () => {
     const result = await handleAnalyzeAudio({ params: { arguments: { audio_path: '' } } }, openai);
     expect(result.isError).toBe(true);
   });
+});
+
+describe('Integration: text_to_speech', () => {
+  let apiClient: OpenRouterAPIClient;
+
+  beforeAll(() => {
+    apiClient = new OpenRouterAPIClient(API_KEY);
+  });
+
+  it('generates speech with the default free TTS model', async () => {
+    const result = await handleTextToSpeech(
+      { params: { arguments: { input: 'Say hello from the default voice.' } } },
+      apiClient,
+    );
+    const ok = expectSuccessOrSoftFailure(result);
+    if (ok) expect(result.content.some((block) => block.type === 'audio')).toBe(true);
+  }, 60_000);
 });
 
 describe.skipIf(SKIP_PAID_INTEGRATION)('Integration: generate_audio', () => {

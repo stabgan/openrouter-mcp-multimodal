@@ -1,7 +1,12 @@
-/** Dedicated POST /api/v1/audio/speech — OpenAI, Gemini Flash TTS, Voxtral. */
+/** Dedicated POST /api/v1/audio/speech. */
 import { extname } from 'node:path';
 import type { OpenRouterAPIClient } from '../openrouter-api.js';
 import { TTS_RESPONSE_FORMATS } from '../tool-definitions.js';
+import {
+  DEFAULT_TTS_MODEL,
+  DEFAULT_TTS_RESPONSE_FORMAT,
+  DEFAULT_TTS_VOICE,
+} from '../tts-defaults.js';
 import { resolveOptionalOutputPath, isToolErrorResult } from './path-safety.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
@@ -22,8 +27,6 @@ export interface TextToSpeechRequest extends CacheOptions {
   save_path?: string;
 }
 
-const DEFAULT_MODEL = 'openai/gpt-4o-mini-tts-2025-12-15';
-const DEFAULT_VOICE = 'alloy';
 const MIN_SPEED = 0.25;
 const MAX_SPEED = 4.0;
 
@@ -68,10 +71,15 @@ export async function handleTextToSpeech(
   const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });
   if (cacheError) return cacheError;
 
+  const effectiveModel = model?.trim() || DEFAULT_TTS_MODEL;
+  const effectiveVoice =
+    voice?.trim() || (effectiveModel === DEFAULT_TTS_MODEL ? DEFAULT_TTS_VOICE : undefined);
+  const effectiveResponseFormat = response_format || DEFAULT_TTS_RESPONSE_FORMAT;
+
   logger.audit('text_to_speech.start', {
-    model: model || DEFAULT_MODEL,
-    voice: voice || DEFAULT_VOICE,
-    response_format: response_format || 'mp3',
+    model: effectiveModel,
+    voice: effectiveVoice || 'provider default',
+    response_format: effectiveResponseFormat,
     input_preview: input.slice(0, 80),
     save_path: save_path ? 'provided' : 'none',
   });
@@ -81,11 +89,11 @@ export async function handleTextToSpeech(
   const safeSavePath = savePathResult.path;
 
   const body: Record<string, unknown> = {
-    model: model || DEFAULT_MODEL,
+    model: effectiveModel,
     input,
-    voice: voice || DEFAULT_VOICE,
+    response_format: effectiveResponseFormat,
   };
-  if (response_format) body.response_format = response_format;
+  if (effectiveVoice) body.voice = effectiveVoice;
   if (typeof speed === 'number') body.speed = speed;
   if (instructions) body.instructions = instructions;
 
@@ -105,11 +113,11 @@ export async function handleTextToSpeech(
 
   const baseMeta: Record<string, unknown> = {
     server_version: SERVER_VERSION,
-    model: model || DEFAULT_MODEL,
+    model: effectiveModel,
     mime: mimeType,
     size_bytes: buffer.length,
-    voice: voice || DEFAULT_VOICE,
   };
+  if (effectiveVoice) baseMeta.voice = effectiveVoice;
 
   if (safeSavePath) {
     const currentExt = extname(safeSavePath).toLowerCase().slice(1);

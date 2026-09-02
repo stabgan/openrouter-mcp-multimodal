@@ -49,7 +49,7 @@ Unlike text-only MCP servers, one install covers the **full multimodal surface**
 | :---------- | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Chat**    | `chat_completion`, `start_chat_completion`, `get_chat_completion_status`                | 300+ models, `:nitro` / `:floor` / `:free` / `:online` / `:exacto` suffixes, provider routing, web search, response caching, reasoning tokens, async jobs for long-running models |
 | **Vision**  | `analyze_image`, `generate_image`, `generate_image_dedicated`                           | OCR, captioning, VQA, image generation with reference inputs, dedicated Image API with resolution/quality/format control                                                          |
-| **Audio**   | `analyze_audio`, `generate_audio`, `text_to_speech`, `speech_to_text`                   | Transcription, speech/music generation, dedicated TTS (OpenAI/Gemini/Voxtral voices), dedicated STT (Whisper/GPT-4o Transcribe)                                                   |
+| **Audio**   | `analyze_audio`, `generate_audio`, `text_to_speech`, `speech_to_text`                   | Transcription, speech/music generation, dedicated TTS (free Deepgram default; model-specific voices, mp3/pcm), dedicated STT (Whisper/GPT-4o Transcribe)                                                   |
 | **Video**   | `analyze_video`, `generate_video`, `generate_video_from_image`, `get_video_status`      | Clip understanding, Veo 3.1 / Seedance 2.0 / Wan 2.7 generation with progress notifications                                                                                       |
 | **Catalog** | `search_models`, `get_model_info`, `validate_model`, `rerank_documents`, `health_check` | Model discovery, validation, reranking, ops health                                                                                                                                |
 
@@ -376,7 +376,7 @@ If still failing, use the full path from `where npx` as the command.
 | `generate_image`             | Text-to-image via chat completions with reference images                   |
 | `generate_image_dedicated`   | Text-to-image via dedicated `/api/v1/images` (resolution, quality, format) |
 | `generate_audio`             | Text-to-speech / music via chat completions                                |
-| `text_to_speech`             | Dedicated TTS (`/api/v1/audio/speech`) — voices, speed, format             |
+| `text_to_speech`             | Dedicated TTS (`/api/v1/audio/speech`) — free Deepgram default, voices, speed, mp3/pcm |
 | `speech_to_text`             | Dedicated STT (`/api/v1/audio/transcriptions`) — Whisper, GPT-4o           |
 | `generate_video`             | Text-to-video (async, resumable)                                           |
 | `generate_video_from_image`  | Image-to-video (narrower schema)                                           |

@@ -10,13 +10,11 @@ Major release: retired default models replaced, minimum Node.js raised to 22, Op
 
 - **Default chat and vision model was retired upstream** — `nvidia/nemotron-nano-12b-v2-vl:free` no longer exists on OpenRouter and returned `404 No endpoints found`, so `chat_completion`, `start_chat_completion`, and `analyze_image` failed for anyone who did not set `OPENROUTER_DEFAULT_MODEL`. The default is now **`google/gemma-4-26b-a4b-it:free`**, verified live for both text and image input.
 - **Default reranker model was retired upstream** — `cohere/rerank-english-v3.0` returned `400 Model does not exist`, breaking `rerank_documents` by default. Now **`cohere/rerank-v3.5`**.
+- **Default dedicated TTS model was retired upstream** — `openai/gpt-4o-mini-tts-2025-12-15` and the documented alternatives were no longer accepted by `POST /audio/speech`. The default is now the live-verified free model **`deepgram/flux-tts:free`** with voice **`flux-alexis-en`**.
+- **Dedicated TTS request defaults were inconsistent with the API** — `mp3` is now sent explicitly when omitted, the default voice is only sent with the default model, and `response_format` accepts the endpoint's documented `mp3` and `pcm` values.
 - **Retired models in test and e2e fixtures** — the free-model helpers referenced `nvidia/nemotron-nano-12b-v2-vl:free` and `meta-llama/llama-3.2-3b-instruct:free`, both since removed from OpenRouter. Replaced with live-verified free models.
 - **`version:check` now covers `python/README.md` and `llms.txt`** — only `README.md` pins were validated before, so `llms.txt` silently kept `4.7.0` install pins through the 4.8.0 release. Docker Hub tags are now checked alongside GHCR tags.
 - **`npm run test:smoke:uvx:local` never tested the local build** — the script packed a tarball but did not set `MCP_UVX_LOCAL=1`, so it silently validated the last *published* release instead. It now runs against the local package, and refuses to fall back to a stale tarball.
-
-### Known issues
-
-- **`text_to_speech` has no known-valid default model.** OpenRouter's `POST /audio/speech` rejects `openai/gpt-4o-mini-tts-2025-12-15` (the previous default) and every documented alternative with `400 Model does not exist`, and exposes no endpoint that enumerates valid TTS models. `speech_to_text` is unaffected (`openai/whisper-1` remains valid). Pass an explicit `model` until this is resolved.
 
 ### BREAKING
 

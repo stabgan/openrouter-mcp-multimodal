@@ -19,6 +19,7 @@ const pinnedDocs = [
   ['README.md', read('../README.md')],
   ['python/README.md', read('../python/README.md')],
   ['llms.txt', read('../llms.txt')],
+  ['.env.example', read('../.env.example')],
 ];
 
 const errors = [];
