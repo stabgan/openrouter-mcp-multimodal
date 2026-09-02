@@ -1,5 +1,5 @@
 name: openrouter-mcp-multimodal
-version: 4.8.0
+version: 5.0.0
 description: MCP server for OpenRouter — chat (with provider routing + :nitro/:floor variants), image / audio / video analysis, image / audio / video generation (Veo 3.1, Sora, Seedance, Wan). Apache 2.0.
 
 image:
@@ -20,7 +20,7 @@ startCommand:
       OPENROUTER_DEFAULT_MODEL:
         type: string
         description: Default model for chat + analyze tools
-        default: "nvidia/nemotron-nano-12b-v2-vl:free"
+        default: "google/gemma-4-26b-a4b-it:free"
       DEFAULT_MODEL:
         type: string
         description: Alias for OPENROUTER_DEFAULT_MODEL
@@ -109,7 +109,7 @@ config:
     - name: OPENROUTER_DEFAULT_MODEL
       description: Default model for chat + analyze tools
       required: false
-      defaultValue: "nvidia/nemotron-nano-12b-v2-vl:free"
+      defaultValue: "google/gemma-4-26b-a4b-it:free"
     - name: OPENROUTER_MAX_TOKENS
       description: Default max_tokens on chat_completion when unset per-call (v4+)
       required: false

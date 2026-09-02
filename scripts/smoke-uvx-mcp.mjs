@@ -25,11 +25,14 @@ function localNpmTarballSpec() {
     readFileSync(inRoot);
     return inRoot;
   } catch {
-    const match = readdirSync(repoRoot).find((f) => f.startsWith('stabgan-openrouter-mcp-multimodal-') && f.endsWith('.tgz'));
-    if (!match) {
-      throw new Error(`No npm pack tarball in ${repoRoot}; run npm pack first`);
-    }
-    return path.join(repoRoot, match);
+    // Never fall back to another tarball: testing a stale artifact silently passes the wrong build.
+    const stale = readdirSync(repoRoot).filter(
+      (f) => f.startsWith('stabgan-openrouter-mcp-multimodal-') && f.endsWith('.tgz'),
+    );
+    throw new Error(
+      `Missing ${prefix} in ${repoRoot}; run npm pack first.` +
+        (stale.length ? ` Stale tarballs present: ${stale.join(', ')}` : ''),
+    );
   }
 }
 

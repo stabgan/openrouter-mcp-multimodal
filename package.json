@@ -1,6 +1,6 @@
 {
   "name": "@stabgan/openrouter-mcp-multimodal",
-  "version": "4.8.0",
+  "version": "5.0.0",
   "mcpName": "io.github.stabgan/openrouter-multimodal",
   "description": "MCP server for OpenRouter — chat with 300+ LLMs, analyze images/audio/video, generate images (dedicated API), TTS/STT, video generation (Veo 3.1 / Seedance / Wan), async completions, response caching",
   "type": "module",
@@ -55,23 +55,23 @@
   "homepage": "https://github.com/stabgan/openrouter-mcp-multimodal#readme",
   "license": "Apache-2.0",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "dotenv": "^17.4.2",
-    "openai": "^4.104.0",
-    "sharp": "^0.35.3"
+    "openai": "^7.9.0",
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.2",
-    "@types/node": "^22.20.0",
-    "eslint": "^9.39.2",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.20.1",
+    "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
-    "prettier": "^3.9.4",
+    "prettier": "^3.9.6",
     "shx": "^0.4.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.62.1",
-    "vitest": "^4.1.9"
+    "typescript-eslint": "^8.69.0",
+    "vitest": "^4.1.11"
   }
 }

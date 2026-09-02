@@ -92,7 +92,6 @@ function expandIPv6(ip: string): number[] | null {
 
   let addr = noBrackets.toLowerCase();
 
-  let v4Tail: [number, number] | null = null;
   const dotIndex = addr.indexOf('.');
   if (dotIndex >= 0) {
     const lastColon = addr.lastIndexOf(':', dotIndex);
@@ -102,11 +101,9 @@ function expandIPv6(ip: string): number[] | null {
     if (parts.length !== 4 || parts.some((p) => !Number.isInteger(p) || p < 0 || p > 255)) {
       return null;
     }
-    v4Tail = [((parts[0]! << 8) | parts[1]!) & 0xffff, ((parts[2]! << 8) | parts[3]!) & 0xffff];
-
-    const hex6 = v4Tail[0].toString(16);
-    const hex7 = v4Tail[1].toString(16);
-    addr = addr.slice(0, lastColon) + ':' + hex6 + ':' + hex7;
+    const v4Group6 = ((parts[0]! << 8) | parts[1]!) & 0xffff;
+    const v4Group7 = ((parts[2]! << 8) | parts[3]!) & 0xffff;
+    addr = addr.slice(0, lastColon) + ':' + v4Group6.toString(16) + ':' + v4Group7.toString(16);
   }
 
   const halves = addr.split('::');
@@ -650,15 +647,7 @@ export async function fetchHttpResource(
     const { url: validated, addresses } = await validateUrlAndResolveAddresses(current);
     const target = validated.href;
 
-    let res: IncomingMessage;
-    try {
-      res = await pinnedRequestWithFallback(validated, addresses, opts.timeoutMs);
-    } catch (err: unknown) {
-      if (err instanceof Error && err.message === 'Fetch timed out') {
-        throw new Error('Fetch timed out');
-      }
-      throw err;
-    }
+    const res = await pinnedRequestWithFallback(validated, addresses, opts.timeoutMs);
 
     const statusCode = res.statusCode ?? 0;
     if (statusCode >= 300 && statusCode < 400) {

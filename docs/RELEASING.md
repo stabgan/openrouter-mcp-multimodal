@@ -8,9 +8,9 @@ Every release must land on **all** of these channels together (same semver):
 
 | Channel | Package / image | Install example |
 | :------ | :-------------- | :-------------- |
-| **npm** | `@stabgan/openrouter-mcp-multimodal` | `npx -y @stabgan/openrouter-mcp-multimodal@4.8.0` |
+| **npm** | `@stabgan/openrouter-mcp-multimodal` | `npx -y @stabgan/openrouter-mcp-multimodal@5.0.0` |
 | **PyPI** | `mcp-server-openrouter-multimodal` | `uvx mcp-server-openrouter-multimodal` |
-| **Docker Hub** | `stabgan/openrouter-mcp-multimodal` | `docker run -i stabgan/openrouter-mcp-multimodal:4.8.0` |
+| **Docker Hub** | `stabgan/openrouter-mcp-multimodal` | `docker run -i stabgan/openrouter-mcp-multimodal:5.0.0` |
 | **GHCR** | `ghcr.io/stabgan/openrouter-mcp-multimodal` | same tag as Docker Hub |
 | **GitHub** | git tag `vX.Y.Z` + GitHub Release | source of truth for changelog |
 
@@ -95,7 +95,7 @@ All of these **must match**:
 | `server.json` | top-level `"version"`, each `packages[].version`, and `oci` identifier tag (`docker.io/...:X.Y.Z`) |
 | `CHANGELOG.md` | new `## [X.Y.Z] — YYYY-MM-DD` section |
 | `.release-please-manifest.json` | `{ ".": "X.Y.Z" }` |
-| `README.md` | pin examples (`@4.8.0`, `OPENROUTER_MCP_NPM_VERSION=…`, Docker `:tag`) — optional but recommended |
+| `README.md` | pin examples (`@5.0.0`, `OPENROUTER_MCP_NPM_VERSION=…`, Docker `:tag`) — optional but recommended |
 
 Verify:
 
@@ -152,10 +152,40 @@ gh run watch --exit-status   # pick the Release workflow run for the tag
 | Secret | Used for |
 | :----- | :------- |
 | `NPMJS_TOKEN` | npm publish |
-| `PYPI_API_TOKEN` | PyPI publish (or use PyPI trusted publishing) |
 | `DOCKERHUB_USERNAME` | Docker Hub push |
 | `DOCKERHUB_TOKEN` | Docker Hub push |
 | `OPENROUTER_API_KEY` | Integration tests in CI |
+
+PyPI no longer uses a repository secret. The `publish-pypi` job authenticates with **Trusted Publishing (OIDC)**. After you complete the one-time PyPI setup below, delete the obsolete `PYPI_API_TOKEN` secret from GitHub repo settings.
+
+### PyPI Trusted Publishing (required one-time setup)
+
+> **⚠️ Register the trusted publisher on PyPI before pushing tag `v5.0.0`.** The `publish-pypi` job authenticates with OIDC only — if the publisher is not registered yet, the v5.0.0 release will fail mid-publish with a trusted-publisher / OIDC error. Complete the steps below **before** the tag lands.
+
+> **Every tagged release after the switch to OIDC will fail on `publish-pypi` with an OIDC / trusted-publisher error until this is configured on PyPI.**
+
+The workflow job `publish-pypi` in [`.github/workflows/publish.yml`](../.github/workflows/publish.yml) requests `id-token: write` and calls `pypa/gh-action-pypi-publish` **without** a password or API token. PyPI verifies the GitHub OIDC identity against a trusted publisher you register once.
+
+1. Sign in to [pypi.org](https://pypi.org) as a maintainer of **`mcp-server-openrouter-multimodal`**.
+2. Open **Your projects** → **mcp-server-openrouter-multimodal** → **Publishing** (or **Manage** → **Publishing**).
+3. Under **Trusted publishers**, choose **Add a new pending publisher** (or **Add GitHub publisher**).
+4. Fill in exactly:
+
+   | Field | Value |
+   | :---- | :---- |
+   | **PyPI project name** | `mcp-server-openrouter-multimodal` |
+   | **Owner** | `stabgan` |
+   | **Repository name** | `openrouter-mcp-multimodal` |
+   | **Workflow name** | `publish.yml` |
+   | **Environment name** | *(leave blank — this workflow does not use a GitHub Environment)* |
+
+5. Save the publisher.
+
+6. **Optional cleanup:** remove the `PYPI_API_TOKEN` repository secret from GitHub (**Settings** → **Secrets and variables** → **Actions**) — it is no longer referenced.
+
+With trusted publishing enabled, `gh-action-pypi-publish` uploads **PEP 740 attestations** by default (they were ignored when publishing with a long-lived API token).
+
+To smoke-test before a real release, register a separate trusted publisher on [test.pypi.org](https://test.pypi.org) pointing at the same workflow, add a temporary job with `repository-url: https://test.pypi.org/legacy/`, and publish a dev version there.
 
 ---
 

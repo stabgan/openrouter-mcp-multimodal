@@ -21,7 +21,7 @@ import {
 } from './cache.js';
 import { awaitCompletionWithHeaders } from './openai-withresponse.js';
 
-const DEFAULT_MODEL = 'nvidia/nemotron-nano-12b-v2-vl:free';
+const DEFAULT_MODEL = 'google/gemma-4-26b-a4b-it:free';
 
 export interface AnalyzeImageToolRequest extends CacheOptions {
   image_path: string;

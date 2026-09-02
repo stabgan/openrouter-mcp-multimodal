@@ -10,7 +10,7 @@ import {
 } from './provider-routing.js';
 import { type CacheOptions, buildCacheHeaders } from './cache.js';
 
-export const DEFAULT_CHAT_MODEL = 'nvidia/nemotron-nano-12b-v2-vl:free';
+export const DEFAULT_CHAT_MODEL = 'google/gemma-4-26b-a4b-it:free';
 
 /** Shared request shape for sync and async chat completion tools. */
 export interface ChatToolRequest extends CacheOptions {

@@ -14,6 +14,11 @@ import { replaceExtension } from '../tool-handlers/path-utils.js';
 import { handleTextToSpeech } from '../tool-handlers/text-to-speech.js';
 import type { OpenRouterAPIClient } from '../openrouter-api.js';
 import { ErrorCode } from '../errors.js';
+import {
+  DEFAULT_TTS_MODEL,
+  DEFAULT_TTS_RESPONSE_FORMAT,
+  DEFAULT_TTS_VOICE,
+} from '../tts-defaults.js';
 
 function mockAudioStream(chunks: Array<{ data?: string; transcript?: string }>): OpenAI {
   return {
@@ -288,6 +293,58 @@ describe('handleTextToSpeech', () => {
       { params: { arguments: { input: 'hi', response_format: 'wma' } } },
       api,
     );
+    expect(r.isError).toBe(true);
+    expect((r as { _meta: { code: string } })._meta.code).toBe(ErrorCode.INVALID_INPUT);
+    expect(api.generateSpeech).not.toHaveBeenCalled();
+  });
+
+  it('uses the verified free model, voice, and mp3 format by default', async () => {
+    const api = {
+      generateSpeech: vi.fn().mockResolvedValue({
+        buffer: Buffer.from('mp3-bytes'),
+        contentType: 'audio/mpeg',
+      }),
+    } as unknown as OpenRouterAPIClient;
+
+    await handleTextToSpeech({ params: { arguments: { input: 'hello' } } }, api);
+
+    expect(api.generateSpeech).toHaveBeenCalledWith(
+      {
+        model: DEFAULT_TTS_MODEL,
+        input: 'hello',
+        voice: DEFAULT_TTS_VOICE,
+        response_format: DEFAULT_TTS_RESPONSE_FORMAT,
+      },
+      {},
+    );
+  });
+
+  it('does not send the default voice with a different model', async () => {
+    const api = {
+      generateSpeech: vi.fn().mockResolvedValue({
+        buffer: Buffer.from('mp3-bytes'),
+        contentType: 'audio/mpeg',
+      }),
+    } as unknown as OpenRouterAPIClient;
+
+    await handleTextToSpeech(
+      { params: { arguments: { input: 'hello', model: 'deepgram/aura-2' } } },
+      api,
+    );
+
+    expect(api.generateSpeech).toHaveBeenCalledWith(
+      expect.not.objectContaining({ voice: DEFAULT_TTS_VOICE }),
+      {},
+    );
+  });
+
+  it('rejects response formats unsupported by the dedicated endpoint', async () => {
+    const api = { generateSpeech: vi.fn() } as unknown as OpenRouterAPIClient;
+    const r = await handleTextToSpeech(
+      { params: { arguments: { input: 'hello', response_format: 'wav' } } },
+      api,
+    );
+
     expect(r.isError).toBe(true);
     expect((r as { _meta: { code: string } })._meta.code).toBe(ErrorCode.INVALID_INPUT);
     expect(api.generateSpeech).not.toHaveBeenCalled();

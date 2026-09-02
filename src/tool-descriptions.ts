@@ -2,6 +2,11 @@
  * MCP tool descriptions with explicit routing, examples, and failure modes.
  * See docs/plans/tool-description-improvement.md for the authoring guide.
  */
+import {
+  DEFAULT_TTS_MODEL,
+  DEFAULT_TTS_RESPONSE_FORMAT,
+  DEFAULT_TTS_VOICE,
+} from './tts-defaults.js';
 
 export interface ToolDescriptionParts {
   summary: string;
@@ -427,11 +432,11 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
   text_to_speech: buildToolDescription({
     summary:
       "Convert text to speech via OpenRouter's dedicated TTS endpoint (POST /api/v1/audio/speech). " +
-      'Faster and cheaper than chat completions for pure TTS. Models: OpenAI GPT-4o Mini TTS, Google Gemini Flash TTS, Mistral Voxtral.',
+      `Default: ${DEFAULT_TTS_MODEL} with ${DEFAULT_TTS_VOICE}; discover current models with GET /api/v1/models?output_modalities=speech. Output formats: mp3 or pcm (default: ${DEFAULT_TTS_RESPONSE_FORMAT}).`,
     useWhen: [
       'You need text-to-speech with specific voice control',
       'You want fast, dedicated TTS without chat overhead',
-      'You need a specific audio format (mp3, opus, wav, etc.)',
+      'You need mp3 or pcm audio output',
     ],
     notWhen: [
       'You want to generate music or sound effects → generate_audio',
@@ -440,13 +445,13 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
     ],
     goodExamples: [
       '`{ "input": "Hello, welcome to our app!" }`',
-      '`{ "input": "...", "voice": "nova", "response_format": "mp3", "save_path": "out/welcome.mp3" }`',
+      '`{ "input": "...", "voice": "flux-alexis-en", "response_format": "mp3", "save_path": "out/welcome.mp3" }`',
       '`{ "input": "...", "instructions": "speak slowly and clearly", "speed": 0.8 }`',
     ],
     badExamples: [
       '`{ "input": "" }` → INVALID_INPUT',
       '`{ "prompt": "text" }` → wrong key; use `input`',
-      '`{ "response_format": "mp4" }` → not a valid audio format',
+      '`{ "response_format": "wav" }` → only mp3 and pcm are supported',
     ],
     failsWhen: [
       'INVALID_INPUT: empty input, invalid response_format',
@@ -582,7 +587,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
 
   rerank_documents: buildToolDescription({
     summary:
-      'Re-order documents by relevance to a query using an OpenRouter reranker. Default: cohere/rerank-english-v3.0.',
+      'Re-order documents by relevance to a query using an OpenRouter reranker. Default: cohere/rerank-v3.5.',
     useWhen: [
       'You have a query and a list of text snippets to sort by relevance',
       'You will feed top results into chat_completion for grounded answers',
@@ -593,7 +598,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
     ],
     goodExamples: [
       '`{ "query": "battery life", "documents": ["Doc A text...", "Doc B text..."] }`',
-      '`{ "query": "...", "documents": [...], "model": "cohere/rerank-english-v3.0" }`',
+      '`{ "query": "...", "documents": [...], "model": "cohere/rerank-v3.5" }`',
     ],
     badExamples: [
       '`{ "documents": [] }` → INVALID_INPUT',

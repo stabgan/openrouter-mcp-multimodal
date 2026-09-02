@@ -6,12 +6,12 @@
     "url": "https://github.com/stabgan/openrouter-mcp-multimodal",
     "source": "github"
   },
-  "version": "4.8.0",
+  "version": "5.0.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@stabgan/openrouter-mcp-multimodal",
-      "version": "4.8.0",
+      "version": "5.0.0",
       "transport": {
         "type": "stdio"
       },
@@ -25,7 +25,7 @@
         },
         {
           "name": "OPENROUTER_DEFAULT_MODEL",
-          "description": "Default model for chat + analyze tools. Defaults to nvidia/nemotron-nano-12b-v2-vl:free.",
+          "description": "Default model for chat + analyze tools. Defaults to google/gemma-4-26b-a4b-it:free.",
           "isRequired": false,
           "format": "string"
         },
@@ -165,7 +165,7 @@
     },
     {
       "registryType": "oci",
-      "identifier": "docker.io/stabgan/openrouter-mcp-multimodal:4.8.0",
+      "identifier": "docker.io/stabgan/openrouter-mcp-multimodal:5.0.0",
       "transport": {
         "type": "stdio"
       },
@@ -224,7 +224,7 @@
     {
       "registryType": "pypi",
       "identifier": "mcp-server-openrouter-multimodal",
-      "version": "4.8.0",
+      "version": "5.0.0",
       "transport": {
         "type": "stdio"
       },

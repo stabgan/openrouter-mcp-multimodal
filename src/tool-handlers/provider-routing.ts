@@ -47,6 +47,7 @@ function parseJsonArray(raw: string | undefined, name: string): string[] | undef
     } catch (err) {
       throw new Error(
         `${name}: malformed JSON array (${err instanceof Error ? err.message : String(err)})`,
+        { cause: err },
       );
     }
   }

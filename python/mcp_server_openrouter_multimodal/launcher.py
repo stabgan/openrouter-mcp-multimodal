@@ -61,16 +61,16 @@ def main() -> None:
     if not npx:
         print(
             "mcp-server-openrouter-multimodal requires Node.js (npx not found on PATH).\n"
-            "Install Node 20+ from https://nodejs.org or use npx/Docker install instead.\n"
+            "Install Node 22+ from https://nodejs.org or use npx/Docker install instead.\n"
             "See https://github.com/stabgan/openrouter-mcp-multimodal#install",
             file=sys.stderr,
         )
         raise SystemExit(1)
 
     node_major = _node_major_version(path)
-    if node_major is None or node_major < 20:
+    if node_major is None or node_major < 22:
         print(
-            "mcp-server-openrouter-multimodal requires Node.js 20 or newer.\n"
+            "mcp-server-openrouter-multimodal requires Node.js 22 or newer.\n"
             f"Found: node major={node_major if node_major is not None else 'missing'}\n"
             "See https://github.com/stabgan/openrouter-mcp-multimodal#install",
             file=sys.stderr,

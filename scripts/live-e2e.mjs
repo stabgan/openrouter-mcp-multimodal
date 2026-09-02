@@ -258,7 +258,7 @@ try {
       client,
       'chat_completion',
       {
-        model: 'nvidia/nemotron-nano-12b-v2-vl:free',
+        model: 'google/gemma-4-26b-a4b-it:free',
         messages: [{ role: 'user', content: 'Reply with the word ping.' }],
         max_tokens: 16,
       },
@@ -293,7 +293,7 @@ try {
     const r = await callTool(
       client,
       'get_model_info',
-      { model: 'nvidia/nemotron-nano-12b-v2-vl:free' },
+      { model: 'google/gemma-4-26b-a4b-it:free' },
       20_000,
     );
     requireOk(r, 'get_model_info');

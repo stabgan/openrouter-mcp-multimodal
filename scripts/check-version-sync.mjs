@@ -15,7 +15,12 @@ const pyproject = read('../python/pyproject.toml');
 const pyInit = read('../python/mcp_server_openrouter_multimodal/__init__.py');
 const smithery = read('../smithery.yaml');
 const changelog = read('../CHANGELOG.md');
-const readme = read('../README.md');
+const pinnedDocs = [
+  ['README.md', read('../README.md')],
+  ['python/README.md', read('../python/README.md')],
+  ['llms.txt', read('../llms.txt')],
+  ['.env.example', read('../.env.example')],
+];
 
 const errors = [];
 
@@ -86,15 +91,19 @@ if (!changelogMatch) {
 
 // Explicit install pins only: package@semver, OPENROUTER_MCP_NPM_VERSION=semver, ghcr tag.
 // Skips unpinned @package refs and prose like "v4.7.0+" or historical changelog mentions.
-const readmePinPatterns = [
+const pinPatterns = [
   /@stabgan\/openrouter-mcp-multimodal@(\d+\.\d+\.\d+)/g,
   /OPENROUTER_MCP_NPM_VERSION=(\d+\.\d+\.\d+)/g,
   /ghcr\.io\/stabgan\/openrouter-mcp-multimodal:(\d+\.\d+\.\d+)/g,
+  // Docker Hub tag; lookbehind avoids re-matching the ghcr.io form above.
+  /(?<![\w./])stabgan\/openrouter-mcp-multimodal:(\d+\.\d+\.\d+)/g,
 ];
-for (const pattern of readmePinPatterns) {
-  for (const match of readme.matchAll(pattern)) {
-    if (match[1] !== pkgVersion) {
-      errors.push(`README.md pin ${match[0]} (expected version ${pkgVersion})`);
+for (const [label, contents] of pinnedDocs) {
+  for (const pattern of pinPatterns) {
+    for (const match of contents.matchAll(pattern)) {
+      if (match[1] !== pkgVersion) {
+        errors.push(`${label} pin ${match[0]} (expected version ${pkgVersion})`);
+      }
     }
   }
 }

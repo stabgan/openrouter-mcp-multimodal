@@ -178,7 +178,6 @@ export class ModelCache {
     const safeOffset = clampOffset(offset);
     const safeLimit = clampLimit(limit);
     const page: OpenRouterModelRecord[] = [];
-    let total = 0;
     let matchIndex = 0;
 
     for (const model of sortedModels(this.models)) {
@@ -188,8 +187,7 @@ export class ModelCache {
       }
       matchIndex++;
     }
-    total = matchIndex;
-    return { page, total };
+    return { page, total: matchIndex };
   }
 
   search(params: ModelSearchParams): OpenRouterModelRecord[] {

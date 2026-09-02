@@ -4,7 +4,7 @@
 
 Python **uvx / pip** launcher for the Node.js MCP server [`@stabgan/openrouter-mcp-multimodal`](https://www.npmjs.com/package/@stabgan/openrouter-mcp-multimodal).
 
-This package does not reimplement the server — it execs `npx -y @stabgan/openrouter-mcp-multimodal` so Python-first workflows can use the same `uvx` pattern as native Python MCP servers. **Node.js 20+** (with `npx` on `PATH`) is required.
+This package does not reimplement the server — it execs `npx -y @stabgan/openrouter-mcp-multimodal` so Python-first workflows can use the same `uvx` pattern as native Python MCP servers. **Node.js 22+** (with `npx` on `PATH`) is required.
 
 ## Run
 
@@ -16,7 +16,7 @@ uvx mcp-server-openrouter-multimodal
 Pin the npm release:
 
 ```bash
-export OPENROUTER_MCP_NPM_VERSION=4.8.0
+export OPENROUTER_MCP_NPM_VERSION=5.0.0
 uvx mcp-server-openrouter-multimodal
 ```
 

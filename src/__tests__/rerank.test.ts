@@ -48,7 +48,7 @@ describe('handleRerankDocuments', () => {
 
   it('calls the API with the right shape', async () => {
     const client = mockApiClient({
-      model: 'cohere/rerank-english-v3.0',
+      model: 'cohere/rerank-v3.5',
       results: [
         { index: 1, relevance_score: 0.9 },
         { index: 0, relevance_score: 0.2 },
@@ -67,7 +67,7 @@ describe('handleRerankDocuments', () => {
       client,
     );
     expect(client.rerank).toHaveBeenCalledWith({
-      model: 'cohere/rerank-english-v3.0',
+      model: 'cohere/rerank-v3.5',
       query: 'what is the capital of France?',
       documents: ['Paris is the capital.', 'Berlin is in Germany.'],
       top_n: 2,

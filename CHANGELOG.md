@@ -2,6 +2,44 @@
 
 All notable changes to `@stabgan/openrouter-mcp-multimodal` are recorded here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.0] — 2026-09-02
+
+Major release: retired default models replaced, minimum Node.js raised to 22, OpenAI SDK v7, modernized CI/CD and supply chain, and toolchain updates across Docker, GitHub Actions, and dev dependencies.
+
+### Fixed
+
+- **Default chat and vision model was retired upstream** — `nvidia/nemotron-nano-12b-v2-vl:free` no longer exists on OpenRouter and returned `404 No endpoints found`, so `chat_completion`, `start_chat_completion`, and `analyze_image` failed for anyone who did not set `OPENROUTER_DEFAULT_MODEL`. The default is now **`google/gemma-4-26b-a4b-it:free`**, verified live for both text and image input.
+- **Default reranker model was retired upstream** — `cohere/rerank-english-v3.0` returned `400 Model does not exist`, breaking `rerank_documents` by default. Now **`cohere/rerank-v3.5`**.
+- **Default dedicated TTS model was retired upstream** — `openai/gpt-4o-mini-tts-2025-12-15` and the documented alternatives were no longer accepted by `POST /audio/speech`. The default is now the live-verified free model **`deepgram/flux-tts:free`** with voice **`flux-alexis-en`**.
+- **Dedicated TTS request defaults were inconsistent with the API** — `mp3` is now sent explicitly when omitted, the default voice is only sent with the default model, and `response_format` accepts the endpoint's documented `mp3` and `pcm` values.
+- **Retired models in test and e2e fixtures** — the free-model helpers referenced `nvidia/nemotron-nano-12b-v2-vl:free` and `meta-llama/llama-3.2-3b-instruct:free`, both since removed from OpenRouter. Replaced with live-verified free models.
+- **`version:check` now covers `python/README.md` and `llms.txt`** — only `README.md` pins were validated before, so `llms.txt` silently kept `4.7.0` install pins through the 4.8.0 release. Docker Hub tags are now checked alongside GHCR tags.
+- **`npm run test:smoke:uvx:local` never tested the local build** — the script packed a tarball but did not set `MCP_UVX_LOCAL=1`, so it silently validated the last *published* release instead. It now runs against the local package, and refuses to fall back to a stale tarball.
+
+### BREAKING
+
+- **Minimum Node.js is now 22** — Node 20 reached end of life on 2026-04-30. Install Node 22 LTS or newer before upgrading. On Node 20, `npm install` emits an engine warning and the runtime is unsupported; behavior may break without notice.
+- **`openai` SDK upgraded from v4 to v7** — v7 itself requires Node ≥ 22. This is an internal dependency change only; the MCP tool names, JSON schemas, and result shapes are unchanged.
+
+### Changed
+
+- **MCP protocol version in `health_check`** — Now reports **`2025-11-25`**, derived from `@modelcontextprotocol/sdk`'s `LATEST_PROTOCOL_VERSION` instead of a hardcoded string, so it cannot drift from the SDK. The actual handshake was always negotiated by the SDK; no client behavior changes.
+- **`@modelcontextprotocol/sdk` 1.29.0 → 1.30.0.**
+- **Docker base image** — Moved from `node:22-alpine` to `node:24-alpine` (Active LTS) and is now **pinned by digest** for reproducible builds.
+- **`@types/node` pinned to the 22.x line** — Type-checking matches the supported Node floor and cannot green-light APIs missing on Node 22.
+- **Dev toolchain** — ESLint 9 → 10, plus `sharp`, `prettier`, `vitest`, and `typescript-eslint` updates.
+
+### CI/CD and supply chain
+
+- **GitHub Actions bumped to current majors** — Removes the deprecated Node 20 action runtime.
+- **PyPI Trusted Publishing (OIDC)** — Replaces a long-lived API token so build attestations are honored.
+- **CI test matrix** — Node **22 and 24**.
+- **Docker smoke on every pull request** — Image is built and MCP-handshake smoke-tested on PRs, not only on tagged releases.
+- **Dependabot** — Enabled for GitHub Actions, npm, and Docker base-image digests.
+- **`.dockerignore` tightened** — Local `.env` files and `*.tgz` artifacts cannot enter the build context.
+
+**Upgrade notes:** Upgrade the host to **Node 22+** before installing `@stabgan/openrouter-mcp-multimodal@5.0.0`. No MCP client or tool-call changes are required. If you publish PyPI from CI, register the trusted publisher on PyPI **before** pushing tag `v5.0.0` (see [`docs/RELEASING.md`](docs/RELEASING.md)).
+
 ## [4.8.0] — 2026-09-02
 
 Minor release: security hardening across outbound fetches and path sandbox, correctness fixes for audio/STT/caching/model lookup, and expanded validation and observability.

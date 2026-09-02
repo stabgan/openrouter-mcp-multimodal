@@ -16,7 +16,7 @@
   <a href="https://hub.docker.com/r/stabgan/openrouter-mcp-multimodal"><img src="https://img.shields.io/docker/v/stabgan/openrouter-mcp-multimodal/latest?label=docker&color=2496ed&logo=docker&logoColor=white" alt="Docker version" /></a>
   <a href="https://github.com/stabgan/openrouter-mcp-multimodal/actions/workflows/ci.yml"><img src="https://github.com/stabgan/openrouter-mcp-multimodal/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
   <a href="https://www.apache.org/licenses/LICENSE-2.0"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="Apache 2.0 license" /></a>
-  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%E2%89%A520-43853d?logo=node.js&logoColor=white" alt="Node.js 20+" /></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%E2%89%A522-43853d?logo=node.js&logoColor=white" alt="Node.js 22+" /></a>
 </p>
 
 <p align="center">
@@ -49,7 +49,7 @@ Unlike text-only MCP servers, one install covers the **full multimodal surface**
 | :---------- | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Chat**    | `chat_completion`, `start_chat_completion`, `get_chat_completion_status`                | 300+ models, `:nitro` / `:floor` / `:free` / `:online` / `:exacto` suffixes, provider routing, web search, response caching, reasoning tokens, async jobs for long-running models |
 | **Vision**  | `analyze_image`, `generate_image`, `generate_image_dedicated`                           | OCR, captioning, VQA, image generation with reference inputs, dedicated Image API with resolution/quality/format control                                                          |
-| **Audio**   | `analyze_audio`, `generate_audio`, `text_to_speech`, `speech_to_text`                   | Transcription, speech/music generation, dedicated TTS (OpenAI/Gemini/Voxtral voices), dedicated STT (Whisper/GPT-4o Transcribe)                                                   |
+| **Audio**   | `analyze_audio`, `generate_audio`, `text_to_speech`, `speech_to_text`                   | Transcription, speech/music generation, dedicated TTS (free Deepgram default; model-specific voices, mp3/pcm), dedicated STT (Whisper/GPT-4o Transcribe)                                                   |
 | **Video**   | `analyze_video`, `generate_video`, `generate_video_from_image`, `get_video_status`      | Clip understanding, Veo 3.1 / Seedance 2.0 / Wan 2.7 generation with progress notifications                                                                                       |
 | **Catalog** | `search_models`, `get_model_info`, `validate_model`, `rerank_documents`, `health_check` | Model discovery, validation, reranking, ops health                                                                                                                                |
 
@@ -85,10 +85,10 @@ MCP servers are distributed through several packaging models. **This server is i
 
 | Method                                  | Runtime                          | Best for                                                       | This server                                                                                            |
 | :-------------------------------------- | :------------------------------- | :------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------- |
-| **[npx](#manual-config)**               | Node.js 20+                      | Most MCP clients (default)                                     | ✅ `@stabgan/openrouter-mcp-multimodal`                                                                |
-| **[uvx / pipx](#manual-config)**        | Python 3.10+ **and** Node.js 20+ | Python-first workflows, same pattern as PyPI MCP servers       | ✅ [`mcp-server-openrouter-multimodal`](https://pypi.org/project/mcp-server-openrouter-multimodal/)    |
-| **[npm global](#manual-config)**        | Node.js 20+                      | Pin a version without re-downloading                           | ✅                                                                                                     |
-| **[node (local)](#manual-config)**      | Node.js 20+                      | Contributors / air-gapped builds                               | ✅                                                                                                     |
+| **[npx](#manual-config)**               | Node.js 22+                      | Most MCP clients (default)                                     | ✅ `@stabgan/openrouter-mcp-multimodal`                                                                |
+| **[uvx / pipx](#manual-config)**        | Python 3.10+ **and** Node.js 22+ | Python-first workflows, same pattern as PyPI MCP servers       | ✅ [`mcp-server-openrouter-multimodal`](https://pypi.org/project/mcp-server-openrouter-multimodal/)    |
+| **[npm global](#manual-config)**        | Node.js 22+                      | Pin a version without re-downloading                           | ✅                                                                                                     |
+| **[node (local)](#manual-config)**      | Node.js 22+                      | Contributors / air-gapped builds                               | ✅                                                                                                     |
 | **[Docker Hub](#manual-config)**        | Docker                           | Isolation, no Node on host                                     | ✅ `stabgan/openrouter-mcp-multimodal`                                                                 |
 | **[GHCR](#manual-config)**              | Docker                           | GitHub-native OCI pulls                                        | ✅ `ghcr.io/stabgan/openrouter-mcp-multimodal`                                                         |
 | **[Smithery CLI](#smithery)**           | Node.js (via installer)          | Interactive install into Claude/Cursor/etc.                    | ✅                                                                                                     |
@@ -140,19 +140,19 @@ npx -y @stabgan/openrouter-mcp-multimodal
 }
 ```
 
-Pin a release: `"args": ["-y", "@stabgan/openrouter-mcp-multimodal@4.8.0"]`
+Pin a release: `"args": ["-y", "@stabgan/openrouter-mcp-multimodal@5.0.0"]`
 
 </details>
 
 <details>
 <summary><strong>uvx / pipx (Python launcher)</strong></summary>
 
-Install [uv](https://docs.astral.sh/uv/getting-started/installation/) (includes `uvx`), ensure **Node.js 20+** is also on your `PATH`, then:
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) (includes `uvx`), ensure **Node.js 22+** is also on your `PATH`, then:
 
 ```bash
 export OPENROUTER_API_KEY=sk-or-v1-...
 uvx mcp-server-openrouter-multimodal
-# pin npm version: OPENROUTER_MCP_NPM_VERSION=4.8.0 uvx mcp-server-openrouter-multimodal
+# pin npm version: OPENROUTER_MCP_NPM_VERSION=5.0.0 uvx mcp-server-openrouter-multimodal
 ```
 
 ```json
@@ -171,7 +171,7 @@ uvx mcp-server-openrouter-multimodal
 
 **pipx equivalent:** `pipx run mcp-server-openrouter-multimodal`
 
-Optional: `OPENROUTER_MCP_NPM_VERSION=4.8.0` pins the underlying npm package.
+Optional: `OPENROUTER_MCP_NPM_VERSION=5.0.0` pins the underlying npm package.
 
 </details>
 
@@ -252,7 +252,7 @@ Use `-i` (interactive stdio). Avoid `-t` (TTY corrupts MCP framing on some hosts
 
 ```bash
 docker run --rm -i -e OPENROUTER_API_KEY=sk-or-v1-... \
-  ghcr.io/stabgan/openrouter-mcp-multimodal:4.8.0
+  ghcr.io/stabgan/openrouter-mcp-multimodal:5.0.0
 ```
 
 ```json
@@ -266,7 +266,7 @@ docker run --rm -i -e OPENROUTER_API_KEY=sk-or-v1-... \
         "-i",
         "-e",
         "OPENROUTER_API_KEY=sk-or-v1-...",
-        "ghcr.io/stabgan/openrouter-mcp-multimodal:4.8.0"
+        "ghcr.io/stabgan/openrouter-mcp-multimodal:5.0.0"
       ]
     }
   }
@@ -376,7 +376,7 @@ If still failing, use the full path from `where npx` as the command.
 | `generate_image`             | Text-to-image via chat completions with reference images                   |
 | `generate_image_dedicated`   | Text-to-image via dedicated `/api/v1/images` (resolution, quality, format) |
 | `generate_audio`             | Text-to-speech / music via chat completions                                |
-| `text_to_speech`             | Dedicated TTS (`/api/v1/audio/speech`) — voices, speed, format             |
+| `text_to_speech`             | Dedicated TTS (`/api/v1/audio/speech`) — free Deepgram default, voices, speed, mp3/pcm |
 | `speech_to_text`             | Dedicated STT (`/api/v1/audio/transcriptions`) — Whisper, GPT-4o           |
 | `generate_video`             | Text-to-video (async, resumable)                                           |
 | `generate_video_from_image`  | Image-to-video (narrower schema)                                           |
@@ -491,7 +491,7 @@ Report vulnerabilities: **[SECURITY.md](./SECURITY.md)** (private disclosure —
 | Variable                            | Required | Default                               | Description                         |
 | :---------------------------------- | :------: | :------------------------------------ | :---------------------------------- |
 | `OPENROUTER_API_KEY`                | **Yes**  | —                                     | OpenRouter API key                  |
-| `OPENROUTER_DEFAULT_MODEL`          |    No    | `nvidia/nemotron-nano-12b-v2-vl:free` | Default when tools omit `model`     |
+| `OPENROUTER_DEFAULT_MODEL`          |    No    | `google/gemma-4-26b-a4b-it:free` | Default when tools omit `model`     |
 | `OPENROUTER_OUTPUT_DIR`             |    No    | `cwd`                                 | Sandbox root for `save_path`        |
 | `OPENROUTER_INPUT_DIR`              |    No    | `OUTPUT_DIR` or `cwd`                 | Sandbox root for local input files  |
 | `OPENROUTER_INLINE_MAX_BYTES`       |    No    | `1048576` (image/audio)               | Global inline media ceiling         |
@@ -583,7 +583,7 @@ Fixed in 4.5.2+ — see [GHSA-3q7p-736f-x44v](https://github.com/stabgan/openrou
 
 ## Compatibility
 
-Works with any MCP client. Protocol: **MCP 2025-06-18**. Node **≥ 20** (Docker image uses Node 22).
+Works with any MCP client. Protocol: **MCP 2025-06-18**. Node **≥ 22** (Docker image uses Node 24).
 
 ## License
 

@@ -1,16 +1,12 @@
 name: Harvest metrics
 
-# Snapshots npm, Docker Hub, and GitHub traffic numbers daily and commits
-# the result to an orphan `metrics` branch. The branch holds a running
-# time series so we can chart trends well past GitHub's 14-day traffic
-# retention window. Writes two things per run:
-#   metrics/snapshots/YYYY-MM-DD.json  — full dated snapshot
-#   metrics/history.csv                — append-only rolling CSV
+# Daily snapshot to orphan `metrics` branch (npm, Docker Hub, GitHub traffic).
+# GitHub traffic endpoints need METRICS_TOKEN (PAT with administration:read);
+# default GITHUB_TOKEN lacks that scope and those fields stay null.
 
 on:
   schedule:
-    # 03:17 UTC daily. Odd minute to dodge the top-of-hour thundering herd
-    # on Actions runners and the 00:00 UTC boundary on npm's counters.
+    # 03:17 UTC — off the top-of-hour herd and npm's 00:00 UTC counter reset.
     - cron: '17 3 * * *'
   workflow_dispatch:
 
@@ -21,8 +17,7 @@ jobs:
   harvest:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout main (for harvester script only)
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
           path: main
@@ -30,7 +25,6 @@ jobs:
       - name: Checkout or init metrics branch
         run: |
           git clone --branch metrics "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" metrics 2>/dev/null || {
-            # Branch doesn't exist yet — create an orphan one with no history.
             git clone "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" metrics
             cd metrics
             git checkout --orphan metrics
@@ -39,25 +33,14 @@ jobs:
             cat > README.md <<'EOF'
           # Metrics time series
 
-          This branch is machine-written by `.github/workflows/metrics.yml`.
-          Do not edit by hand. Each daily run writes:
+          Machine-written by `.github/workflows/metrics.yml`. Do not edit by hand.
 
           - `metrics/snapshots/YYYY-MM-DD.json` — full snapshot
-          - `metrics/history.csv`               — append-only rolling CSV
+          - `metrics/history.csv` — append-only rolling CSV
 
-          Data sources: npm registry downloads API, Docker Hub v2 API,
-          GitHub repo + traffic API.
-
-          ## Traffic data (clones, views, referrers, popular paths)
-
-          The default `GITHUB_TOKEN` in Actions lacks the `administration:read`
-          scope that GitHub requires for `/traffic/*` endpoints, so those
-          fields will be `null` in the snapshot and empty in the CSV.
-
-          To enable traffic capture, create a fine-grained PAT with
-          `Repository permissions → Administration: Read` for this repo and
-          save it as the `METRICS_TOKEN` secret. The workflow already reads
-          it preferentially over `GITHUB_TOKEN`.
+          Traffic fields require the `METRICS_TOKEN` repo secret (fine-grained PAT
+          with Repository → Administration: Read). Default `GITHUB_TOKEN` cannot
+          call GitHub `/traffic/*` APIs.
           EOF
             git add README.md
             git -c user.name=github-actions -c user.email=actions@github.com \
@@ -67,9 +50,6 @@ jobs:
 
       - name: Run harvester
         env:
-          # Prefer METRICS_TOKEN (PAT with administration:read) for traffic
-          # endpoints; fall back to GITHUB_TOKEN (traffic will be omitted
-          # with a warning since the default token lacks admin:read).
           GH_TOKEN: ${{ secrets.METRICS_TOKEN || secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |

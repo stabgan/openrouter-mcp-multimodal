@@ -10,7 +10,7 @@ import { logger } from './logger.js';
 import { SERVER_VERSION } from './version.js';
 import { SERVER_ICON } from './tool-icons.js';
 
-const DEFAULT_MODEL = 'nvidia/nemotron-nano-12b-v2-vl:free';
+const DEFAULT_MODEL = 'google/gemma-4-26b-a4b-it:free';
 
 // Log whitelisted fields only — avoid leaking auth headers from SDK errors.
 function logFatal(kind: string, err: unknown): void {

@@ -13,7 +13,7 @@ export interface RerankDocumentsRequest {
   return_documents?: boolean;
 }
 
-const DEFAULT_MODEL = 'cohere/rerank-english-v3.0';
+const DEFAULT_MODEL = 'cohere/rerank-v3.5';
 
 function isValidDocumentIndex(index: unknown, documentCount: number): index is number {
   return (

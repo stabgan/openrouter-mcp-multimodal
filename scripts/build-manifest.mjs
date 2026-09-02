@@ -70,7 +70,7 @@ const manifest = {
       type: 'string',
       title: 'Default Model',
       description: 'Default model for chat + analyze tools.',
-      default: 'nvidia/nemotron-nano-12b-v2-vl:free',
+      default: 'google/gemma-4-26b-a4b-it:free',
       required: false,
     },
     output_dir: {
