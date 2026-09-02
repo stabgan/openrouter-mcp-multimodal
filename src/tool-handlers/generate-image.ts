@@ -13,6 +13,7 @@ import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
+import { buildBinaryToolResult } from './tool-result-payload.js';
 
 export interface GenerateImageToolRequest {
   prompt: string;
@@ -167,29 +168,16 @@ function buildImageSuccessResult(
       }
     : {};
 
-  if (savePath) {
-    return {
-      content: [
-        { type: 'text' as const, text: `Image saved to: ${savePath}` },
-        { type: 'image' as const, mimeType: base64.mime, data: base64.data },
-      ],
-      _meta: {
-        server_version: SERVER_VERSION,
-        save_path: savePath,
-        mime: base64.mime,
-        ...usageMeta,
-      },
-    };
-  }
-
-  return {
-    content: [{ type: 'image' as const, mimeType: base64.mime, data: base64.data }],
-    _meta: {
-      server_version: SERVER_VERSION,
-      mime: base64.mime,
-      ...usageMeta,
+  const buffer = Buffer.from(base64.data, 'base64');
+  return buildBinaryToolResult(
+    { kind: 'image', buffer, mimeType: base64.mime },
+    {
+      savedPath: savePath ?? null,
+      inlineOnly: !savePath,
+      summaryText: savePath ? `Image saved to: ${savePath}` : undefined,
+      meta: { server_version: SERVER_VERSION, ...usageMeta },
     },
-  };
+  );
 }
 
 function extractBase64(message: Record<string, unknown>): { data: string; mime: string } | null {

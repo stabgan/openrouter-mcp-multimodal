@@ -7,6 +7,8 @@ import { ErrorCode, toolError } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
+import { buildBinaryToolResult } from './tool-result-payload.js';
+import { replaceExtension } from './path-utils.js';
 
 export interface GenerateAudioToolRequest {
   prompt: string;
@@ -104,12 +106,7 @@ export function wrapPcmInWav(
   return Buffer.concat([createWavHeader(pcmData.length, sampleRate), pcmData]);
 }
 
-/** Strip existing extension (if any) and append a new one. */
-export function replaceExtension(filePath: string, newExt: string): string {
-  const current = extname(filePath);
-  const base = current ? filePath.slice(0, -current.length) : filePath;
-  return `${base}.${newExt}`;
-}
+export { replaceExtension } from './path-utils.js';
 
 export async function handleGenerateAudio(
   request: { params: { arguments: GenerateAudioToolRequest } },
@@ -191,8 +188,6 @@ export async function handleGenerateAudio(
       detected.mimeType = 'audio/wav';
     }
 
-    const returnBase64 = audioBuffer.toString('base64');
-
     if (safeBase) {
       const fileExt = extname(safeBase).toLowerCase().slice(1);
       const actualSavePath =
@@ -208,31 +203,27 @@ export async function handleGenerateAudio(
         ? `Audio saved to: ${actualSavePath}${formatNote}\nTranscript: ${transcript}`
         : `Audio saved to: ${actualSavePath}${formatNote}`;
 
-      return {
-        content: [
-          { type: 'text' as const, text: result },
-          { type: 'audio' as const, mimeType: detected.mimeType, data: returnBase64 },
-        ],
-        _meta: {
-          server_version: SERVER_VERSION,
-          save_path: actualSavePath,
-          mime: detected.mimeType,
-          size_bytes: audioBuffer.length,
+      return buildBinaryToolResult(
+        { kind: 'audio', buffer: audioBuffer, mimeType: detected.mimeType },
+        {
+          savedPath: actualSavePath,
+          summaryText: result,
+          meta: {
+            server_version: SERVER_VERSION,
+          },
         },
-      };
+      );
     }
 
-    return {
-      content: [
-        { type: 'text' as const, text: transcript || 'Audio generated successfully.' },
-        { type: 'audio' as const, mimeType: detected.mimeType, data: returnBase64 },
-      ],
-      _meta: {
-        server_version: SERVER_VERSION,
-        mime: detected.mimeType,
-        size_bytes: audioBuffer.length,
+    return buildBinaryToolResult(
+      { kind: 'audio', buffer: audioBuffer, mimeType: detected.mimeType },
+      {
+        prefixText: transcript || 'Audio generated successfully.',
+        meta: {
+          server_version: SERVER_VERSION,
+        },
       },
-    };
+    );
   } catch (err) {
     return classifyUpstreamError(err, 'generate_audio (stream)');
   }

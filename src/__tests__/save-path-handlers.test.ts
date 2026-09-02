@@ -8,6 +8,7 @@ import { handleTextToSpeech } from '../tool-handlers/text-to-speech.js';
 import { handleGenerateImageDedicated } from '../tool-handlers/generate-image-dedicated.js';
 import type { OpenRouterAPIClient } from '../openrouter-api.js';
 import { ErrorCode } from '../errors.js';
+import * as fetchUtils from '../tool-handlers/fetch-utils.js';
 
 function mockOpenAI(): OpenAI {
   return { chat: { completions: { create: vi.fn() } } } as unknown as OpenAI;
@@ -61,5 +62,80 @@ describe('save_path sandbox guards (resolveOptionalOutputPath)', () => {
     expect(r.isError).toBe(true);
     expect((r as { _meta: { code: string } })._meta.code).toBe(ErrorCode.UNSAFE_PATH);
     expect(noopApi.generateImage).not.toHaveBeenCalled();
+  });
+
+  it('text_to_speech replaces mismatched extension (speech.wav → speech.mp3)', async () => {
+    const api = {
+      generateSpeech: vi.fn().mockResolvedValue({
+        buffer: Buffer.from('fake-mp3'),
+        contentType: 'audio/mpeg',
+      }),
+    } as unknown as OpenRouterAPIClient;
+
+    const r = await handleTextToSpeech(
+      {
+        params: {
+          arguments: { input: 'hello', save_path: 'speech.wav', response_format: 'mp3' },
+        },
+      },
+      api,
+    );
+
+    expect(r.isError).toBeUndefined();
+    const mp3Path = path.join(sandbox, 'speech.mp3');
+    await expect(fs.access(mp3Path)).resolves.toBeUndefined();
+    expect(r.content).toHaveLength(1);
+    expect(r.content[0]?.type).toBe('text');
+    expect(path.basename(String(r._meta.save_path))).toBe('speech.mp3');
+    await expect(fs.readFile(String(r._meta.save_path))).resolves.toEqual(Buffer.from('fake-mp3'));
+  });
+
+  it('generate_image_dedicated downloads URL when save_path set and no b64_json', async () => {
+    const api = {
+      generateImage: vi.fn().mockResolvedValue({
+        data: [{ url: 'https://example.com/generated.png' }],
+      }),
+    } as unknown as OpenRouterAPIClient;
+
+    vi.spyOn(fetchUtils, 'fetchHttpResource').mockResolvedValue({
+      buffer: Buffer.from('png-bytes'),
+      contentType: 'image/png',
+    });
+
+    const outPath = path.join(sandbox, 'out.png');
+    const r = await handleGenerateImageDedicated(
+      { params: { arguments: { prompt: 'a cat', save_path: 'out.png' } } },
+      api,
+    );
+
+    expect(fetchUtils.fetchHttpResource).toHaveBeenCalledWith(
+      'https://example.com/generated.png',
+      expect.objectContaining({ maxRedirects: 3 }),
+    );
+    expect(r.content).toHaveLength(1);
+    expect(r.content[0]?.type).toBe('text');
+    await expect(fs.readFile(outPath)).resolves.toEqual(Buffer.from('png-bytes'));
+  });
+
+  it('generate_image_dedicated falls back to URL when b64_json is empty', async () => {
+    const api = {
+      generateImage: vi.fn().mockResolvedValue({
+        data: [{ b64_json: '', url: 'https://example.com/generated.png' }],
+      }),
+    } as unknown as OpenRouterAPIClient;
+
+    vi.spyOn(fetchUtils, 'fetchHttpResource').mockResolvedValue({
+      buffer: Buffer.from('png-bytes'),
+      contentType: 'image/png',
+    });
+
+    const r = await handleGenerateImageDedicated(
+      { params: { arguments: { prompt: 'a cat', save_path: 'out.png' } } },
+      api,
+    );
+
+    expect(fetchUtils.fetchHttpResource).toHaveBeenCalled();
+    expect(r.content).toHaveLength(1);
+    expect(r.content[0]?.type).toBe('text');
   });
 });

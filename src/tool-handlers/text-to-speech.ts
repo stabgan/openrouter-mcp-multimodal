@@ -7,6 +7,8 @@ import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
+import { buildBinaryToolResult } from './tool-result-payload.js';
+import { replaceExtension } from './path-utils.js';
 import { type CacheOptions, buildCacheHeaders } from './cache.js';
 
 export interface TextToSpeechRequest extends CacheOptions {
@@ -98,7 +100,7 @@ export async function handleTextToSpeech(
 
   if (safeSavePath) {
     const currentExt = extname(safeSavePath).toLowerCase().slice(1);
-    const actualPath = currentExt === ext ? safeSavePath : `${safeSavePath}.${ext}`;
+    const actualPath = currentExt === ext ? safeSavePath : replaceExtension(safeSavePath, ext);
     try {
       await fs.writeFile(actualPath, buffer);
     } catch (err) {
@@ -106,20 +108,21 @@ export async function handleTextToSpeech(
     }
     baseMeta.save_path = actualPath;
 
-    return {
-      content: [
-        { type: 'text' as const, text: `Speech saved to: ${actualPath}` },
-        { type: 'audio' as const, mimeType, data: buffer.toString('base64') },
-      ],
-      _meta: baseMeta,
-    };
+    return buildBinaryToolResult(
+      { kind: 'audio', buffer, mimeType },
+      {
+        savedPath: actualPath,
+        summaryText: `Speech saved to: ${actualPath}`,
+        meta: baseMeta,
+      },
+    );
   }
 
-  return {
-    content: [
-      { type: 'text' as const, text: `Speech generated (${buffer.length} bytes, ${mimeType}).` },
-      { type: 'audio' as const, mimeType, data: buffer.toString('base64') },
-    ],
-    _meta: baseMeta,
-  };
+  return buildBinaryToolResult(
+    { kind: 'audio', buffer, mimeType },
+    {
+      prefixText: `Speech generated (${buffer.length} bytes, ${mimeType}).`,
+      meta: baseMeta,
+    },
+  );
 }

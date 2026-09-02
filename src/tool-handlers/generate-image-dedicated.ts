@@ -11,6 +11,8 @@ import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
+import { buildBinaryToolResult } from './tool-result-payload.js';
+import { fetchHttpResource, readEnvInt } from './fetch-utils.js';
 import { type CacheOptions, buildCacheHeaders } from './cache.js';
 
 export interface GenerateImageDedicatedRequest extends CacheOptions {
@@ -147,28 +149,69 @@ export async function handleGenerateImageDedicated(
   if (response.usage) baseMeta.usage = response.usage;
   if (firstImage.revised_prompt) baseMeta.revised_prompt = firstImage.revised_prompt;
 
-  if (safeSavePath && imageData) {
-    try {
-      await fs.writeFile(safeSavePath, imageData, { encoding: 'base64' });
-    } catch (err) {
-      return toolErrorFrom(ErrorCode.INTERNAL, err, 'Write');
+  if (safeSavePath) {
+    let buffer: Buffer | null = null;
+    if (imageData) {
+      try {
+        buffer = Buffer.from(imageData, 'base64');
+        if (buffer.length === 0) buffer = null;
+      } catch {
+        buffer = null;
+      }
     }
-    baseMeta.save_path = safeSavePath;
 
-    return {
-      content: [
-        { type: 'text' as const, text: `Image saved to: ${safeSavePath}` },
-        ...(imageData ? [{ type: 'image' as const, mimeType, data: imageData }] : []),
-      ],
-      _meta: baseMeta,
-    };
+    if (buffer) {
+      try {
+        await fs.writeFile(safeSavePath, buffer);
+      } catch (err) {
+        return toolErrorFrom(ErrorCode.INTERNAL, err, 'Write');
+      }
+      baseMeta.save_path = safeSavePath;
+      return buildBinaryToolResult(
+        { kind: 'image', buffer, mimeType },
+        {
+          savedPath: safeSavePath,
+          summaryText: `Image saved to: ${safeSavePath}`,
+          meta: baseMeta,
+        },
+      );
+    }
+
+    if (firstImage.url) {
+      try {
+        const maxBytes = readEnvInt('OPENROUTER_IMAGE_MAX_DOWNLOAD_BYTES', 20 * 1024 * 1024, 1024);
+        const { buffer: fetched, contentType } = await fetchHttpResource(firstImage.url, {
+          maxBytes,
+          maxRedirects: 3,
+          timeoutMs: 30_000,
+        });
+        const resolvedMime = contentType?.split(';')[0]?.trim() || mimeType;
+        await fs.writeFile(safeSavePath, fetched);
+        baseMeta.save_path = safeSavePath;
+        return buildBinaryToolResult(
+          { kind: 'image', buffer: fetched, mimeType: resolvedMime },
+          {
+            savedPath: safeSavePath,
+            summaryText: `Image saved to: ${safeSavePath}`,
+            meta: { ...baseMeta, mime: resolvedMime, image_url: firstImage.url },
+          },
+        );
+      } catch (err) {
+        return toolErrorFrom(ErrorCode.UPSTREAM_HTTP, err, 'Download image URL for save_path');
+      }
+    }
+
+    return toolError(
+      ErrorCode.UPSTREAM_REFUSED,
+      'Model returned no usable image data for save_path (empty b64_json and URL download unavailable).',
+    );
   }
 
   if (imageData) {
-    return {
-      content: [{ type: 'image' as const, mimeType, data: imageData }],
-      _meta: baseMeta,
-    };
+    return buildBinaryToolResult(
+      { kind: 'image', buffer: Buffer.from(imageData, 'base64'), mimeType },
+      { inlineOnly: true, meta: baseMeta },
+    );
   }
 
   return {

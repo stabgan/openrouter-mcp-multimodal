@@ -175,3 +175,37 @@ export async function resolveOptionalOutputPath(
     return toolErrorFrom(ErrorCode.INTERNAL, err);
   }
 }
+
+const JOB_ID_PATTERN = /^chat_[a-zA-Z0-9_-]{1,128}$/;
+
+export function isValidJobId(jobId: string): boolean {
+  if (!JOB_ID_PATTERN.test(jobId)) return false;
+  if (jobId.includes('..') || jobId.includes('/') || jobId.includes('\\')) return false;
+  return true;
+}
+
+/**
+ * Resolve async-chat job status.json under OPENROUTER_OUTPUT_DIR/openrouter-jobs/.
+ * Uses realpath when the job directory exists to block symlink escapes.
+ */
+export async function resolveSafeJobStatusPath(
+  jobsDir: string,
+  jobId: string,
+): Promise<string | null> {
+  if (!isValidJobId(jobId)) return null;
+
+  const rootReal = await fs.realpath(jobsDir).catch(() => path.resolve(jobsDir));
+  const withSep = rootReal.endsWith(path.sep) ? rootReal : rootReal + path.sep;
+  const jobDirCandidate = path.resolve(jobsDir, jobId);
+
+  let jobDirReal: string;
+  try {
+    jobDirReal = await fs.realpath(jobDirCandidate);
+  } catch {
+    if (!(jobDirCandidate === rootReal || jobDirCandidate.startsWith(withSep))) return null;
+    return path.join(jobDirCandidate, 'status.json');
+  }
+
+  if (!(jobDirReal === rootReal || jobDirReal.startsWith(withSep))) return null;
+  return path.join(jobDirReal, 'status.json');
+}

@@ -2,6 +2,32 @@
 
 All notable changes to `@stabgan/openrouter-mcp-multimodal` are recorded here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.7.0] — 2026-09-02
+
+Minor release: canonical MCP binary result policy, security hardening, and contract documentation.
+
+### Added
+
+- **`src/tool-handlers/tool-result-payload.ts`** — Shared `buildBinaryToolResult()` policy for image/audio/video artifacts.
+- **`src/tool-handlers/path-utils.ts`** — Shared `replaceExtension()` for output paths.
+- **`src/openrouter-openai-client.ts`** — Factory for OpenRouter-attributed OpenAI SDK clients.
+- **`resolveSafeJobStatusPath()`** in `path-safety.ts` — realpath guard for async chat job disk reads.
+- Tests for save_path text-only results, job_id sandbox, URL+save_path download, TTS extension fix, and MCP video resource blocks.
+
+### Fixed
+
+- **`save_path` duplicate inline media** — When `save_path` is set, tool results are text-only with `_meta.save_path` (no duplicate base64 blocks). Affects `generate_image`, `generate_image_dedicated`, `generate_audio`, `text_to_speech`, and `generate_video`.
+- **`async-chat` job_id path traversal** — Reject malicious `job_id` values before disk reads; symlink escape blocked via realpath.
+- **`generate_image_dedicated` URL + save_path** — Download provider URL when API returns URL only (or empty `b64_json`) and persist to `save_path`.
+- **`text_to_speech` extension mismatch** — `speech.wav` + `response_format: mp3` now writes `speech.mp3`, not `speech.wav.mp3`.
+- **OpenRouter attribution headers** on the OpenAI SDK client (`HTTP-Referer`, `X-Title`).
+
+### Changed
+
+- **Inline byte ceilings** — Image/audio default to 1 MiB (`OPENROUTER_INLINE_MAX_BYTES` / per-kind env vars); video remains 10 MiB default. Documented in `.env.example` and tool JSON schemas.
+- **Inline video MCP shape** — Video payloads use spec-valid `resource` blocks (blob + mimeType) instead of non-standard `type: video`.
+- **Tool schema `save_path` descriptions** — Document text-only result policy and inline size limits.
+
 ## [4.6.2] — 2026-08-23
 
 Patch release shipping the v4.6.1 refactor work: shared chat/image/path helpers, extracted tool schemas, expanded test suite, and release automation.

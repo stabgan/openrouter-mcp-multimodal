@@ -118,5 +118,7 @@ describe('handleGenerateImage', () => {
     expect(await fs.readFile(abs)).toEqual(Buffer.from('ABC'));
     expect(r.content?.[0]).toMatchObject({ type: 'text' });
     expect(String(r.content?.[0]?.text)).toContain(abs);
+    expect(r.content).toHaveLength(1);
+    expect(r.content.some((c) => c.type === 'image')).toBe(false);
   });
 });

@@ -8,9 +8,9 @@ Every release must land on **all** of these channels together (same semver):
 
 | Channel | Package / image | Install example |
 | :------ | :-------------- | :-------------- |
-| **npm** | `@stabgan/openrouter-mcp-multimodal` | `npx -y @stabgan/openrouter-mcp-multimodal@4.6.2` |
+| **npm** | `@stabgan/openrouter-mcp-multimodal` | `npx -y @stabgan/openrouter-mcp-multimodal@4.7.0` |
 | **PyPI** | `mcp-server-openrouter-multimodal` | `uvx mcp-server-openrouter-multimodal` |
-| **Docker Hub** | `stabgan/openrouter-mcp-multimodal` | `docker run -i stabgan/openrouter-mcp-multimodal:4.6.2` |
+| **Docker Hub** | `stabgan/openrouter-mcp-multimodal` | `docker run -i stabgan/openrouter-mcp-multimodal:4.7.0` |
 | **GHCR** | `ghcr.io/stabgan/openrouter-mcp-multimodal` | same tag as Docker Hub |
 | **GitHub** | git tag `vX.Y.Z` + GitHub Release | source of truth for changelog |
 

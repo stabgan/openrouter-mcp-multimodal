@@ -7,6 +7,7 @@ import {
   type CallToolResult,
 } from '@modelcontextprotocol/sdk/types.js';
 import OpenAI from 'openai';
+import { createOpenRouterOpenAIClient } from './openrouter-openai-client.js';
 import { ModelCache } from './model-cache.js';
 import { OpenRouterAPIClient } from './openrouter-api.js';
 import { handleChatCompletion } from './tool-handlers/chat-completion.js';
@@ -109,10 +110,7 @@ export class ToolHandlers {
   constructor(server: Server, apiKey: string, defaultModel?: string) {
     this.defaultModel = defaultModel;
     this.apiClient = new OpenRouterAPIClient(apiKey);
-    this.openai = new OpenAI({
-      apiKey,
-      baseURL: 'https://openrouter.ai/api/v1',
-    });
+    this.openai = createOpenRouterOpenAIClient(apiKey);
     this.server = server;
 
     this.register(server);

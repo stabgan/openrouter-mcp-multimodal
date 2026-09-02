@@ -12,12 +12,12 @@ import {
 import { resolveImageBase64 } from './image-source.js';
 import { readEnvInt } from './fetch-utils.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
+import { buildBinaryToolResult } from './tool-result-payload.js';
 
 const FALLBACK_MODEL = 'google/veo-3.1';
 const DEFAULT_POLL_INTERVAL_MS = 15_000;
 const DEFAULT_MAX_WAIT_MS = 10 * 60_000;
 const MIN_POLL_INTERVAL_MS = 50; // just to avoid a 0ms busy-loop if a caller omits
-const INLINE_RETURN_CEILING_BYTES = 10 * 1024 * 1024;
 
 /** Models deprecated by OpenAI — removal date: 2026-09-24. */
 const SORA_DEPRECATED_MODELS = new Set([
@@ -77,10 +77,6 @@ type ProgressHook = (update: {
   attempt: number;
   video_id: string;
 }) => void | Promise<void>;
-
-function getMaxInlineBytes(): number {
-  return readEnvInt('OPENROUTER_VIDEO_INLINE_MAX_BYTES', INLINE_RETURN_CEILING_BYTES, 4096);
-}
 
 function getDefaultPollInterval(): number {
   return readEnvInt(
@@ -243,37 +239,23 @@ async function finalizeCompletedJob(
     await fs.writeFile(finalPath, buffer);
     baseMeta.save_path = finalPath;
     const summaryNote = finalPath !== savePath ? ` (detected ${mime}, saved as ${finalPath})` : '';
-    const content: Array<Record<string, unknown>> = [
-      { type: 'text', text: `Video saved to: ${finalPath}${summaryNote}` },
-    ];
-    if (buffer.length <= getMaxInlineBytes()) {
-      content.push({
-        type: 'video',
-        mimeType: mime,
-        data: buffer.toString('base64'),
-      });
-    }
-    return { content, _meta: baseMeta };
+    return buildBinaryToolResult(
+      { kind: 'video', buffer, mimeType: mime },
+      {
+        savedPath: finalPath,
+        summaryText: `Video saved to: ${finalPath}${summaryNote}`,
+        meta: baseMeta,
+      },
+    );
   }
 
-  if (buffer.length <= getMaxInlineBytes()) {
-    return {
-      content: [
-        { type: 'text', text: `Video generated (${buffer.length} bytes, ${mime}).` },
-        { type: 'video', mimeType: mime, data: buffer.toString('base64') },
-      ],
-      _meta: baseMeta,
-    };
-  }
-  return {
-    content: [
-      {
-        type: 'text',
-        text: `Video generated (${buffer.length} bytes, ${mime}). Too large to inline; pass save_path to persist. URL: ${url}`,
-      },
-    ],
-    _meta: baseMeta,
-  };
+  return buildBinaryToolResult(
+    { kind: 'video', buffer, mimeType: mime },
+    {
+      remoteUrl: url,
+      meta: baseMeta,
+    },
+  );
 }
 
 function stripAndReplaceExt(p: string, newExt: string): string {

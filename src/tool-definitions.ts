@@ -1,5 +1,12 @@
 import { TOOL_DESCRIPTIONS } from './tool-descriptions.js';
 
+/** Shared JSON-schema fragment for save_path on generate/write tools. */
+const SAVE_PATH_PROPERTY = {
+  type: 'string',
+  description:
+    'Write the artifact under OPENROUTER_OUTPUT_DIR (path-sandboxed). When set, the tool result is text-only with _meta.save_path — no inline media block. Without save_path, inline image/audio/video is returned only if under OPENROUTER_*_INLINE_MAX_BYTES (see .env.example).',
+} as const;
+
 export const TOOL_DEFINITIONS = [
   {
     name: 'chat_completion',
@@ -389,7 +396,7 @@ export const TOOL_DEFINITIONS = [
         },
         image_size: { type: 'string', enum: ['0.5K', '1K', '2K', '4K'] },
         max_tokens: { type: 'number', minimum: 1 },
-        save_path: { type: 'string' },
+        save_path: SAVE_PATH_PROPERTY,
         input_images: { type: 'array', items: { type: 'string' } },
         modalities: { type: 'array', items: { type: 'string' } },
       },
@@ -449,7 +456,10 @@ export const TOOL_DEFINITIONS = [
           description:
             'Reference images for image-to-image workflows. Each entry: local path, http(s) URL, or data URL.',
         },
-        save_path: { type: 'string', description: 'Save generated image to this path.' },
+        save_path: {
+          ...SAVE_PATH_PROPERTY,
+          description: 'Save generated image to this path. ' + SAVE_PATH_PROPERTY.description,
+        },
         provider: {
           type: 'object',
           description: 'Provider routing overrides (order, sort, allow_fallbacks, etc.).',
@@ -478,7 +488,7 @@ export const TOOL_DEFINITIONS = [
         model: { type: 'string' },
         voice: { type: 'string' },
         format: { type: 'string' },
-        save_path: { type: 'string' },
+        save_path: SAVE_PATH_PROPERTY,
       },
       required: ['prompt'],
     },
@@ -526,7 +536,10 @@ export const TOOL_DEFINITIONS = [
           description:
             'Tone/style instructions (e.g. "speak in a warm, friendly tone"). OpenAI models only.',
         },
-        save_path: { type: 'string', description: 'Save audio to this path.' },
+        save_path: {
+          ...SAVE_PATH_PROPERTY,
+          description: 'Save audio to this path. ' + SAVE_PATH_PROPERTY.description,
+        },
         cache: { type: 'boolean' },
         cache_ttl: { type: 'string' },
         cache_clear: { type: 'boolean' },
@@ -602,7 +615,7 @@ export const TOOL_DEFINITIONS = [
         last_frame_image: { type: 'string' },
         reference_images: { type: 'array', items: { type: 'string' } },
         provider: { type: 'object' },
-        save_path: { type: 'string' },
+        save_path: SAVE_PATH_PROPERTY,
         max_wait_ms: { type: 'number', minimum: 10000 },
         poll_interval_ms: { type: 'number', minimum: 2000 },
       },
@@ -632,7 +645,7 @@ export const TOOL_DEFINITIONS = [
         aspect_ratio: { type: 'string' },
         duration: { type: 'number', minimum: 1 },
         seed: { type: 'number' },
-        save_path: { type: 'string' },
+        save_path: SAVE_PATH_PROPERTY,
         max_wait_ms: { type: 'number', minimum: 10000 },
         poll_interval_ms: { type: 'number', minimum: 2000 },
       },
@@ -653,7 +666,7 @@ export const TOOL_DEFINITIONS = [
       type: 'object',
       properties: {
         video_id: { type: 'string' },
-        save_path: { type: 'string' },
+        save_path: SAVE_PATH_PROPERTY,
       },
       required: ['video_id'],
     },

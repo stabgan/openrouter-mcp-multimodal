@@ -7,6 +7,7 @@ import { ErrorCode, toolError } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import { extractCompletionText, buildCompletionMeta } from './completion-utils.js';
+import { resolveSafeJobStatusPath, isValidJobId } from './path-safety.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
 import {
   DEFAULT_CHAT_MODEL,
@@ -75,8 +76,10 @@ async function persistJob(job: AsyncJob): Promise<void> {
 export async function loadJobFromDisk(jobId: string): Promise<AsyncJob | null> {
   const dir = getJobsDir();
   if (!dir) return null;
+  const statusPath = await resolveSafeJobStatusPath(dir, jobId);
+  if (!statusPath) return null;
   try {
-    const raw = await fs.readFile(path.join(dir, jobId, 'status.json'), 'utf8');
+    const raw = await fs.readFile(statusPath, 'utf8');
     return JSON.parse(raw) as AsyncJob;
   } catch {
     return null;
@@ -214,6 +217,13 @@ export async function handleGetChatCompletionStatus(request: {
 
   if (!jobId) {
     return toolError(ErrorCode.INVALID_INPUT, 'job_id is required.');
+  }
+
+  if (!isValidJobId(jobId)) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `Invalid job_id "${jobId}". Must start with chat_ and must not contain path separators.`,
+    );
   }
 
   const job = await resolveJob(jobId);

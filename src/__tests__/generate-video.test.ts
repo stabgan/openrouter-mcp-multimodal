@@ -135,8 +135,7 @@ describe('handleGenerateVideo', () => {
     expect(savedPath.endsWith('.mp4')).toBe(true);
     expect(savedPath.startsWith(await fs.realpath(sandbox))).toBe(true);
     const types = (result as { content: Array<{ type: string }> }).content.map((c) => c.type);
-    expect(types).toContain('text');
-    expect(types).toContain('video');
+    expect(types).toEqual(['text']);
     expect(progress).toHaveBeenCalled();
   }, 10_000);
 
