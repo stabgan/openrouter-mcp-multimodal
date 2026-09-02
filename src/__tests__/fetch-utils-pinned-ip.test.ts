@@ -3,6 +3,9 @@ import http from 'node:http';
 import https from 'node:https';
 import { execFileSync } from 'node:child_process';
 import dns from 'node:dns/promises';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import {
   fetchHttpResource,
   assertUrlSafeForFetch,
@@ -71,29 +74,36 @@ function closeServer(server: http.Server | https.Server): Promise<void> {
 }
 
 function generateTestCert(): { cert: string; key: string } {
-  const out = execFileSync(
-    'openssl',
-    [
-      'req',
-      '-x509',
-      '-newkey',
-      'rsa:2048',
-      '-keyout',
-      '/dev/stdout',
-      '-out',
-      '/dev/stdout',
-      '-days',
-      '1',
-      '-nodes',
-      '-subj',
-      '/CN=pinned-https.test',
-    ],
-    { encoding: 'utf8' },
-  );
-  const keyMatch = out.match(/-----BEGIN PRIVATE KEY-----[\s\S]+?-----END PRIVATE KEY-----/);
-  const certMatch = out.match(/-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/);
-  if (!keyMatch || !certMatch) throw new Error('openssl PEM generation failed');
-  return { key: keyMatch[0], cert: certMatch[0] };
+  const directory = mkdtempSync(path.join(tmpdir(), 'mcp-pinned-ip-cert-'));
+  const keyPath = path.join(directory, 'key.pem');
+  const certPath = path.join(directory, 'cert.pem');
+  try {
+    execFileSync(
+      'openssl',
+      [
+        'req',
+        '-x509',
+        '-newkey',
+        'rsa:2048',
+        '-keyout',
+        keyPath,
+        '-out',
+        certPath,
+        '-days',
+        '1',
+        '-nodes',
+        '-subj',
+        '/CN=pinned-https.test',
+      ],
+      { stdio: 'ignore' },
+    );
+    return {
+      key: readFileSync(keyPath, 'utf8'),
+      cert: readFileSync(certPath, 'utf8'),
+    };
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 }
 
 describe('fetchHttpResource — pinned IP transport', () => {
