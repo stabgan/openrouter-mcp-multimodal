@@ -584,7 +584,7 @@ export const TOOL_DEFINITIONS = [
         model: {
           type: 'string',
           description:
-            'TTS model. Default: openai/gpt-4o-mini-tts-2025-12-15. Also: google/gemini-flash-tts, mistral/voxtral-mini-tts.',
+            'TTS model for OpenRouter POST /audio/speech. Pass explicitly: the previous default was retired upstream and OpenRouter publishes no TTS model list.',
         },
         voice: {
           type: 'string',
@@ -796,7 +796,7 @@ export const TOOL_DEFINITIONS = [
         documents: { type: 'array', items: { type: 'string' }, minItems: 1 },
         model: {
           type: 'string',
-          description: 'Reranker model (default: cohere/rerank-english-v3.0).',
+          description: 'Reranker model (default: cohere/rerank-v3.5).',
         },
         top_n: { type: 'number', minimum: 1, description: 'Return only the top N results.' },
         return_documents: {

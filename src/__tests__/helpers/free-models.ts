@@ -8,14 +8,13 @@ export const FREE_INTEGRATION_MODEL = 'google/gemma-4-26b-a4b-it:free';
 export const FREE_VISION_MODELS = [
   'google/gemma-4-26b-a4b-it:free',
   'google/gemma-4-31b-it:free',
-  'nvidia/nemotron-nano-12b-v2-vl:free',
 ] as const;
 
-/** Text-only free models suitable for chat_completion integration. */
+/** Free models suitable for chat_completion integration. */
 export const FREE_CHAT_MODELS = [
   'google/gemma-4-26b-a4b-it:free',
   'google/gemma-4-31b-it:free',
-  'meta-llama/llama-3.2-3b-instruct:free',
+  'nvidia/nemotron-3.5-lightning:free',
 ] as const;
 
 export function resolveIntegrationModel(env = process.env): string {

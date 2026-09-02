@@ -582,7 +582,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
 
   rerank_documents: buildToolDescription({
     summary:
-      'Re-order documents by relevance to a query using an OpenRouter reranker. Default: cohere/rerank-english-v3.0.',
+      'Re-order documents by relevance to a query using an OpenRouter reranker. Default: cohere/rerank-v3.5.',
     useWhen: [
       'You have a query and a list of text snippets to sort by relevance',
       'You will feed top results into chat_completion for grounded answers',
@@ -593,7 +593,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
     ],
     goodExamples: [
       '`{ "query": "battery life", "documents": ["Doc A text...", "Doc B text..."] }`',
-      '`{ "query": "...", "documents": [...], "model": "cohere/rerank-english-v3.0" }`',
+      '`{ "query": "...", "documents": [...], "model": "cohere/rerank-v3.5" }`',
     ],
     badExamples: [
       '`{ "documents": [] }` → INVALID_INPUT',
