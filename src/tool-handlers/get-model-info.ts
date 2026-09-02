@@ -27,7 +27,7 @@ export async function handleGetModelInfo(
     return toolError(ErrorCode.INTERNAL, 'No model data available.');
   }
 
-  const info = modelCache.get(model);
+  const info = modelCache.lookup(model);
   if (!info) {
     return toolError(ErrorCode.MODEL_NOT_FOUND, `Model '${model}' not found.`);
   }

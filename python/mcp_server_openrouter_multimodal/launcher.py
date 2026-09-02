@@ -43,13 +43,35 @@ def _augmented_path_env() -> dict[str, str]:
     return env
 
 
+def _node_major_version(path_env: str) -> int | None:
+    node = shutil.which("node", path=path_env)
+    if not node:
+        return None
+    try:
+        out = subprocess.check_output([node, "-p", "process.versions.node"], text=True).strip()
+        return int(out.split(".", 1)[0])
+    except (subprocess.CalledProcessError, ValueError, OSError):
+        return None
+
+
 def main() -> None:
     env = _augmented_path_env()
-    npx = shutil.which("npx", path=env.get("PATH"))
+    path = env.get("PATH", "")
+    npx = shutil.which("npx", path=path)
     if not npx:
         print(
             "mcp-server-openrouter-multimodal requires Node.js (npx not found on PATH).\n"
             "Install Node 20+ from https://nodejs.org or use npx/Docker install instead.\n"
+            "See https://github.com/stabgan/openrouter-mcp-multimodal#install",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+
+    node_major = _node_major_version(path)
+    if node_major is None or node_major < 20:
+        print(
+            "mcp-server-openrouter-multimodal requires Node.js 20 or newer.\n"
+            f"Found: node major={node_major if node_major is not None else 'missing'}\n"
             "See https://github.com/stabgan/openrouter-mcp-multimodal#install",
             file=sys.stderr,
         )

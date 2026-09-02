@@ -9,11 +9,17 @@ import { handleAnalyzeAudio } from '../tool-handlers/analyze-audio.js';
 import { handleGenerateAudio } from '../tool-handlers/generate-audio.js';
 import { OpenRouterAPIClient } from '../openrouter-api.js';
 import { ModelCache } from '../model-cache.js';
-import path from 'path';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { promises as fsPromises } from 'fs';
 
 import { resolveIntegrationModel } from './helpers/free-models.js';
 import { expectSuccessOrSoftFailure } from './helpers/integration-soft-fail.js';
+
+const testImagePath = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  'fixtures/test.png',
+);
 
 /** Loaded and validated in integration.setup.ts (from .env or environment). */
 const API_KEY = process.env.OPENROUTER_API_KEY!;
@@ -67,11 +73,10 @@ describe('Integration: analyze_image', () => {
   });
 
   it('should analyze the test image from file path', async () => {
-    const testImg = path.resolve('test.png');
     const result = await handleAnalyzeImage(
       {
         params: {
-          arguments: { image_path: testImg, question: 'Describe this image briefly.' },
+          arguments: { image_path: testImagePath, question: 'Describe this image briefly.' },
         },
       },
       openai,

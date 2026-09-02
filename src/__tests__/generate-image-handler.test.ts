@@ -45,6 +45,17 @@ describe('handleGenerateImage', () => {
     expect((r as { _meta: { code: string } })._meta.code).toBe('INVALID_INPUT');
   });
 
+  it('returns INVALID_INPUT for non-positive max_tokens before calling the API', async () => {
+    const openai = mockOpenAI({});
+    const r = await handleGenerateImage(
+      { params: { arguments: { prompt: 'sunset', max_tokens: 0 } } },
+      openai,
+    );
+    expect(r.isError).toBe(true);
+    expect((r as { _meta: { code: string } })._meta.code).toBe('INVALID_INPUT');
+    expect(openai.chat.completions.create).not.toHaveBeenCalled();
+  });
+
   it('returns UNSAFE_PATH for save_path traversal before calling the API', async () => {
     const openai = mockOpenAI({});
     const r = await handleGenerateImage(
@@ -119,6 +130,45 @@ describe('handleGenerateImage', () => {
     expect(r.content?.[0]).toMatchObject({ type: 'text' });
     expect(String(r.content?.[0]?.text)).toContain(abs);
     expect(r.content).toHaveLength(1);
+    expect(r.content.some((c) => c.type === 'image')).toBe(false);
+  });
+
+  it('returns UPSTREAM_REFUSED when decoded image payload is empty', async () => {
+    const r = await handleGenerateImage(
+      { params: { arguments: { prompt: 'dot' } } },
+      mockOpenAI({
+        choices: [
+          {
+            message: {
+              images: [{ image_url: { url: 'data:image/png;base64,' } }],
+            },
+          },
+        ],
+      }),
+    );
+    expect(r.isError).toBe(true);
+    expect((r as { _meta: { code: string } })._meta.code).toBe('UPSTREAM_REFUSED');
+  });
+
+  it('returns text-only hint when inline image exceeds byte ceiling', async () => {
+    vi.stubEnv('OPENROUTER_IMAGE_INLINE_MAX_BYTES', '4096');
+    const big = Buffer.alloc(5000, 0xab);
+    const r = await handleGenerateImage(
+      { params: { arguments: { prompt: 'big dot' } } },
+      mockOpenAI({
+        choices: [
+          {
+            message: {
+              images: [{ image_url: { url: `data:image/png;base64,${big.toString('base64')}` } }],
+            },
+          },
+        ],
+      }),
+    );
+    expect(r.isError).toBeFalsy();
+    expect(r.content).toHaveLength(1);
+    expect(r.content[0]?.type).toBe('text');
+    expect(String(r.content[0]?.text)).toMatch(/Too large to inline/i);
     expect(r.content.some((c) => c.type === 'image')).toBe(false);
   });
 });

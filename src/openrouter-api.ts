@@ -28,13 +28,6 @@ function backoffWithJitter(attempt: number, retryAfterMs: number | null): number
   return Math.round(target * jitter);
 }
 
-/**
- * fetch() wrapper with retries on 429 / 5xx / network error.
- *
- * A fresh `AbortSignal.timeout(timeoutMs)` is created per attempt so retries
- * each get a full timeout budget. Backoff honors `Retry-After` (seconds or
- * HTTP-date) and applies jitter to avoid thundering-herd synchronization.
- */
 async function fetchWithRetry(
   url: string,
   init: Omit<RequestInit, 'signal'>,
@@ -89,11 +82,11 @@ export class OpenRouterAPIClient {
       { retries: 2, timeoutMs: DEFAULT_TIMEOUT_MS },
     );
     if (!res.ok) throw new Error(`Failed to fetch models: HTTP ${res.status}`);
-    const data = (await res.json()) as { data?: OpenRouterModelRecord[] };
+    const data = await readJsonOrThrow<{ data?: OpenRouterModelRecord[] }>(res, 'GET /models');
     return data.data ?? [];
   }
 
-  /** Submit a video-generation job. Returns the `{ id, polling_url, status }` envelope. */
+  /** Submit a video-generation job. */
   async submitVideoJob(body: Record<string, unknown>): Promise<VideoJobEnvelope> {
     const res = await fetchWithRetry(
       `${BASE_URL}/videos`,
@@ -108,10 +101,10 @@ export class OpenRouterAPIClient {
       const detail = await safeReadText(res);
       throw new Error(`POST /videos failed: HTTP ${res.status}${detail ? ` — ${detail}` : ''}`);
     }
-    return (await res.json()) as VideoJobEnvelope;
+    return readJsonOrThrow<VideoJobEnvelope>(res, 'POST /videos');
   }
 
-  /** Poll a submitted video-generation job by id. */
+  /** Poll a submitted video-generation job. */
   async pollVideoJob(id: string): Promise<VideoJobStatus> {
     const res = await fetchWithRetry(
       `${BASE_URL}/videos/${encodeURIComponent(id)}`,
@@ -124,10 +117,10 @@ export class OpenRouterAPIClient {
         `GET /videos/${id} failed: HTTP ${res.status}${detail ? ` — ${detail}` : ''}`,
       );
     }
-    return (await res.json()) as VideoJobStatus;
+    return readJsonOrThrow<VideoJobStatus>(res, `GET /videos/${id}`);
   }
 
-  /** Download generated video binary (trusted OpenRouter origin). */
+  /** Download generated video binary. */
   async downloadVideoContent(
     id: string,
     index = 0,
@@ -177,7 +170,7 @@ export class OpenRouterAPIClient {
     return { buffer: Buffer.concat(chunks), contentType: res.headers.get('content-type') };
   }
 
-  /** POST /images — dedicated image generation. */
+  /** POST /images. */
   async generateImage(
     body: Record<string, unknown>,
     headers?: Record<string, string>,
@@ -195,10 +188,10 @@ export class OpenRouterAPIClient {
       const detail = await safeReadText(res);
       throw new Error(`POST /images failed: HTTP ${res.status}${detail ? ` — ${detail}` : ''}`);
     }
-    return (await res.json()) as ImageGenerationResponse;
+    return readJsonOrThrow<ImageGenerationResponse>(res, 'POST /images');
   }
 
-  /** POST /audio/speech — text-to-speech. */
+  /** POST /audio/speech. */
   async generateSpeech(
     body: Record<string, unknown>,
     headers?: Record<string, string>,
@@ -223,7 +216,7 @@ export class OpenRouterAPIClient {
     return { buffer: buf, contentType };
   }
 
-  /** POST /audio/transcriptions — speech-to-text. */
+  /** POST /audio/transcriptions. */
   async transcribeAudio(
     body: Record<string, unknown>,
     headers?: Record<string, string>,
@@ -243,10 +236,10 @@ export class OpenRouterAPIClient {
         `POST /audio/transcriptions failed: HTTP ${res.status}${detail ? ` — ${detail}` : ''}`,
       );
     }
-    return (await res.json()) as TranscriptionResponse;
+    return readTranscriptionResponse(res, body.response_format, 'POST /audio/transcriptions');
   }
 
-  /** POST /rerank — re-order documents by relevance to a query. */
+  /** POST /rerank. */
   async rerank(params: {
     model: string;
     query: string;
@@ -272,7 +265,7 @@ export class OpenRouterAPIClient {
       const detail = await safeReadText(res);
       throw new Error(`POST /rerank failed: HTTP ${res.status}${detail ? ` — ${detail}` : ''}`);
     }
-    return (await res.json()) as RerankResponse;
+    return readJsonOrThrow<RerankResponse>(res, 'POST /rerank');
   }
 }
 
@@ -312,7 +305,8 @@ export interface RerankResponse {
   [key: string]: unknown;
 }
 
-export type VideoJobStatusName = 'pending' | 'queued' | 'processing' | 'completed' | 'failed';
+export type VideoJobStatusName =
+  'pending' | 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled' | 'canceled';
 
 export interface VideoJobStatus {
   id: string;
@@ -333,5 +327,64 @@ async function safeReadText(res: Response): Promise<string> {
   }
 }
 
-// Exported for tests.
-export const _internals = { parseRetryAfter, backoffWithJitter, fetchWithRetry };
+function extractEmbeddedError(data: unknown): string | undefined {
+  if (!data || typeof data !== 'object') return undefined;
+  const record = data as { error?: unknown; type?: string };
+  if (record.type === 'error') {
+    const err = record.error;
+    if (typeof err === 'string') return err;
+    if (
+      err &&
+      typeof err === 'object' &&
+      typeof (err as { message?: string }).message === 'string'
+    ) {
+      return (err as { message: string }).message;
+    }
+  }
+  if (record.error && typeof record.error === 'object') {
+    const err = record.error as { message?: string; code?: number };
+    if (typeof err.message === 'string') return err.message;
+  }
+  return undefined;
+}
+
+async function readTranscriptionResponse(
+  res: Response,
+  responseFormat: unknown,
+  context: string,
+): Promise<TranscriptionResponse> {
+  const format = typeof responseFormat === 'string' ? responseFormat : 'json';
+  const contentType = res.headers.get('content-type') ?? '';
+  const plainByFormat = format === 'text' || format === 'srt' || format === 'vtt';
+  const plainByContentType =
+    contentType.startsWith('text/') && format !== 'json' && format !== 'verbose_json';
+
+  if (plainByFormat || plainByContentType) {
+    const text = await res.text();
+    return { text };
+  }
+  return readJsonOrThrow<TranscriptionResponse>(res, context);
+}
+
+async function readJsonOrThrow<T>(res: Response, context: string): Promise<T> {
+  const raw = await res.text();
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    const detail = raw.length > 500 ? raw.slice(0, 500) + '…' : raw;
+    throw new Error(`${context}: non-JSON response${detail ? ` — ${detail}` : ''}`);
+  }
+  const embedded = extractEmbeddedError(data);
+  if (embedded) throw new Error(`${context}: ${embedded}`);
+  return data as T;
+}
+
+export const _internals = {
+  parseRetryAfter,
+  backoffWithJitter,
+  fetchWithRetry,
+  extractEmbeddedError,
+  readJsonOrThrow,
+  readTranscriptionResponse,
+};

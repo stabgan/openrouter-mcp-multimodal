@@ -1,8 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   getAudioFormat,
   getAudioMimeType,
   prepareAudioData,
+  resolveSpeechToTextAudio,
+  getMaxAudioInputBytes,
+  detectAudioFormat,
   isBlockedIPv4,
   assertUrlSafeForFetch,
   SUPPORTED_AUDIO_FORMATS,
@@ -11,6 +14,50 @@ import { UnsafeOutputPathError } from '../tool-handlers/path-safety.js';
 import { withInputSandbox } from './helpers/input-sandbox.js';
 import path from 'path';
 import { writeFileSync } from 'fs';
+
+describe('detectAudioFormat', () => {
+  it('detects MP3 with ID3 tag', () => {
+    const buf = Buffer.from([0x49, 0x44, 0x33, 0x00, 0x00]);
+    expect(detectAudioFormat(buf)).toEqual({ ext: 'mp3', mimeType: 'audio/mpeg' });
+  });
+
+  it('detects WAV (RIFF...WAVE)', () => {
+    const buf = Buffer.alloc(12);
+    buf.write('RIFF', 0);
+    buf.writeUInt32LE(100, 4);
+    buf.write('WAVE', 8);
+    expect(detectAudioFormat(buf)).toEqual({ ext: 'wav', mimeType: 'audio/wav' });
+  });
+});
+
+describe('getMaxAudioInputBytes', () => {
+  it('defaults to 25 MiB', () => {
+    expect(getMaxAudioInputBytes()).toBe(25 * 1024 * 1024);
+  });
+});
+
+describe('resolveSpeechToTextAudio', () => {
+  it('uses the shared byte ceiling for data URLs', async () => {
+    vi.stubEnv('OPENROUTER_AUDIO_MAX_DOWNLOAD_BYTES', '8');
+    const b64 = Buffer.alloc(32).toString('base64');
+    await expect(resolveSpeechToTextAudio(`data:audio/wav;base64,${b64}`)).rejects.toThrow(
+      /too large/i,
+    );
+    vi.unstubAllEnvs();
+  });
+
+  it('rejects HTTP URLs when audio format cannot be inferred', async () => {
+    const fetchSpy = vi.spyOn(await import('../tool-handlers/fetch-utils.js'), 'fetchHttpResource');
+    fetchSpy.mockResolvedValue({
+      buffer: Buffer.from('not-audio'),
+      contentType: 'application/octet-stream',
+    });
+    await expect(resolveSpeechToTextAudio('https://example.com/unknown.bin')).rejects.toThrow(
+      /Unsupported audio format/i,
+    );
+    fetchSpy.mockRestore();
+  });
+});
 
 describe('getAudioFormat', () => {
   it('returns correct format for supported extensions', () => {
@@ -100,6 +147,15 @@ describe('prepareAudioData', () => {
       const result = await prepareAudioData('clip.wav');
       expect(result.data).toBe(Buffer.from('fake-audio-content').toString('base64'));
       expect(result.format).toBe('wav');
+    });
+  });
+
+  it('rejects oversized local files at the shared byte ceiling', async () => {
+    await withInputSandbox('mcp-audio-', async (root) => {
+      vi.stubEnv('OPENROUTER_AUDIO_MAX_DOWNLOAD_BYTES', '16');
+      writeFileSync(path.join(root, 'big.wav'), Buffer.alloc(32));
+      await expect(prepareAudioData('big.wav')).rejects.toThrow(/too large/i);
+      vi.unstubAllEnvs();
     });
   });
 

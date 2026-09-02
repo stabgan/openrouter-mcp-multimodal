@@ -29,7 +29,7 @@ describe('handleHealthCheck', () => {
     });
   });
 
-  it('returns ok=false when API key is invalid', async () => {
+  it('returns ok=false with INVALID_CREDENTIALS when API key is invalid', async () => {
     const cache = resetCache();
     const apiClient = {
       getModels: vi.fn().mockRejectedValue(new Error('HTTP 401')),
@@ -38,7 +38,11 @@ describe('handleHealthCheck', () => {
     const sc = (r as { structuredContent: Record<string, unknown> }).structuredContent;
     expect(sc.ok).toBe(false);
     expect(sc.api_key_valid).toBe(false);
-    expect(sc.error).toMatch(/HTTP 401/);
+    expect(sc.error).toMatch(/health_check/i);
+    expect((r as { _meta: { code: string } })._meta.code).toBe('INVALID_CREDENTIALS');
+    expect((r as { _meta: { suggestions?: string[] } })._meta.suggestions?.length).toBeGreaterThan(
+      0,
+    );
   });
 
   it('returns ok=true with models_cached=0 on successful-but-empty catalog', async () => {
@@ -94,5 +98,20 @@ describe('handleHealthCheck', () => {
     const sc = (r as { structuredContent: Record<string, unknown> }).structuredContent;
     expect(sc.server_version).toBe(SERVER_VERSION);
     expect(sc.protocol_version).toBe(MCP_PROTOCOL_VERSION);
+  });
+
+  it('never throws even when buildStructuredResult inputs are unexpected', async () => {
+    const cache = resetCache();
+    const broken = {
+      getModels: vi.fn().mockImplementation(() => {
+        throw new Error('Bearer sk-or-v1-deadbeef');
+      }),
+    } as unknown as OpenRouterAPIClient;
+    const r = await handleHealthCheck({ params: { arguments: {} } }, broken, cache);
+    expect(r.isError).toBeFalsy();
+    const sc = (r as { structuredContent: Record<string, unknown> }).structuredContent;
+    expect(sc.ok).toBe(false);
+    expect(String(sc.error)).not.toContain('sk-or-v1-deadbeef');
+    expect(String(sc.error)).toContain('[REDACTED]');
   });
 });

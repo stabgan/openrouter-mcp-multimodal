@@ -4,6 +4,9 @@
 import type { ChatCompletion } from 'openai/resources/chat/completions.js';
 import { ErrorCode, toolError, type ToolErrorResult } from '../errors.js';
 
+/** Default cap for text returned in tool content / _meta (chars). Set OPENROUTER_MAX_RESULT_TEXT_CHARS=0 to disable. */
+const DEFAULT_MAX_RESULT_TEXT_CHARS = 512_000;
+
 export interface ExtractedText {
   text: string;
   /** True when `text` came from the reasoning trace (not a final answer). */
@@ -19,10 +22,27 @@ interface ChatMessageLike {
   content?: string | Array<{ type: string; text?: string }> | null;
   reasoning?: string | null;
   reasoning_details?: Array<{ type: string; text?: string }> | null;
+  refusal?: string | null;
 }
 
 interface ChoiceLike {
   native_finish_reason?: string | null;
+}
+
+export function readMaxResultTextChars(): number {
+  const raw = process.env.OPENROUTER_MAX_RESULT_TEXT_CHARS;
+  if (raw === undefined || raw === '') return DEFAULT_MAX_RESULT_TEXT_CHARS;
+  if (raw === '0') return 0;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_MAX_RESULT_TEXT_CHARS;
+}
+
+export function capResultText(text: string): { text: string; truncated: boolean } {
+  const max = readMaxResultTextChars();
+  if (max <= 0 || text.length <= max) return { text, truncated: false };
+  const omitted = text.length - max;
+  const marker = `\n\n[… truncated — ${omitted} chars omitted; set OPENROUTER_MAX_RESULT_TEXT_CHARS=0 to disable]`;
+  return { text: text.slice(0, max) + marker, truncated: true };
 }
 
 function extractReasoning(msg: ChatMessageLike): string | undefined {
@@ -37,45 +57,49 @@ function extractReasoning(msg: ChatMessageLike): string | undefined {
   return undefined;
 }
 
-export function extractCompletionText(completion: ChatCompletion): ExtractedText {
-  const choice = completion.choices?.[0];
-  const msg = choice?.message as unknown as ChatMessageLike | undefined;
-  const finishReason = choice?.finish_reason;
-  const nativeFinishReason =
-    (choice as unknown as ChoiceLike | undefined)?.native_finish_reason ?? undefined;
-  const usage = completion.usage ?? undefined;
-
-  if (!msg) {
-    return {
-      text: '',
-      reasonedOnly: false,
-      finishReason,
-      nativeFinishReason: nativeFinishReason ?? undefined,
-      usage,
-    };
-  }
-
-  const { content } = msg;
-  const reasoning = extractReasoning(msg);
-
-  if (typeof content === 'string' && content.length > 0) {
-    return {
-      text: content,
-      reasonedOnly: false,
-      finishReason,
-      nativeFinishReason: nativeFinishReason ?? undefined,
-      reasoning,
-      usage,
-    };
-  }
+function extractContentText(content: ChatMessageLike['content']): string {
+  if (typeof content === 'string' && content.length > 0) return content;
   if (Array.isArray(content)) {
     const parts = content
       .filter((p) => p.type === 'text' && typeof p.text === 'string')
       .map((p) => p.text ?? '');
-    const joined = parts.join('');
-    if (joined.length > 0) {
+    return parts.join('');
+  }
+  return '';
+}
+
+function emptyExtracted(
+  finishReason: ChatCompletion.Choice['finish_reason'] | undefined,
+  nativeFinishReason: string | undefined,
+  usage: ChatCompletion['usage'] | undefined,
+): ExtractedText {
+  return {
+    text: '',
+    reasonedOnly: false,
+    finishReason,
+    nativeFinishReason,
+    usage,
+  };
+}
+
+export function extractCompletionText(completion: ChatCompletion): ExtractedText {
+  try {
+    const choice = completion.choices?.[0];
+    const msg = choice?.message as unknown as ChatMessageLike | undefined;
+    const finishReason = choice?.finish_reason;
+    const nativeFinishReason =
+      (choice as unknown as ChoiceLike | undefined)?.native_finish_reason ?? undefined;
+    const usage = completion.usage ?? undefined;
+
+    if (!msg) {
+      return emptyExtracted(finishReason, nativeFinishReason ?? undefined, usage);
+    }
+
+    const reasoning = extractReasoning(msg);
+
+    if (typeof msg.refusal === 'string' && msg.refusal.length > 0) {
       return {
-        text: joined,
+        text: msg.refusal,
         reasonedOnly: false,
         finishReason,
         nativeFinishReason: nativeFinishReason ?? undefined,
@@ -83,26 +107,34 @@ export function extractCompletionText(completion: ChatCompletion): ExtractedText
         usage,
       };
     }
-  }
 
-  if (reasoning && reasoning.length > 0) {
-    return {
-      text: reasoning,
-      reasonedOnly: true,
-      finishReason,
-      nativeFinishReason: nativeFinishReason ?? undefined,
-      reasoning,
-      usage,
-    };
-  }
+    const contentText = extractContentText(msg.content);
+    if (contentText.length > 0) {
+      return {
+        text: contentText,
+        reasonedOnly: false,
+        finishReason,
+        nativeFinishReason: nativeFinishReason ?? undefined,
+        reasoning,
+        usage,
+      };
+    }
 
-  return {
-    text: '',
-    reasonedOnly: false,
-    finishReason,
-    nativeFinishReason: nativeFinishReason ?? undefined,
-    usage,
-  };
+    if (reasoning && reasoning.length > 0) {
+      return {
+        text: reasoning,
+        reasonedOnly: true,
+        finishReason,
+        nativeFinishReason: nativeFinishReason ?? undefined,
+        reasoning,
+        usage,
+      };
+    }
+
+    return emptyExtracted(finishReason, nativeFinishReason ?? undefined, usage);
+  } catch {
+    return emptyExtracted(undefined, undefined, undefined);
+  }
 }
 
 /**
@@ -146,17 +178,6 @@ export function toUsageMeta(
   };
 }
 
-/**
- * Build the common `_meta` shape for chat-completion-derived tools.
- * Folds in:
- *  - normalized and native finish reasons (from the choice)
- *  - optional `reasoning` trace (when the caller opted in)
- *  - token usage (prompt / completion / total)
- *  - server version stamp
- *
- * Caller can pass `extra` to merge additional keys (cache metadata,
- * content_is_untrusted, etc.) without repeating this boilerplate.
- */
 export interface BuildMetaOptions {
   includeReasoning?: boolean;
   extra?: Record<string, unknown>;
@@ -173,7 +194,9 @@ export function buildCompletionMeta(
     meta.native_finish_reason = extracted.nativeFinishReason;
   }
   if (opts.includeReasoning && extracted.reasoning && !extracted.reasonedOnly) {
-    meta.reasoning = extracted.reasoning;
+    const capped = capResultText(extracted.reasoning);
+    meta.reasoning = capped.text;
+    if (capped.truncated) meta.reasoning_truncated = true;
   }
   const usageMeta = toUsageMeta(extracted.usage);
   if (usageMeta) Object.assign(meta, usageMeta);

@@ -94,6 +94,9 @@ describe('handleAnalyzeVideo', () => {
       );
       expect(r.isError).toBe(true);
       expect((r as { _meta: { code: string } })._meta.code).toBe('UNSUPPORTED_FORMAT');
+      expect((r as { content: Array<{ text: string }> }).content[0].text).toContain(
+        'video_path "clip.avi"',
+      );
     });
   });
 });

@@ -64,10 +64,13 @@ describe('save_path sandbox guards (resolveOptionalOutputPath)', () => {
     expect(noopApi.generateImage).not.toHaveBeenCalled();
   });
 
-  it('text_to_speech replaces mismatched extension (speech.wav → speech.mp3)', async () => {
+  it('text_to_speech saves with extension matching detected bytes (WAV not mp3)', async () => {
+    const wavBody = Buffer.alloc(12);
+    wavBody.write('RIFF', 0);
+    wavBody.write('WAVE', 8);
     const api = {
       generateSpeech: vi.fn().mockResolvedValue({
-        buffer: Buffer.from('fake-mp3'),
+        buffer: wavBody,
         contentType: 'audio/mpeg',
       }),
     } as unknown as OpenRouterAPIClient;
@@ -75,19 +78,17 @@ describe('save_path sandbox guards (resolveOptionalOutputPath)', () => {
     const r = await handleTextToSpeech(
       {
         params: {
-          arguments: { input: 'hello', save_path: 'speech.wav', response_format: 'mp3' },
+          arguments: { input: 'hello', save_path: 'speech.mp3', response_format: 'mp3' },
         },
       },
       api,
     );
 
     expect(r.isError).toBeUndefined();
-    const mp3Path = path.join(sandbox, 'speech.mp3');
-    await expect(fs.access(mp3Path)).resolves.toBeUndefined();
-    expect(r.content).toHaveLength(1);
-    expect(r.content[0]?.type).toBe('text');
-    expect(path.basename(String(r._meta.save_path))).toBe('speech.mp3');
-    await expect(fs.readFile(String(r._meta.save_path))).resolves.toEqual(Buffer.from('fake-mp3'));
+    const wavPath = path.join(sandbox, 'speech.wav');
+    await expect(fs.access(wavPath)).resolves.toBeUndefined();
+    expect(path.basename(String(r._meta.save_path))).toBe('speech.wav');
+    await expect(fs.readFile(String(r._meta.save_path))).resolves.toEqual(wavBody);
   });
 
   it('generate_image_dedicated downloads URL when save_path set and no b64_json', async () => {
@@ -137,5 +138,120 @@ describe('save_path sandbox guards (resolveOptionalOutputPath)', () => {
     expect(fetchUtils.fetchHttpResource).toHaveBeenCalled();
     expect(r.content).toHaveLength(1);
     expect(r.content[0]?.type).toBe('text');
+  });
+
+  it('generate_image_dedicated rejects invalid aspect_ratio before API call', async () => {
+    const api = { generateImage: vi.fn() } as unknown as OpenRouterAPIClient;
+    const r = await handleGenerateImageDedicated(
+      { params: { arguments: { prompt: 'a dot', aspect_ratio: '99:1' } } },
+      api,
+    );
+    expect(r.isError).toBe(true);
+    expect((r as { _meta: { code: string } })._meta.code).toBe(ErrorCode.INVALID_INPUT);
+    expect(api.generateImage).not.toHaveBeenCalled();
+  });
+
+  it('generate_image_dedicated rejects n above schema maximum before API call', async () => {
+    const api = { generateImage: vi.fn() } as unknown as OpenRouterAPIClient;
+    const r = await handleGenerateImageDedicated(
+      { params: { arguments: { prompt: 'a dot', n: 11 } } },
+      api,
+    );
+    expect(r.isError).toBe(true);
+    expect((r as { _meta: { code: string } })._meta.code).toBe(ErrorCode.INVALID_INPUT);
+    expect(api.generateImage).not.toHaveBeenCalled();
+  });
+
+  it('generate_image_dedicated rejects invalid cache_ttl before API call', async () => {
+    const api = { generateImage: vi.fn() } as unknown as OpenRouterAPIClient;
+    const r = await handleGenerateImageDedicated(
+      { params: { arguments: { prompt: 'a dot', cache_ttl: '2d' } } },
+      api,
+    );
+    expect(r.isError).toBe(true);
+    expect((r as { _meta: { code: string } })._meta.code).toBe(ErrorCode.INVALID_INPUT);
+    expect(api.generateImage).not.toHaveBeenCalled();
+  });
+
+  it('generate_image_dedicated reports images_count and saved_image_index for n>1', async () => {
+    const api = {
+      generateImage: vi.fn().mockResolvedValue({
+        data: [
+          { b64_json: Buffer.from('first').toString('base64') },
+          { b64_json: Buffer.from('second').toString('base64') },
+        ],
+      }),
+    } as unknown as OpenRouterAPIClient;
+
+    const r = await handleGenerateImageDedicated(
+      { params: { arguments: { prompt: 'two cats', n: 2 } } },
+      api,
+    );
+
+    expect(r.isError).toBeFalsy();
+    expect(r._meta.images_count).toBe(2);
+    expect(r._meta.saved_image_index).toBe(0);
+    expect(r._meta.images_note).toMatch(/images\[0\]/);
+    expect(r.content[0]?.type).toBe('image');
+    expect(r.content[0]?.data).toBe(Buffer.from('first').toString('base64'));
+  });
+
+  it('generate_image_dedicated does not leave a truncated file when URL download fails', async () => {
+    const api = {
+      generateImage: vi.fn().mockResolvedValue({
+        data: [{ url: 'https://example.com/generated.png' }],
+      }),
+    } as unknown as OpenRouterAPIClient;
+
+    vi.spyOn(fetchUtils, 'fetchHttpResource').mockRejectedValue(new Error('network down'));
+
+    const outPath = path.join(sandbox, 'should-not-exist.png');
+    const r = await handleGenerateImageDedicated(
+      { params: { arguments: { prompt: 'a cat', save_path: 'should-not-exist.png' } } },
+      api,
+    );
+
+    expect(r.isError).toBe(true);
+    await expect(fs.access(outPath)).rejects.toBeDefined();
+  });
+
+  it('generate_image_dedicated rejects empty URL download body for save_path', async () => {
+    const api = {
+      generateImage: vi.fn().mockResolvedValue({
+        data: [{ url: 'https://example.com/empty.png' }],
+      }),
+    } as unknown as OpenRouterAPIClient;
+
+    vi.spyOn(fetchUtils, 'fetchHttpResource').mockResolvedValue({
+      buffer: Buffer.alloc(0),
+      contentType: 'image/png',
+    });
+
+    const r = await handleGenerateImageDedicated(
+      { params: { arguments: { prompt: 'a cat', save_path: 'out.png' } } },
+      api,
+    );
+
+    expect(r.isError).toBe(true);
+    expect((r as { _meta: { code: string } })._meta.code).toBe(ErrorCode.UPSTREAM_REFUSED);
+    await expect(fs.access(path.join(sandbox, 'out.png'))).rejects.toBeDefined();
+  });
+
+  it('generate_image_dedicated rejects input_references when one entry fails mid-flight', async () => {
+    const api = { generateImage: vi.fn() } as unknown as OpenRouterAPIClient;
+    const r = await handleGenerateImageDedicated(
+      {
+        params: {
+          arguments: {
+            prompt: 'blend',
+            input_references: ['https://example.com/a.png', '   '],
+          },
+        },
+      },
+      api,
+    );
+    expect(r.isError).toBe(true);
+    expect((r as { _meta: { code: string } })._meta.code).toBe(ErrorCode.INVALID_INPUT);
+    expect(api.generateImage).not.toHaveBeenCalled();
   });
 });

@@ -8,6 +8,7 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { promises as fs } from 'node:fs';
 import { TOOL_NAMES, TOOL_DESCRIPTIONS } from '../../tool-descriptions.js';
+import { TOOL_DEFINITIONS, TOOLS_WITH_SAVE_PATH } from '../../tool-definitions.js';
 import { handleAnalyzeImage } from '../../tool-handlers/analyze-image.js';
 import { handleAnalyzeAudio } from '../../tool-handlers/analyze-audio.js';
 import { ModelCache } from '../../model-cache.js';
@@ -58,8 +59,25 @@ describe('regression: GHSA-3q7p-736f-x44v path sandbox on analyze_*', () => {
 describe('regression: tool catalog completeness', () => {
   it('has exactly 19 tools with non-empty descriptions', () => {
     expect(TOOL_NAMES.length).toBe(19);
+    expect(TOOL_DEFINITIONS.length).toBe(19);
     for (const name of TOOL_NAMES) {
       expect(TOOL_DESCRIPTIONS[name].length).toBeGreaterThan(100);
+    }
+  });
+
+  it('tool definitions and descriptions share the same tool name set', () => {
+    const defNames = TOOL_DEFINITIONS.map((t) => t.name).sort();
+    expect(defNames).toEqual([...TOOL_NAMES].sort());
+  });
+
+  it('save_path appears only on binary-output tools', () => {
+    for (const tool of TOOL_DEFINITIONS) {
+      const props = (tool.inputSchema as { properties?: Record<string, unknown> }).properties ?? {};
+      const hasSavePath = 'save_path' in props;
+      const should = TOOLS_WITH_SAVE_PATH.includes(
+        tool.name as (typeof TOOLS_WITH_SAVE_PATH)[number],
+      );
+      expect(hasSavePath).toBe(should);
     }
   });
 });

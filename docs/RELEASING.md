@@ -8,9 +8,9 @@ Every release must land on **all** of these channels together (same semver):
 
 | Channel | Package / image | Install example |
 | :------ | :-------------- | :-------------- |
-| **npm** | `@stabgan/openrouter-mcp-multimodal` | `npx -y @stabgan/openrouter-mcp-multimodal@4.7.0` |
+| **npm** | `@stabgan/openrouter-mcp-multimodal` | `npx -y @stabgan/openrouter-mcp-multimodal@4.8.0` |
 | **PyPI** | `mcp-server-openrouter-multimodal` | `uvx mcp-server-openrouter-multimodal` |
-| **Docker Hub** | `stabgan/openrouter-mcp-multimodal` | `docker run -i stabgan/openrouter-mcp-multimodal:4.7.0` |
+| **Docker Hub** | `stabgan/openrouter-mcp-multimodal` | `docker run -i stabgan/openrouter-mcp-multimodal:4.8.0` |
 | **GHCR** | `ghcr.io/stabgan/openrouter-mcp-multimodal` | same tag as Docker Hub |
 | **GitHub** | git tag `vX.Y.Z` + GitHub Release | source of truth for changelog |
 
@@ -95,7 +95,7 @@ All of these **must match**:
 | `server.json` | top-level `"version"`, each `packages[].version`, and `oci` identifier tag (`docker.io/...:X.Y.Z`) |
 | `CHANGELOG.md` | new `## [X.Y.Z] — YYYY-MM-DD` section |
 | `.release-please-manifest.json` | `{ ".": "X.Y.Z" }` |
-| `README.md` | pin examples (`@4.6.2`, `OPENROUTER_MCP_NPM_VERSION=…`, Docker `:tag`) — optional but recommended |
+| `README.md` | pin examples (`@4.8.0`, `OPENROUTER_MCP_NPM_VERSION=…`, Docker `:tag`) — optional but recommended |
 
 Verify:
 

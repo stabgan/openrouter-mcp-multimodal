@@ -1,6 +1,6 @@
-import { promises as fs } from 'node:fs';
 import OpenAI from 'openai';
 import type { ChatCompletion } from 'openai/resources/chat/completions.js';
+import { IMAGE_ASPECT_RATIOS } from '../tool-definitions.js';
 import {
   resolveOptionalOutputPath,
   isToolErrorResult,
@@ -14,6 +14,7 @@ import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
 import { buildBinaryToolResult } from './tool-result-payload.js';
+import { writeOutputFile } from './path-utils.js';
 
 export interface GenerateImageToolRequest {
   prompt: string;
@@ -28,22 +29,7 @@ export interface GenerateImageToolRequest {
 
 const DEFAULT_MODEL = 'google/gemini-2.5-flash-image';
 
-const VALID_ASPECT_RATIOS = new Set([
-  '1:1',
-  '2:3',
-  '3:2',
-  '3:4',
-  '4:3',
-  '4:5',
-  '5:4',
-  '9:16',
-  '16:9',
-  '21:9',
-  '1:4',
-  '4:1',
-  '1:8',
-  '8:1',
-]);
+const VALID_ASPECT_RATIOS = new Set<string>(IMAGE_ASPECT_RATIOS);
 
 const VALID_IMAGE_SIZES = new Set(['0.5K', '1K', '2K', '4K']);
 
@@ -82,6 +68,17 @@ export async function handleGenerateImage(
     return invalidEnumError('image_size', image_size, VALID_IMAGE_SIZES);
   }
 
+  if (max_tokens !== undefined) {
+    if (
+      typeof max_tokens !== 'number' ||
+      !Number.isFinite(max_tokens) ||
+      max_tokens <= 0 ||
+      !Number.isInteger(max_tokens)
+    ) {
+      return toolError(ErrorCode.INVALID_INPUT, 'max_tokens must be a positive integer.');
+    }
+  }
+
   const savePathResult = await resolveOptionalOutputPath(save_path);
   if (isToolErrorResult(savePathResult)) return savePathResult;
   const safePathResolved = savePathResult.path;
@@ -106,7 +103,7 @@ export async function handleGenerateImage(
     modalities: modalities?.length ? modalities : ['image', 'text'],
   };
   if (Object.keys(imageConfig).length > 0) body.image_config = imageConfig;
-  if (typeof max_tokens === 'number' && max_tokens > 0) body.max_tokens = max_tokens;
+  if (typeof max_tokens === 'number') body.max_tokens = max_tokens;
 
   let completion: ChatCompletion;
   try {
@@ -135,15 +132,20 @@ export async function handleGenerateImage(
     );
   }
 
+  const buffer = Buffer.from(base64.data, 'base64');
+  if (buffer.length === 0) {
+    return toolError(ErrorCode.UPSTREAM_REFUSED, 'Model returned an empty image payload.');
+  }
+
   if (safePathResolved) {
     try {
-      await fs.writeFile(safePathResolved, base64.data, { encoding: 'base64' });
+      await writeOutputFile(safePathResolved, buffer);
     } catch (err) {
       return toolErrorFrom(ErrorCode.INTERNAL, err, 'Write');
     }
   }
 
-  return buildImageSuccessResult(base64, completion.usage, safePathResolved ?? undefined);
+  return buildImageSuccessResult(base64, buffer, completion.usage, safePathResolved ?? undefined);
 }
 
 function invalidEnumError(field: string, value: string, allowed: Set<string>) {
@@ -155,6 +157,7 @@ function invalidEnumError(field: string, value: string, allowed: Set<string>) {
 
 function buildImageSuccessResult(
   base64: { data: string; mime: string },
+  buffer: Buffer,
   usage: ChatCompletion['usage'],
   savePath?: string,
 ) {
@@ -168,7 +171,6 @@ function buildImageSuccessResult(
       }
     : {};
 
-  const buffer = Buffer.from(base64.data, 'base64');
   return buildBinaryToolResult(
     { kind: 'image', buffer, mimeType: base64.mime },
     {

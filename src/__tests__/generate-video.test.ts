@@ -7,6 +7,7 @@ import {
   handleGetVideoStatus,
   _internals,
 } from '../tool-handlers/generate-video.js';
+import { replaceExtension } from '../tool-handlers/path-utils.js';
 import type { OpenRouterAPIClient } from '../openrouter-api.js';
 
 function mkApiClient(plan: Partial<OpenRouterAPIClient>): OpenRouterAPIClient {
@@ -37,9 +38,9 @@ describe('generate-video internals', () => {
     });
   });
 
-  it('stripAndReplaceExt swaps the extension', () => {
-    expect(_internals.stripAndReplaceExt('/tmp/a.mov', '.mp4')).toBe('/tmp/a.mp4');
-    expect(_internals.stripAndReplaceExt('/tmp/a', '.mp4')).toBe('/tmp/a.mp4');
+  it('replaceExtension swaps the extension for video save paths', () => {
+    expect(replaceExtension('/tmp/a.mov', 'mp4')).toBe('/tmp/a.mp4');
+    expect(replaceExtension('/tmp/a', 'mp4')).toBe('/tmp/a.mp4');
   });
 
   it('extractJobError handles string and object errors', () => {
@@ -54,6 +55,12 @@ describe('generate-video internals', () => {
       }),
     ).toBe('model offline');
     expect(_internals.extractJobError({ id: 'x', status: 'failed' })).toMatch(/failed/i);
+  });
+
+  it('isTerminalFailureStatus treats cancelled variants as terminal failures', () => {
+    expect(_internals.isTerminalFailureStatus('cancelled')).toBe(true);
+    expect(_internals.isTerminalFailureStatus('canceled')).toBe(true);
+    expect(_internals.isTerminalFailureStatus('processing')).toBe(false);
   });
 });
 
@@ -207,6 +214,88 @@ describe('handleGenerateVideo', () => {
     expect((r as { _meta: { code: string } })._meta.code).toBe('UNSAFE_PATH');
     // Pre-resolve should have short-circuited before hitting OpenRouter.
     expect(submitVideoJob).not.toHaveBeenCalled();
+  });
+
+  it('continues polling when progress hook throws', async () => {
+    vi.useRealTimers();
+    const mp4 = Buffer.from('fake-mp4-bytes');
+    const submitVideoJob = vi.fn().mockResolvedValue({ id: 'vid_p', status: 'pending' });
+    const pollVideoJob = vi
+      .fn()
+      .mockResolvedValueOnce({ id: 'vid_p', status: 'processing' })
+      .mockResolvedValueOnce({
+        id: 'vid_p',
+        status: 'completed',
+        unsigned_urls: ['https://example.com/vid.mp4'],
+      });
+    const downloadVideoContent = vi.fn().mockResolvedValue({
+      buffer: mp4,
+      contentType: 'video/mp4',
+    });
+    const client = mkApiClient({ submitVideoJob, pollVideoJob, downloadVideoContent });
+    const progress = vi.fn().mockRejectedValue(new Error('hook blew up'));
+
+    const r = await handleGenerateVideo(
+      {
+        params: {
+          arguments: { prompt: 'x', poll_interval_ms: 50, max_wait_ms: 5000 },
+        },
+      },
+      client,
+      progress,
+    );
+
+    expect(r.isError).toBeFalsy();
+    expect(progress).toHaveBeenCalled();
+    expect(downloadVideoContent).toHaveBeenCalled();
+  });
+
+  it('maps cancelled jobs to JOB_FAILED', async () => {
+    vi.useRealTimers();
+    const submitVideoJob = vi.fn().mockResolvedValue({ id: 'vid_c', status: 'pending' });
+    const pollVideoJob = vi.fn().mockResolvedValue({
+      id: 'vid_c',
+      status: 'cancelled',
+      error: 'user cancelled',
+    });
+    const client = mkApiClient({ submitVideoJob, pollVideoJob });
+
+    const r = await handleGenerateVideo(
+      {
+        params: {
+          arguments: { prompt: 'x', poll_interval_ms: 50, max_wait_ms: 5000 },
+        },
+      },
+      client,
+    );
+    expect(r.isError).toBe(true);
+    expect((r as { _meta: { code: string } })._meta.code).toBe('JOB_FAILED');
+  });
+
+  it('returns UPSTREAM_HTTP when completed job download is empty', async () => {
+    vi.useRealTimers();
+    const submitVideoJob = vi.fn().mockResolvedValue({ id: 'vid_e', status: 'pending' });
+    const pollVideoJob = vi.fn().mockResolvedValue({
+      id: 'vid_e',
+      status: 'completed',
+      unsigned_urls: ['https://example.com/vid.mp4'],
+    });
+    const downloadVideoContent = vi.fn().mockResolvedValue({
+      buffer: Buffer.alloc(0),
+      contentType: 'video/mp4',
+    });
+    const client = mkApiClient({ submitVideoJob, pollVideoJob, downloadVideoContent });
+
+    const r = await handleGenerateVideo(
+      {
+        params: {
+          arguments: { prompt: 'x', poll_interval_ms: 50, max_wait_ms: 5000 },
+        },
+      },
+      client,
+    );
+    expect(r.isError).toBe(true);
+    expect((r as { _meta: { code: string } })._meta.code).toBe('UPSTREAM_HTTP');
   });
 });
 

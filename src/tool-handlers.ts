@@ -55,15 +55,13 @@ import type {
 } from './tool-handlers/async-chat.js';
 import { TOOL_DEFINITIONS } from './tool-definitions.js';
 import { TOOL_ICONS } from './tool-icons.js';
+import { ErrorCode, toolErrorFrom } from './errors.js';
+import { logger } from './logger.js';
 
 function wrapToolArgs<T extends object>(a: T | undefined): { params: { arguments: T } } {
   return { params: { arguments: a ?? ({} as T) } };
 }
 
-/**
- * Optional progress hook for video polling. Wired to MCP notifications when
- * the client passes `progressToken` in request `_meta`.
- */
 type McpProgressHook = (update: {
   status: string;
   progress?: number;
@@ -71,27 +69,31 @@ type McpProgressHook = (update: {
   video_id: string;
 }) => void;
 
-function buildProgressHook(
+/** MCP `notifications/progress` hook. */
+export function buildProgressHook(
   server: Server,
   progressToken: string | number | undefined,
 ): McpProgressHook | undefined {
   if (progressToken === undefined) return undefined;
-  // MCP progress must monotonically increase; upstream values can drop or be omitted.
   let lastSent = -1;
   return ({ status, progress, attempt, video_id }) => {
     const candidate = typeof progress === 'number' ? Math.max(attempt, progress) : attempt;
     const next = Math.max(lastSent + 1, candidate);
     lastSent = next;
-    void server.notification({
-      method: 'notifications/progress',
-      params: {
-        progressToken,
-        progress: next,
-        message: `video ${video_id} — ${status}${
-          typeof progress === 'number' ? ` (${progress}%)` : ''
-        }`,
-      },
-    });
+    void server
+      .notification({
+        method: 'notifications/progress',
+        params: {
+          progressToken,
+          progress: next,
+          message: `video ${video_id} — ${status}${
+            typeof progress === 'number' ? ` (${progress}%)` : ''
+          }`,
+        },
+      })
+      .catch((err: unknown) => {
+        logger.warn('progress notification failed', { err: String(err) });
+      });
   };
 }
 
@@ -126,7 +128,6 @@ export class ToolHandlers {
 
     server.setRequestHandler(CallToolRequestSchema, async (request): Promise<CallToolResult> => {
       const { name, arguments: args } = request.params;
-      // Handlers return extra _meta keys not in the SDK type.
       const dispatch = async (): Promise<unknown> => {
         switch (name) {
           case 'chat_completion':
@@ -238,7 +239,12 @@ export class ToolHandlers {
             throw new McpError(McpErrorCode.MethodNotFound, `Unknown tool: ${name}`);
         }
       };
-      return (await dispatch()) as CallToolResult;
+      try {
+        return (await dispatch()) as CallToolResult;
+      } catch (err) {
+        if (err instanceof McpError) throw err;
+        return toolErrorFrom(ErrorCode.INTERNAL, err);
+      }
     });
   }
 }

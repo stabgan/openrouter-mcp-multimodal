@@ -7,8 +7,9 @@ import {
   extractCompletionText,
   detectReasoningCutoff,
   buildCompletionMeta,
+  capResultText,
 } from './completion-utils.js';
-import { extractCacheMeta } from './cache.js';
+import { extractCacheMeta, validateCacheOptions } from './cache.js';
 import { awaitCompletionWithHeaders } from './openai-withresponse.js';
 import {
   DEFAULT_CHAT_MODEL,
@@ -17,6 +18,8 @@ import {
   buildChatCompletionRequestOpts,
   asOpenAIChatBody,
   readIncludeReasoningDefault,
+  validateChatMessages,
+  validateMaxTokens,
 } from './chat-request.js';
 
 export type ChatCompletionToolRequest = ChatToolRequest;
@@ -41,9 +44,14 @@ export async function handleChatCompletion(
     cache_clear,
   } = args;
 
-  if (!messages?.length) {
-    return toolError(ErrorCode.INVALID_INPUT, 'Messages array cannot be empty.');
-  }
+  const messagesError = validateChatMessages(messages);
+  if (messagesError) return messagesError;
+
+  const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });
+  if (cacheError) return cacheError;
+
+  const maxTokensError = validateMaxTokens(max_tokens);
+  if (maxTokensError) return maxTokensError;
 
   const wantsReasoning = include_reasoning ?? readIncludeReasoningDefault();
 
@@ -85,8 +93,11 @@ export async function handleChatCompletion(
   const extra: Record<string, unknown> = { server_version: SERVER_VERSION };
   if (cacheMeta) extra.cache = cacheMeta;
 
+  const capped = capResultText(extracted.text);
+  if (capped.truncated) extra.result_truncated = true;
+
   return {
-    content: [{ type: 'text' as const, text: extracted.text }],
+    content: [{ type: 'text' as const, text: capped.text }],
     _meta: buildCompletionMeta(extracted, {
       includeReasoning: wantsReasoning,
       extra,

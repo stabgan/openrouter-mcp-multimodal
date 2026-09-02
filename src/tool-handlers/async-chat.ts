@@ -1,4 +1,5 @@
 /** Async chat completions — in-memory jobs, optionally persisted under OPENROUTER_OUTPUT_DIR/openrouter-jobs/. */
+import { randomBytes } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import OpenAI from 'openai';
@@ -6,9 +7,10 @@ import type { ChatCompletion } from 'openai/resources/chat/completions.js';
 import { ErrorCode, toolError } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
-import { extractCompletionText, buildCompletionMeta } from './completion-utils.js';
+import { extractCompletionText, buildCompletionMeta, capResultText } from './completion-utils.js';
 import { resolveSafeJobStatusPath, isValidJobId } from './path-safety.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
+import { validateCacheOptions } from './cache.js';
 import {
   DEFAULT_CHAT_MODEL,
   type ChatToolRequest,
@@ -16,6 +18,8 @@ import {
   buildChatCompletionRequestOpts,
   asOpenAIChatBody,
   readIncludeReasoningDefault,
+  validateChatMessages,
+  validateMaxTokens,
 } from './chat-request.js';
 
 export type StartChatCompletionRequest = ChatToolRequest;
@@ -42,10 +46,47 @@ export interface AsyncJob {
 const jobs = new Map<string, AsyncJob>();
 let jobCounter = 0;
 
-function generateJobId(): string {
+const DEFAULT_ASYNC_JOBS_MEMORY_MAX = 200;
+
+function readAsyncJobsMemoryMax(): number {
+  const raw = process.env.OPENROUTER_ASYNC_JOBS_MEMORY_MAX;
+  if (raw === undefined || raw === '') return DEFAULT_ASYNC_JOBS_MEMORY_MAX;
+  if (raw === '0') return 0;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_ASYNC_JOBS_MEMORY_MAX;
+}
+
+function evictTerminalJobsIfNeeded(): void {
+  const max = readAsyncJobsMemoryMax();
+  if (max <= 0 || jobs.size < max) return;
+
+  const terminal = [...jobs.entries()]
+    .filter(([, job]) => job.status === 'completed' || job.status === 'failed')
+    .sort((a, b) => a[1].createdAt.localeCompare(b[1].createdAt));
+
+  while (jobs.size > max && terminal.length > 0) {
+    const [id] = terminal.shift()!;
+    jobs.delete(id);
+  }
+}
+
+function rememberJob(job: AsyncJob): void {
+  evictTerminalJobsIfNeeded();
+  jobs.set(job.id, job);
+}
+
+/** Test-only reset for module-level job state. */
+export function resetAsyncJobStateForTests(): void {
+  jobs.clear();
+  jobCounter = 0;
+}
+
+/** Exported for tests — produces ids accepted by `isValidJobId`. */
+export function generateJobId(): string {
   jobCounter += 1;
   const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
-  return `chat_${ts}_${String(jobCounter).padStart(3, '0')}`;
+  const entropy = randomBytes(4).toString('hex');
+  return `chat_${ts}_${String(jobCounter).padStart(3, '0')}_${entropy}`;
 }
 
 function getJobsDir(): string | null {
@@ -92,7 +133,7 @@ async function resolveJob(jobId: string): Promise<AsyncJob | undefined> {
 
   const fromDisk = await loadJobFromDisk(jobId);
   if (fromDisk) {
-    jobs.set(jobId, fromDisk);
+    rememberJob(fromDisk);
     return fromDisk;
   }
   return undefined;
@@ -118,9 +159,14 @@ export async function handleStartChatCompletion(
     cache_clear,
   } = args;
 
-  if (!messages?.length) {
-    return toolError(ErrorCode.INVALID_INPUT, 'Messages array cannot be empty.');
-  }
+  const messagesError = validateChatMessages(messages);
+  if (messagesError) return messagesError;
+
+  const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });
+  if (cacheError) return cacheError;
+
+  const maxTokensError = validateMaxTokens(max_tokens);
+  if (maxTokensError) return maxTokensError;
 
   const effectiveModel = model || defaultModel || DEFAULT_CHAT_MODEL;
   const jobId = generateJobId();
@@ -131,7 +177,7 @@ export async function handleStartChatCompletion(
     createdAt: new Date().toISOString(),
     model: effectiveModel,
   };
-  jobs.set(jobId, job);
+  rememberJob(job);
 
   logger.audit('async_chat.start', {
     job_id: jobId,
@@ -151,6 +197,16 @@ export async function handleStartChatCompletion(
     cache,
     cache_ttl,
     cache_clear,
+  }).catch((err) => {
+    logger.error('async_chat.unhandled', {
+      job_id: job.id,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    if (job.status === 'running') {
+      job.status = 'failed';
+      job.error = 'Unexpected error during background completion.';
+      job.error_code = ErrorCode.INTERNAL;
+    }
   });
 
   return {
@@ -174,39 +230,60 @@ async function runCompletionInBackground(
   openai: OpenAI,
   opts: StartChatCompletionRequest & { model: string },
 ): Promise<void> {
-  const wantsReasoning = opts.include_reasoning ?? readIncludeReasoningDefault();
-  const body = buildChatCompletionBody(opts);
-  const requestOpts = buildChatCompletionRequestOpts(opts);
-
   try {
-    const completion = (await openai.chat.completions.create(
-      asOpenAIChatBody(body),
-      requestOpts,
-    )) as ChatCompletion;
-    const extracted = extractCompletionText(completion);
-
-    if (!extracted.text) {
+    const cacheError = validateCacheOptions(opts);
+    if (cacheError) {
       job.status = 'failed';
-      job.error = 'Model returned no textual content.';
-    } else {
-      job.status = 'completed';
-      job.result = {
-        text: extracted.text,
-        meta: buildCompletionMeta(extracted, {
-          includeReasoning: wantsReasoning,
-          extra: { server_version: SERVER_VERSION },
-        }),
-      };
+      job.error = cacheError.content[0]?.text ?? 'Invalid cache options.';
+      job.error_code = cacheError._meta.code;
+      await persistJob(job);
+      evictTerminalJobsIfNeeded();
+      return;
+    }
+
+    const wantsReasoning = opts.include_reasoning ?? readIncludeReasoningDefault();
+    const body = buildChatCompletionBody(opts);
+    const requestOpts = buildChatCompletionRequestOpts(opts);
+
+    try {
+      const completion = (await openai.chat.completions.create(
+        asOpenAIChatBody(body),
+        requestOpts,
+      )) as ChatCompletion;
+      const extracted = extractCompletionText(completion);
+
+      if (!extracted.text) {
+        job.status = 'failed';
+        job.error = 'Model returned no textual content.';
+      } else {
+        job.status = 'completed';
+        job.result = {
+          text: extracted.text,
+          meta: buildCompletionMeta(extracted, {
+            includeReasoning: wantsReasoning,
+            extra: { server_version: SERVER_VERSION },
+          }),
+        };
+      }
+    } catch (err) {
+      job.status = 'failed';
+      const classified = classifyUpstreamError(err);
+      job.error = classified.content[0]?.text ?? 'Job failed.';
+      job.error_code = classified._meta.code;
+      logger.warn('async_chat.failed', { job_id: job.id, error: job.error, code: job.error_code });
     }
   } catch (err) {
     job.status = 'failed';
-    const classified = classifyUpstreamError(err);
-    job.error = classified.content[0]?.text ?? 'Job failed.';
-    job.error_code = classified._meta.code;
-    logger.warn('async_chat.failed', { job_id: job.id, error: job.error, code: job.error_code });
+    job.error = 'Unexpected error during background completion.';
+    job.error_code = ErrorCode.INTERNAL;
+    logger.error('async_chat.background_error', {
+      job_id: job.id,
+      err: err instanceof Error ? err.message : String(err),
+    });
   }
 
   await persistJob(job);
+  evictTerminalJobsIfNeeded();
 }
 
 export async function handleGetChatCompletionStatus(request: {
@@ -235,14 +312,16 @@ export async function handleGetChatCompletionStatus(request: {
   }
 
   if (job.status === 'completed' && job.result) {
+    const capped = capResultText(job.result.text);
     return {
-      content: [{ type: 'text' as const, text: job.result.text }],
+      content: [{ type: 'text' as const, text: capped.text }],
       _meta: {
         server_version: SERVER_VERSION,
         job_id: jobId,
         status: 'completed' as const,
         model: job.model,
         created_at: job.createdAt,
+        ...(capped.truncated ? { result_truncated: true } : {}),
         ...job.result.meta,
       },
     };

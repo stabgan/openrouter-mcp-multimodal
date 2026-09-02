@@ -4,7 +4,41 @@ import {
   buildChatCompletionRequestOpts,
   readIncludeReasoningDefault,
   asOpenAIChatBody,
+  validateChatMessages,
+  validateMaxTokens,
 } from '../tool-handlers/chat-request.js';
+import { ErrorCode } from '../errors.js';
+
+describe('validateChatMessages', () => {
+  it('rejects empty messages array', () => {
+    const r = validateChatMessages([]);
+    expect(r?.isError).toBe(true);
+    expect(r?._meta.code).toBe(ErrorCode.INVALID_INPUT);
+  });
+
+  it('rejects messages with empty role', () => {
+    const r = validateChatMessages([{ role: '  ' as 'user', content: 'hi' }]);
+    expect(r?.isError).toBe(true);
+    expect(r?._meta.code).toBe(ErrorCode.INVALID_INPUT);
+    expect(r?.content[0]?.text).toContain('index 0');
+  });
+
+  it('rejects messages with null content', () => {
+    const r = validateChatMessages([{ role: 'user', content: null }]);
+    expect(r?.isError).toBe(true);
+    expect(r?._meta.code).toBe(ErrorCode.INVALID_INPUT);
+    expect(r?.content[0]?.text).toContain('null content');
+  });
+
+  it('accepts assistant messages without content (tool-call turns)', () => {
+    expect(
+      validateChatMessages([
+        { role: 'user', content: 'hi' },
+        { role: 'assistant', content: undefined, tool_calls: [] },
+      ]),
+    ).toBeNull();
+  });
+});
 
 describe('readIncludeReasoningDefault', () => {
   afterEach(() => vi.unstubAllEnvs());
@@ -22,6 +56,24 @@ describe('readIncludeReasoningDefault', () => {
   it('defaults to false when unset', () => {
     vi.stubEnv('OPENROUTER_INCLUDE_REASONING', '');
     expect(readIncludeReasoningDefault()).toBe(false);
+  });
+});
+
+describe('validateMaxTokens', () => {
+  it('accepts undefined max_tokens', () => {
+    expect(validateMaxTokens(undefined)).toBeNull();
+  });
+
+  it('accepts positive integers', () => {
+    expect(validateMaxTokens(512)).toBeNull();
+  });
+
+  it('rejects zero, negative, and non-finite values', () => {
+    for (const bad of [0, -1, NaN, Infinity, 1.5]) {
+      const r = validateMaxTokens(bad);
+      expect(r?.isError).toBe(true);
+      expect(r?._meta.code).toBe(ErrorCode.INVALID_INPUT);
+    }
   });
 });
 
@@ -212,7 +264,7 @@ describe('buildChatCompletionRequestOpts', () => {
     ).toEqual({
       headers: {
         'X-OpenRouter-Cache': 'true',
-        'X-OpenRouter-Cache-TTL': '15m',
+        'X-OpenRouter-Cache-TTL': '900',
         'X-OpenRouter-Cache-Clear': 'true',
       },
     });

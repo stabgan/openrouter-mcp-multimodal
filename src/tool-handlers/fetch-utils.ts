@@ -3,7 +3,13 @@
  * Used by both image-utils and audio-utils to avoid duplication.
  */
 import dns from 'node:dns/promises';
+import http from 'node:http';
+import https from 'node:https';
+import type { IncomingMessage, RequestOptions } from 'node:http';
+import type { LookupFunction } from 'node:net';
 import net from 'node:net';
+import type { Transform } from 'node:stream';
+import { createBrotliDecompress, createGunzip, createInflate } from 'node:zlib';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -37,8 +43,22 @@ export const FETCH_USER_AGENT: string = (() => {
 export function readEnvInt(name: string, fallback: number, min = 1): number {
   const raw = process.env[name];
   if (raw === undefined || raw === '') return fallback;
-  const n = parseInt(raw, 10);
+  if (!/^\d+$/.test(raw)) return fallback;
+  const n = Number(raw);
   return Number.isFinite(n) && n >= min ? n : fallback;
+}
+
+/** Normalize dotted / decimal / octal / shorthand IPv4 literals via the URL parser. */
+function normalizeIPv4Literal(host: string): string | null {
+  const trimmed = host.trim().toLowerCase();
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(trimmed)) return trimmed;
+  try {
+    const parsed = new URL(`http://${trimmed}/`);
+    const h = parsed.hostname;
+    return /^\d{1,3}(\.\d{1,3}){3}$/.test(h) ? h : null;
+  } catch {
+    return null;
+  }
 }
 
 function ipv4ToUint(ip: string): number {
@@ -46,12 +66,14 @@ function ipv4ToUint(ip: string): number {
   if (parts.length !== 4 || parts.some((p) => !Number.isInteger(p) || p < 0 || p > 255)) {
     throw new Error('Invalid IPv4');
   }
-  return ((parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0;
+  return ((parts[0]! << 24) | (parts[1]! << 16) | (parts[2]! << 8) | parts[3]!) >>> 0;
 }
 
 /** Blocks RFC1918, loopback, link-local, CGNAT, metadata. */
 export function isBlockedIPv4(ip: string): boolean {
-  const n = ipv4ToUint(ip);
+  const normalized = normalizeIPv4Literal(ip);
+  if (!normalized) return false;
+  const n = ipv4ToUint(normalized);
   if (n >>> 24 === 127) return true;
   if (n >>> 24 === 10) return true;
   if (n >>> 20 === 0xac1) return true;
@@ -191,11 +213,95 @@ export function isBlockedIPv6(ip: string): boolean {
 }
 
 function isIPv4Literal(host: string): boolean {
-  return /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
+  return normalizeIPv4Literal(host) !== null;
 }
 
-/** Resolve hostname and ensure the resolved address is not private/link-local. */
-export async function assertUrlSafeForFetch(urlString: string): Promise<URL> {
+export interface PinnedAddress {
+  address: string;
+  family: 4 | 6;
+}
+
+interface ValidatedFetchTarget {
+  url: URL;
+  addresses: PinnedAddress[];
+}
+
+type DnsLookupHook = (host: string) => Promise<PinnedAddress[]>;
+
+/** Vitest-only hooks; inert outside `process.env.VITEST === 'true'`. */
+let testDnsLookup: DnsLookupHook | null = null;
+let testTrustedCa: string | undefined;
+let testAllowLoopbackResolution = false;
+
+/** @internal Test seam — never active in production. */
+export function __setFetchUtilsTestHooks(hooks: {
+  dnsLookup?: DnsLookupHook | null;
+  trustedCa?: string;
+  allowLoopbackResolution?: boolean;
+}): void {
+  if (process.env.VITEST !== 'true') return;
+  if ('dnsLookup' in hooks) testDnsLookup = hooks.dnsLookup ?? null;
+  if ('trustedCa' in hooks) testTrustedCa = hooks.trustedCa;
+  if ('allowLoopbackResolution' in hooks) {
+    testAllowLoopbackResolution = hooks.allowLoopbackResolution ?? false;
+  }
+}
+
+/** @internal Test seam — never active in production. */
+export function __resetFetchUtilsTestHooks(): void {
+  testDnsLookup = null;
+  testTrustedCa = undefined;
+  testAllowLoopbackResolution = false;
+}
+
+function isAddressBlocked(address: string, family: 4 | 6): boolean {
+  if (family === 4) return isBlockedIPv4(address);
+  return isBlockedIPv6(address);
+}
+
+function isLoopbackForTest(address: string, family: 4 | 6): boolean {
+  if (family === 4) {
+    const normalized = normalizeIPv4Literal(address);
+    if (!normalized) return false;
+    return ipv4ToUint(normalized) >>> 24 === 127;
+  }
+  const groups = expandIPv6(address);
+  if (!groups) return false;
+  return (
+    groups[0] === 0 &&
+    groups[1] === 0 &&
+    groups[2] === 0 &&
+    groups[3] === 0 &&
+    groups[4] === 0 &&
+    groups[5] === 0 &&
+    groups[6] === 0 &&
+    groups[7] === 1
+  );
+}
+
+function assertAddressAllowed(address: string, family: 4 | 6): void {
+  if (
+    testAllowLoopbackResolution &&
+    process.env.VITEST === 'true' &&
+    isLoopbackForTest(address, family)
+  ) {
+    return;
+  }
+  if (isAddressBlocked(address, family)) throw new Error('Blocked host');
+}
+
+async function lookupHostAddresses(host: string): Promise<PinnedAddress[]> {
+  if (testDnsLookup && process.env.VITEST === 'true') {
+    return testDnsLookup(host);
+  }
+  const records = await dns.lookup(host, { all: true, verbatim: true });
+  return records.map((r) => ({
+    address: r.address,
+    family: r.family === 6 ? 6 : 4,
+  }));
+}
+
+async function validateUrlAndResolveAddresses(urlString: string): Promise<ValidatedFetchTarget> {
   let url: URL;
   try {
     url = new URL(urlString);
@@ -215,69 +321,292 @@ export async function assertUrlSafeForFetch(urlString: string): Promise<URL> {
   }
 
   if (isIPv4Literal(host)) {
-    if (isBlockedIPv4(host)) throw new Error('Blocked host');
-    return url;
+    const normalized = normalizeIPv4Literal(host)!;
+    assertAddressAllowed(normalized, 4);
+    return { url, addresses: [{ address: normalized, family: 4 }] };
   }
 
   if (host.includes(':') && !host.startsWith('[')) {
-    if (isBlockedIPv6(host)) throw new Error('Blocked host');
-    return url;
+    assertAddressAllowed(host, 6);
+    return { url, addresses: [{ address: host, family: 6 }] };
   }
 
   let lookupHost = host;
   if (host.startsWith('[') && host.endsWith(']')) {
     lookupHost = host.slice(1, -1);
-    if (isBlockedIPv6(lookupHost)) throw new Error('Blocked host');
-    return url;
+    assertAddressAllowed(lookupHost, 6);
+    return { url, addresses: [{ address: lookupHost, family: 6 }] };
   }
 
-  const records = await dns.lookup(lookupHost, { all: true, verbatim: true });
+  const records = await lookupHostAddresses(lookupHost);
   if (!records.length) throw new Error('Could not resolve host');
 
+  const addresses: PinnedAddress[] = [];
   for (const r of records) {
-    const { address, family } = r;
-    if (family === 4) {
-      if (isBlockedIPv4(address)) throw new Error('Blocked host');
-    } else if (family === 6) {
-      if (isBlockedIPv6(address)) throw new Error('Blocked host');
-    }
+    assertAddressAllowed(r.address, r.family);
+    addresses.push(r);
   }
 
+  return { url, addresses };
+}
+
+/** Resolve hostname and ensure the resolved address is not private/link-local. */
+export async function assertUrlSafeForFetch(urlString: string): Promise<URL> {
+  const { url } = await validateUrlAndResolveAddresses(urlString);
   return url;
 }
 
-async function readResponseBodyWithLimit(res: Response, maxBytes: number): Promise<Buffer> {
-  const declared = res.headers.get('content-length');
-  if (declared) {
-    const n = parseInt(declared, 10);
-    if (Number.isFinite(n) && n > maxBytes) {
-      throw new Error('Response too large');
+// Pin the socket to a pre-validated IP so connect-time DNS cannot rebind to private space.
+function pinnedLookup(address: string, family: 4 | 6): LookupFunction {
+  const deliver = (
+    cb: (err: NodeJS.ErrnoException | null, address: string, family?: number) => void,
+  ): void => {
+    cb(null, address, family);
+  };
+
+  return (hostname, options, callback) => {
+    if (typeof options === 'function') {
+      deliver(options);
+      return;
+    }
+    if (!callback) return;
+    const opts = typeof options === 'number' ? { family: options } : (options ?? {});
+    if (opts.all) {
+      callback(null, [{ address, family }]);
+      return;
+    }
+    deliver(callback);
+  };
+}
+
+function isConnectError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const code = (err as NodeJS.ErrnoException).code;
+  return (
+    code === 'ECONNREFUSED' ||
+    code === 'ECONNRESET' ||
+    code === 'ETIMEDOUT' ||
+    code === 'EHOSTUNREACH' ||
+    code === 'ENETUNREACH' ||
+    code === 'EPIPE'
+  );
+}
+
+function requestPort(url: URL): number {
+  if (url.port) return Number(url.port);
+  return url.protocol === 'https:' ? 443 : 80;
+}
+
+function buildRequestOptions(url: URL, pinned: PinnedAddress, timeoutMs: number): RequestOptions {
+  return {
+    hostname: url.hostname,
+    host: url.host,
+    port: requestPort(url),
+    path: `${url.pathname}${url.search}`,
+    method: 'GET',
+    headers: {
+      'User-Agent': FETCH_USER_AGENT,
+      Accept: 'image/*, audio/*, video/*, */*;q=0.8',
+      // Prefer identity; decompress defensively if the origin ignores this.
+      'Accept-Encoding': 'identity',
+      Host: url.host,
+    },
+    lookup: pinnedLookup(pinned.address, pinned.family),
+    signal: AbortSignal.timeout(timeoutMs),
+  };
+}
+
+function pinnedHttpRequest(
+  url: URL,
+  pinned: PinnedAddress,
+  timeoutMs: number,
+): Promise<IncomingMessage> {
+  return new Promise((resolve, reject) => {
+    const options = buildRequestOptions(url, pinned, timeoutMs);
+    const req = http.request(options, (res) => resolve(res));
+    req.on('error', (err) => {
+      if (options.signal?.aborted) {
+        reject(new Error('Fetch timed out'));
+        return;
+      }
+      reject(err);
+    });
+    req.end();
+  });
+}
+
+function pinnedHttpsRequest(
+  url: URL,
+  pinned: PinnedAddress,
+  timeoutMs: number,
+  ca?: string,
+): Promise<IncomingMessage> {
+  return new Promise((resolve, reject) => {
+    const options = buildRequestOptions(url, pinned, timeoutMs);
+    const req = https.request({ ...options, ca }, (res) => resolve(res));
+    req.on('error', (err) => {
+      if (options.signal?.aborted) {
+        reject(new Error('Fetch timed out'));
+        return;
+      }
+      reject(err);
+    });
+    req.end();
+  });
+}
+
+async function pinnedRequest(
+  url: URL,
+  pinned: PinnedAddress,
+  timeoutMs: number,
+): Promise<IncomingMessage> {
+  const ca = testTrustedCa && process.env.VITEST === 'true' ? testTrustedCa : undefined;
+  if (url.protocol === 'https:') {
+    return pinnedHttpsRequest(url, pinned, timeoutMs, ca);
+  }
+  if (url.protocol === 'http:') {
+    return pinnedHttpRequest(url, pinned, timeoutMs);
+  }
+  throw new Error('Only HTTP(S) URLs are allowed');
+}
+
+async function pinnedRequestWithFallback(
+  url: URL,
+  addresses: PinnedAddress[],
+  timeoutMs: number,
+): Promise<IncomingMessage> {
+  if (!addresses.length) throw new Error('Could not resolve host');
+
+  let lastError: unknown;
+  for (const pinned of addresses) {
+    try {
+      return await pinnedRequest(url, pinned, timeoutMs);
+    } catch (err) {
+      if (err instanceof Error && err.message === 'Fetch timed out') throw err;
+      lastError = err;
+      if (!isConnectError(err)) throw err;
     }
   }
-  const reader = res.body?.getReader();
-  if (!reader) {
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length > maxBytes) throw new Error('Response too large');
-    return buf;
+  throw lastError instanceof Error ? lastError : new Error('Connection failed');
+}
+
+function drainIncomingMessage(res: IncomingMessage): Promise<void> {
+  return new Promise((resolve) => {
+    const finish = (): void => resolve();
+    res.on('end', finish);
+    res.on('close', finish);
+    res.on('error', finish);
+    res.resume();
+  });
+}
+
+type KnownContentEncoding = 'gzip' | 'x-gzip' | 'deflate' | 'br';
+
+function parseContentEncodings(raw: string | null): KnownContentEncoding[] {
+  if (!raw) return [];
+  const out: KnownContentEncoding[] = [];
+  for (const part of raw.split(',')) {
+    const enc = part.trim().toLowerCase();
+    if (!enc || enc === 'identity') continue;
+    switch (enc) {
+      case 'gzip':
+      case 'x-gzip':
+      case 'deflate':
+      case 'br':
+        out.push(enc);
+        break;
+      default:
+        throw new Error(`Unsupported Content-Encoding: ${enc}`);
+    }
   }
+  return out;
+}
+
+function createDecompressTransform(encoding: KnownContentEncoding): Transform {
+  switch (encoding) {
+    case 'gzip':
+    case 'x-gzip':
+      return createGunzip();
+    case 'deflate':
+      return createInflate();
+    case 'br':
+      return createBrotliDecompress();
+    default: {
+      const _exhaustive: never = encoding;
+      throw new Error(`Unsupported Content-Encoding: ${String(_exhaustive)}`);
+    }
+  }
+}
+
+function bodyStreamForResponse(
+  res: IncomingMessage,
+  encodings: KnownContentEncoding[],
+): NodeJS.ReadableStream {
+  let stream: NodeJS.ReadableStream = res;
+  for (const enc of [...encodings].reverse()) {
+    stream = stream.pipe(createDecompressTransform(enc));
+  }
+  return stream;
+}
+
+async function readIncomingMessageWithLimit(
+  res: IncomingMessage,
+  maxBytes: number,
+): Promise<Buffer> {
+  let encodings: KnownContentEncoding[];
+  try {
+    encodings = parseContentEncodings(headerValue(res.headers, 'content-encoding'));
+  } catch (err) {
+    await releaseIncomingMessage(res);
+    throw err;
+  }
+
+  if (!encodings.length) {
+    const declared = res.headers['content-length'];
+    if (declared) {
+      const n = parseInt(String(declared), 10);
+      if (Number.isFinite(n) && n > maxBytes) {
+        res.destroy();
+        throw new Error('Response too large');
+      }
+    }
+  }
+
+  const stream = bodyStreamForResponse(res, encodings);
   const chunks: Buffer[] = [];
   let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > maxBytes) {
-      // Cancel the underlying body so the server connection can be released.
-      try {
-        await reader.cancel();
-      } catch {
-        /* ignore */
+  try {
+    for await (const chunk of stream) {
+      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      total += buf.length;
+      if (total > maxBytes) {
+        res.destroy();
+        if ('destroy' in stream && typeof stream.destroy === 'function') {
+          stream.destroy();
+        }
+        throw new Error('Response too large');
       }
-      throw new Error('Response too large');
+      chunks.push(buf);
     }
-    chunks.push(Buffer.from(value));
+  } catch (err) {
+    if (err instanceof Error && err.message === 'Response too large') throw err;
+    res.destroy();
+    if ('destroy' in stream && typeof stream.destroy === 'function') {
+      stream.destroy();
+    }
+    throw err;
   }
   return Buffer.concat(chunks);
+}
+
+async function releaseIncomingMessage(res: IncomingMessage): Promise<void> {
+  await drainIncomingMessage(res);
+}
+
+function headerValue(headers: IncomingMessage['headers'], name: string): string | null {
+  const raw = headers[name.toLowerCase()];
+  if (raw === undefined) return null;
+  return Array.isArray(raw) ? (raw[0] ?? null) : raw;
 }
 
 /**
@@ -318,34 +647,35 @@ export async function fetchHttpResource(
   let current = urlString;
 
   for (let hop = 0; hop <= opts.maxRedirects; hop++) {
-    const validated = await assertUrlSafeForFetch(current);
+    const { url: validated, addresses } = await validateUrlAndResolveAddresses(current);
     const target = validated.href;
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), opts.timeoutMs);
-    let res: Response;
+
+    let res: IncomingMessage;
     try {
-      res = await fetch(target, {
-        redirect: 'manual',
-        signal: controller.signal,
-        headers: {
-          'User-Agent': FETCH_USER_AGENT,
-          Accept: 'image/*, audio/*, video/*, */*;q=0.8',
-        },
-      });
-    } finally {
-      clearTimeout(t);
+      res = await pinnedRequestWithFallback(validated, addresses, opts.timeoutMs);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message === 'Fetch timed out') {
+        throw new Error('Fetch timed out');
+      }
+      throw err;
     }
 
-    if (res.status >= 300 && res.status < 400) {
-      const loc = res.headers.get('location');
+    const statusCode = res.statusCode ?? 0;
+    if (statusCode >= 300 && statusCode < 400) {
+      const loc = headerValue(res.headers, 'location');
+      await releaseIncomingMessage(res);
       if (!loc) throw new Error('Redirect without Location header');
       current = new URL(loc, target).href;
       continue;
     }
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const buffer = await readResponseBodyWithLimit(res, opts.maxBytes);
-    return { buffer, contentType: res.headers.get('content-type') };
+    if (statusCode < 200 || statusCode >= 300) {
+      await releaseIncomingMessage(res);
+      throw new Error(`HTTP ${statusCode}`);
+    }
+
+    const buffer = await readIncomingMessageWithLimit(res, opts.maxBytes);
+    return { buffer, contentType: headerValue(res.headers, 'content-type') };
   }
 
   throw new Error('Too many redirects');

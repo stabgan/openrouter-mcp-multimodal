@@ -55,7 +55,7 @@ describe('logger', () => {
     circ.self = circ;
     log('info', 'broken', circ);
     const parsed = JSON.parse(lines[0]!);
-    expect(parsed.ctx).toEqual({ note: 'unserializable' });
+    expect(parsed.ctx).toEqual({ self: { note: 'circular' } });
   });
 
   it('exposes logger.error/warn/info/debug helpers', () => {
@@ -66,5 +66,40 @@ describe('logger', () => {
     const levels = lines.map((l) => JSON.parse(l).level);
     // default level is info, so debug is filtered
     expect(levels).toEqual(['error', 'warn', 'info']);
+  });
+
+  it('redacts api keys and bearer tokens in ctx', () => {
+    log('info', 'auth', {
+      api_key: 'sk-or-v1-supersecret',
+      headers: { authorization: 'Bearer sk-or-v1-leaked' },
+    });
+    const parsed = JSON.parse(lines[0]!);
+    expect(parsed.ctx.api_key).toBe('[REDACTED]');
+    expect(parsed.ctx.headers.authorization).toBe('[REDACTED]');
+  });
+
+  it('redacts data URLs and long base64 blobs', () => {
+    const blob = 'A'.repeat(300);
+    log('info', 'media', {
+      url: `data:image/png;base64,${blob}`,
+      payload: blob,
+    });
+    const parsed = JSON.parse(lines[0]!);
+    expect(parsed.ctx.url).toMatch(/^\[REDACTED data-url/);
+    expect(parsed.ctx.payload).toMatch(/^\[REDACTED base64/);
+  });
+
+  it('writes only through stderr sink, never stdout', () => {
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    _sink.write = origWrite;
+    log('info', 'stderr-only');
+    expect(stderrSpy).toHaveBeenCalled();
+    expect(stdoutSpy).not.toHaveBeenCalled();
+    stderrSpy.mockRestore();
+    stdoutSpy.mockRestore();
+    _sink.write = (line: string) => {
+      lines.push(line);
+    };
   });
 });

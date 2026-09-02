@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { CallToolResultSchema, type CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 
 describe('ErrorCode', () => {
@@ -8,6 +9,10 @@ describe('ErrorCode', () => {
     for (const key of keys) {
       expect(ErrorCode[key as keyof typeof ErrorCode]).toBe(key);
     }
+  });
+
+  it('includes INVALID_CREDENTIALS for auth failures', () => {
+    expect(ErrorCode.INVALID_CREDENTIALS).toBe('INVALID_CREDENTIALS');
   });
 });
 
@@ -49,5 +54,21 @@ describe('toolErrorFrom', () => {
   it('honors the prefix', () => {
     const r = toolErrorFrom(ErrorCode.UPSTREAM_HTTP, new Error('boom'), 'fetching');
     expect(r.content[0].text).toBe('fetching: boom');
+  });
+
+  it('assigns to CallToolResult without casts', () => {
+    const result: CallToolResult = toolError(ErrorCode.INVALID_INPUT, 'bad');
+    expect(CallToolResultSchema.safeParse(result).success).toBe(true);
+    expect(result._meta?.code).toBe('INVALID_INPUT');
+  });
+
+  it('preserves suggestions and retry_after_seconds in _meta', () => {
+    const result = toolError(ErrorCode.UPSTREAM_HTTP, 'rate limited', undefined, {
+      suggestions: ['Wait and retry'],
+      retry_after_seconds: 30,
+    });
+    expect(result._meta.suggestions).toEqual(['Wait and retry']);
+    expect(result._meta.retry_after_seconds).toBe(30);
+    expect(CallToolResultSchema.safeParse(result).success).toBe(true);
   });
 });

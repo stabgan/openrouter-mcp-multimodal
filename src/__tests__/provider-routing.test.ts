@@ -64,6 +64,13 @@ describe('readProviderDefaults', () => {
     expect(readProviderDefaults().order).toEqual(['openai/gpt-4o', 'anthropic/claude-3-opus']);
   });
 
+  it('parses only as JSON array or CSV', () => {
+    vi.stubEnv('OPENROUTER_PROVIDER_ONLY', '["anthropic","openai"]');
+    expect(readProviderDefaults().only).toEqual(['anthropic', 'openai']);
+    vi.stubEnv('OPENROUTER_PROVIDER_ONLY', 'anthropic, openai');
+    expect(readProviderDefaults().only).toEqual(['anthropic', 'openai']);
+  });
+
   it('drops malformed order without throwing', async () => {
     // Expected: we log a structured warning via logger.warn and drop the value.
     const { _sink } = await import('../logger.js');
@@ -120,6 +127,11 @@ describe('buildProviderBody', () => {
   it('includes false booleans', () => {
     const body = buildProviderBody({ allow_fallbacks: false });
     expect(body).toEqual({ allow_fallbacks: false });
+  });
+
+  it('includes only allowlist', () => {
+    const body = buildProviderBody({ only: ['anthropic', 'openai'] });
+    expect(body).toEqual({ only: ['anthropic', 'openai'] });
   });
 });
 

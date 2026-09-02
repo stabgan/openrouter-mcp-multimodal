@@ -113,4 +113,35 @@ describe('ModelCache', () => {
     expect(cache.isValid()).toBe(true);
     expect(cache.size()).toBe(0);
   });
+
+  it('expires cache when age reaches TTL (strict less-than boundary)', () => {
+    vi.stubEnv('OPENROUTER_MODEL_CACHE_TTL_MS', '50');
+    const base = 1_700_000_000_000;
+    vi.spyOn(Date, 'now').mockReturnValue(base);
+    cache.setModels(sampleModels);
+    expect(cache.isValid()).toBe(true);
+    vi.mocked(Date.now).mockReturnValue(base + 50);
+    expect(cache.isValid()).toBe(false);
+    vi.mocked(Date.now).mockRestore();
+  });
+
+  it('lookup strips routing suffixes before catalog match', () => {
+    cache.setModels([{ id: 'openai/gpt-4o', name: 'GPT-4o' }]);
+    expect(cache.lookup('openai/gpt-4o:nitro')?.id).toBe('openai/gpt-4o');
+    expect(cache.lookup('openai/gpt-4o:floor')?.id).toBe('openai/gpt-4o');
+    expect(cache.catalogHas('openai/gpt-4o:online')).toBe(true);
+  });
+
+  it('lookup prefers exact id when catalog id includes :free', () => {
+    cache.setModels([{ id: 'google/gemma-4-26b-a4b-it:free' }]);
+    expect(cache.lookup('google/gemma-4-26b-a4b-it:free')?.id).toBe(
+      'google/gemma-4-26b-a4b-it:free',
+    );
+    expect(cache.lookup('google/gemma-4-26b-a4b-it:nitro')).toBeNull();
+  });
+
+  it('lookup is case-insensitive on model id', () => {
+    cache.setModels([{ id: 'openai/gpt-4o' }]);
+    expect(cache.lookup('OpenAI/GPT-4o')?.id).toBe('openai/gpt-4o');
+  });
 });

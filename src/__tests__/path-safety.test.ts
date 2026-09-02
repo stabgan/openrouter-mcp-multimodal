@@ -52,6 +52,20 @@ describe('resolveSafeOutputPath', () => {
     );
   });
 
+  it('does not embed the resolved output root in error messages', async () => {
+    const rootReal = await fs.realpath(root);
+    await expect(resolveSafeOutputPath('../escape.png')).rejects.toMatchObject({
+      message: expect.not.stringContaining(rootReal),
+    });
+    await expect(resolveSafeOutputPath('../escape.png')).rejects.toThrow(/OPENROUTER_OUTPUT_DIR/);
+  });
+
+  it('rejects save_path containing null bytes', async () => {
+    await expect(resolveSafeOutputPath('out.png\0../../etc/passwd')).rejects.toBeInstanceOf(
+      UnsafeOutputPathError,
+    );
+  });
+
   it('rejects absolute paths outside the root', async () => {
     await expect(resolveSafeOutputPath('/etc/outside.png')).rejects.toBeInstanceOf(
       UnsafeOutputPathError,
@@ -92,13 +106,22 @@ describe('resolveSafeInputPath', () => {
     const abs = path.join(root, 'inside.jpg');
     await fs.writeFile(abs, Buffer.from([0xff, 0xd8]));
     const resolved = await resolveSafeInputPath(abs);
-    expect(resolved).toBe(abs);
+    expect(resolved).toBe(await fs.realpath(abs));
   });
 
   it('rejects traversal (../escape)', async () => {
     await expect(resolveSafeInputPath('../escape.png')).rejects.toBeInstanceOf(
       UnsafeOutputPathError,
     );
+  });
+
+  it('does not embed the resolved input root in error messages', async () => {
+    const rootReal = await fs.realpath(root);
+    await expect(resolveSafeInputPath('../escape.png')).rejects.toMatchObject({
+      message: expect.not.stringContaining(rootReal),
+    });
+    await expect(resolveSafeInputPath('../escape.png')).rejects.toThrow(/OPENROUTER_INPUT_DIR/);
+    await expect(resolveSafeInputPath('../escape.png')).rejects.toThrow(/escape\.png/);
   });
 
   it('rejects absolute paths outside the root (/etc/passwd)', async () => {
@@ -117,6 +140,37 @@ describe('resolveSafeInputPath', () => {
     vi.stubEnv('OPENROUTER_ALLOW_UNSAFE_PATHS', '1');
     const resolved = await resolveSafeInputPath('/etc/hosts');
     expect(resolved).toBe('/etc/hosts');
+  });
+
+  it('rejects paths containing null bytes', async () => {
+    await expect(resolveSafeInputPath('frame.png\0/etc/passwd')).rejects.toBeInstanceOf(
+      UnsafeOutputPathError,
+    );
+  });
+
+  it('rejects symlinked intermediate directories pointing outside the root', async () => {
+    const outside = await fs.mkdtemp(path.join(tmpdir(), 'mcp-input-outside-'));
+    try {
+      await fs.symlink(outside, path.join(root, 'escape'));
+      await expect(resolveSafeInputPath('escape/any.txt')).rejects.toBeInstanceOf(
+        UnsafeOutputPathError,
+      );
+    } finally {
+      await fs.rm(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects existing files reachable only via outside symlink', async () => {
+    const outside = await fs.mkdtemp(path.join(tmpdir(), 'mcp-input-outside-'));
+    try {
+      await fs.writeFile(path.join(outside, 'secret.txt'), 'SECRET');
+      await fs.symlink(outside, path.join(root, 'link'));
+      await expect(resolveSafeInputPath('link/secret.txt')).rejects.toBeInstanceOf(
+        UnsafeOutputPathError,
+      );
+    } finally {
+      await fs.rm(outside, { recursive: true, force: true });
+    }
   });
 });
 

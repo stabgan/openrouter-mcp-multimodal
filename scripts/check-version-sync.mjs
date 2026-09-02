@@ -1,23 +1,36 @@
 #!/usr/bin/env node
-/**
- * Fail CI when package.json, src/version.ts, server.json, and python/pyproject.toml
- * disagree on the semver. package.json is the source of truth.
- */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-
-const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 
 function read(relPath) {
   return readFileSync(new URL(relPath, import.meta.url), 'utf8');
 }
 
 const { version: pkgVersion } = JSON.parse(read('../package.json'));
+const lock = JSON.parse(read('../package-lock.json'));
+const manifest = JSON.parse(read('../.release-please-manifest.json'));
 const versionTs = read('../src/version.ts');
 const serverJson = JSON.parse(read('../server.json'));
 const pyproject = read('../python/pyproject.toml');
+const pyInit = read('../python/mcp_server_openrouter_multimodal/__init__.py');
+const smithery = read('../smithery.yaml');
+const changelog = read('../CHANGELOG.md');
+const readme = read('../README.md');
 
 const errors = [];
+
+if (lock.version !== pkgVersion) {
+  errors.push(`package-lock.json version=${lock.version} (expected ${pkgVersion})`);
+}
+if (lock.packages?.['']?.version !== pkgVersion) {
+  errors.push(
+    `package-lock.json packages[''].version=${lock.packages?.['']?.version} (expected ${pkgVersion})`,
+  );
+}
+
+if (manifest['.'] !== pkgVersion) {
+  errors.push(`.release-please-manifest.json .=${manifest['.']} (expected ${pkgVersion})`);
+}
 
 const tsMatch = versionTs.match(/SERVER_VERSION\s*=\s*['"]([^'"]+)['"]/);
 if (!tsMatch) {
@@ -46,6 +59,44 @@ if (!pyMatch) {
   errors.push('python/pyproject.toml: could not parse version');
 } else if (pyMatch[1] !== pkgVersion) {
   errors.push(`python/pyproject.toml version=${pyMatch[1]} (expected ${pkgVersion})`);
+}
+
+const pyInitMatch = pyInit.match(/^__version__\s*=\s*"([^"]+)"/m);
+if (!pyInitMatch) {
+  errors.push('python/mcp_server_openrouter_multimodal/__init__.py: could not parse __version__');
+} else if (pyInitMatch[1] !== pkgVersion) {
+  errors.push(
+    `python/mcp_server_openrouter_multimodal/__init__.py __version__=${pyInitMatch[1]} (expected ${pkgVersion})`,
+  );
+}
+
+const smitheryMatch = smithery.match(/^version:\s*(\S+)/m);
+if (!smitheryMatch) {
+  errors.push('smithery.yaml: could not parse version');
+} else if (smitheryMatch[1] !== pkgVersion) {
+  errors.push(`smithery.yaml version=${smitheryMatch[1]} (expected ${pkgVersion})`);
+}
+
+const changelogMatch = changelog.match(/^## \[([^\]]+)\]/m);
+if (!changelogMatch) {
+  errors.push('CHANGELOG.md: could not parse top release section');
+} else if (changelogMatch[1] !== pkgVersion) {
+  errors.push(`CHANGELOG.md top section=[${changelogMatch[1]}] (expected [${pkgVersion}])`);
+}
+
+// Explicit install pins only: package@semver, OPENROUTER_MCP_NPM_VERSION=semver, ghcr tag.
+// Skips unpinned @package refs and prose like "v4.7.0+" or historical changelog mentions.
+const readmePinPatterns = [
+  /@stabgan\/openrouter-mcp-multimodal@(\d+\.\d+\.\d+)/g,
+  /OPENROUTER_MCP_NPM_VERSION=(\d+\.\d+\.\d+)/g,
+  /ghcr\.io\/stabgan\/openrouter-mcp-multimodal:(\d+\.\d+\.\d+)/g,
+];
+for (const pattern of readmePinPatterns) {
+  for (const match of readme.matchAll(pattern)) {
+    if (match[1] !== pkgVersion) {
+      errors.push(`README.md pin ${match[0]} (expected version ${pkgVersion})`);
+    }
+  }
 }
 
 if (errors.length > 0) {

@@ -1,11 +1,3 @@
-/**
- * Canonical MCP tool-result policy for binary artifacts:
- * - saved to disk -> text pointer only (never duplicate inline media)
- * - not saved -> inline only when under byte ceiling, else text + save_path hint
- * - video uses MCP `resource` blocks (spec has no `video` content type)
- */
-import { readEnvInt } from './fetch-utils.js';
-
 export type InlineMediaKind = 'image' | 'audio' | 'video';
 
 type TextContent = { type: 'text'; text: string };
@@ -52,9 +44,20 @@ const KIND_DEFAULT_BYTES: Record<InlineMediaKind, number> = {
   video: DEFAULT_VIDEO_INLINE_MAX_BYTES,
 };
 
+function readEnvInlineMaxBytes(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') return fallback;
+  if (!/^\d+$/.test(raw)) return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
 export function getMaxInlineBytes(kind: InlineMediaKind): number {
-  const globalFallback = readEnvInt('OPENROUTER_INLINE_MAX_BYTES', KIND_DEFAULT_BYTES[kind], 4096);
-  return readEnvInt(KIND_ENV_KEYS[kind], globalFallback, 4096);
+  const globalFallback = readEnvInlineMaxBytes(
+    'OPENROUTER_INLINE_MAX_BYTES',
+    KIND_DEFAULT_BYTES[kind],
+  );
+  return readEnvInlineMaxBytes(KIND_ENV_KEYS[kind], globalFallback);
 }
 
 function kindLabel(kind: InlineMediaKind): string {

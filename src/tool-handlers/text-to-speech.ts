@@ -1,15 +1,16 @@
 /** Dedicated POST /api/v1/audio/speech — OpenAI, Gemini Flash TTS, Voxtral. */
-import { promises as fs } from 'node:fs';
 import { extname } from 'node:path';
 import type { OpenRouterAPIClient } from '../openrouter-api.js';
+import { TTS_RESPONSE_FORMATS } from '../tool-definitions.js';
 import { resolveOptionalOutputPath, isToolErrorResult } from './path-safety.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
 import { buildBinaryToolResult } from './tool-result-payload.js';
-import { replaceExtension } from './path-utils.js';
-import { type CacheOptions, buildCacheHeaders } from './cache.js';
+import { replaceExtension, writeOutputFile } from './path-utils.js';
+import { type CacheOptions, buildCacheHeaders, validateCacheOptions } from './cache.js';
+import { detectAudioFormat } from './audio-utils.js';
 
 export interface TextToSpeechRequest extends CacheOptions {
   input: string;
@@ -23,8 +24,10 @@ export interface TextToSpeechRequest extends CacheOptions {
 
 const DEFAULT_MODEL = 'openai/gpt-4o-mini-tts-2025-12-15';
 const DEFAULT_VOICE = 'alloy';
+const MIN_SPEED = 0.25;
+const MAX_SPEED = 4.0;
 
-const VALID_FORMATS = new Set(['mp3', 'opus', 'aac', 'flac', 'wav', 'pcm']);
+const VALID_FORMATS = new Set<string>(TTS_RESPONSE_FORMATS);
 
 export async function handleTextToSpeech(
   request: { params: { arguments: TextToSpeechRequest } },
@@ -55,6 +58,16 @@ export async function handleTextToSpeech(
     );
   }
 
+  if (typeof speed === 'number' && (speed < MIN_SPEED || speed > MAX_SPEED)) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `speed must be between ${MIN_SPEED} and ${MAX_SPEED} (inclusive).`,
+    );
+  }
+
+  const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });
+  if (cacheError) return cacheError;
+
   logger.audit('text_to_speech.start', {
     model: model || DEFAULT_MODEL,
     voice: voice || DEFAULT_VOICE,
@@ -73,7 +86,7 @@ export async function handleTextToSpeech(
     voice: voice || DEFAULT_VOICE,
   };
   if (response_format) body.response_format = response_format;
-  if (typeof speed === 'number' && speed > 0) body.speed = speed;
+  if (typeof speed === 'number') body.speed = speed;
   if (instructions) body.instructions = instructions;
 
   const headers = buildCacheHeaders({ cache, cache_ttl, cache_clear });
@@ -86,9 +99,9 @@ export async function handleTextToSpeech(
   }
 
   const { buffer, contentType } = result;
-  const mimeType = contentType.split(';')[0]?.trim() || 'audio/mpeg';
-
-  const ext = response_format || 'mp3';
+  const detected = detectAudioFormat(buffer);
+  const mimeType = detected.mimeType || contentType.split(';')[0]?.trim() || 'audio/mpeg';
+  const ext = detected.ext;
 
   const baseMeta: Record<string, unknown> = {
     server_version: SERVER_VERSION,
@@ -102,7 +115,7 @@ export async function handleTextToSpeech(
     const currentExt = extname(safeSavePath).toLowerCase().slice(1);
     const actualPath = currentExt === ext ? safeSavePath : replaceExtension(safeSavePath, ext);
     try {
-      await fs.writeFile(actualPath, buffer);
+      await writeOutputFile(actualPath, buffer);
     } catch (err) {
       return toolErrorFrom(ErrorCode.INTERNAL, err, 'Write');
     }

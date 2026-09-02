@@ -18,7 +18,15 @@
         },
         {
           "type": "generic",
+          "path": "python/mcp_server_openrouter_multimodal/__init__.py"
+        },
+        {
+          "type": "generic",
           "path": "server.json"
+        },
+        {
+          "type": "generic",
+          "path": "smithery.yaml"
         }
       ]
     }

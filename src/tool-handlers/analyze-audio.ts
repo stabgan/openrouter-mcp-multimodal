@@ -13,7 +13,12 @@ import {
   detectReasoningCutoff,
   buildCompletionMeta,
 } from './completion-utils.js';
-import { type CacheOptions, buildCacheHeaders, extractCacheMeta } from './cache.js';
+import {
+  type CacheOptions,
+  buildCacheHeaders,
+  extractCacheMeta,
+  validateCacheOptions,
+} from './cache.js';
 import { awaitCompletionWithHeaders } from './openai-withresponse.js';
 
 const DEFAULT_MODEL = 'google/gemini-2.5-flash';
@@ -36,6 +41,9 @@ export async function handleAnalyzeAudio(
   if (!audio_path) {
     return toolError(ErrorCode.INVALID_INPUT, 'audio_path is required.');
   }
+
+  const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });
+  if (cacheError) return cacheError;
 
   let audioData;
   try {

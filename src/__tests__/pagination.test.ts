@@ -72,4 +72,25 @@ describe('search_models pagination', () => {
     expect(sc.has_more).toBe(false);
     expect(sc.next_offset).toBeNull();
   });
+
+  it('pages through full catalog without gaps or duplicates', async () => {
+    const seen = new Set<string>();
+    let offset = 0;
+    const limit = 7;
+    while (true) {
+      const r = await handleSearchModels(
+        { params: { arguments: { limit, offset } } },
+        apiClient,
+        cache,
+      );
+      const sc = (r as { structuredContent: Record<string, unknown> }).structuredContent;
+      for (const m of sc.results as Array<{ id: string }>) {
+        expect(seen.has(m.id)).toBe(false);
+        seen.add(m.id);
+      }
+      if (!sc.has_more) break;
+      offset = sc.next_offset as number;
+    }
+    expect(seen.size).toBe(30);
+  });
 });

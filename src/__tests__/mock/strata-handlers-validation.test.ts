@@ -49,6 +49,24 @@ describe('mock strata: handler INVALID_INPUT guards', () => {
     expect((r as { _meta: { code: string } })._meta.code).toBe('INVALID_INPUT');
   });
 
+  it('chat_completion rejects null message content', async () => {
+    const r = await handleChatCompletion(
+      { params: { arguments: { messages: [{ role: 'user', content: null }] } } },
+      mockOpenAI(),
+    );
+    expect(r.isError).toBe(true);
+    expect((r as { _meta: { code: string } })._meta.code).toBe('INVALID_INPUT');
+  });
+
+  it('start_chat_completion rejects empty message role', async () => {
+    const r = await handleStartChatCompletion(
+      { params: { arguments: { messages: [{ role: '  ' as 'user', content: 'hi' }] } } },
+      mockOpenAI(),
+    );
+    expect(r.isError).toBe(true);
+    expect((r as { _meta: { code: string } })._meta.code).toBe('INVALID_INPUT');
+  });
+
   const blankPathCases = ['', '   ', '\t'];
   it.each([''])('analyze_image rejects blank image_path %j', async (p) => {
     const r = await handleAnalyzeImage({ params: { arguments: { image_path: p } } }, mockOpenAI());
@@ -128,6 +146,15 @@ describe('mock strata: handler INVALID_INPUT guards', () => {
   ];
   it.each(rerankCases)('rerank_documents rejects %s', async (_label, args) => {
     const r = await handleRerankDocuments({ params: { arguments: args as never } }, noopApi);
+    expect(r.isError).toBe(true);
+    expect((r as { _meta: { code: string } })._meta.code).toBe('INVALID_INPUT');
+  });
+
+  it('rerank_documents rejects top_n of zero', async () => {
+    const r = await handleRerankDocuments(
+      { params: { arguments: { query: 'q', documents: ['a'], top_n: 0 } } },
+      noopApi,
+    );
     expect(r.isError).toBe(true);
     expect((r as { _meta: { code: string } })._meta.code).toBe('INVALID_INPUT');
   });

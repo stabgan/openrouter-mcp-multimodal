@@ -1,6 +1,6 @@
-import { promises as fs } from 'node:fs';
 import { extname } from 'node:path';
 import OpenAI from 'openai';
+import { GENERATE_AUDIO_FORMATS } from '../tool-definitions.js';
 import { resolveOptionalOutputPath, isToolErrorResult } from './path-safety.js';
 import { asOpenAIChatBody } from './chat-request.js';
 import { ErrorCode, toolError } from '../errors.js';
@@ -8,7 +8,10 @@ import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
 import { buildBinaryToolResult } from './tool-result-payload.js';
-import { replaceExtension } from './path-utils.js';
+import { replaceExtension, writeOutputFile } from './path-utils.js';
+import { detectAudioFormat } from './audio-utils.js';
+
+export { detectAudioFormat } from './audio-utils.js';
 
 export interface GenerateAudioToolRequest {
   prompt: string;
@@ -22,7 +25,7 @@ const DEFAULT_MODEL = 'openai/gpt-audio';
 const DEFAULT_VOICE = 'alloy';
 const DEFAULT_FORMAT = 'pcm16';
 
-const VALID_FORMATS = ['wav', 'mp3', 'flac', 'opus', 'pcm16'] as const;
+const VALID_FORMATS = GENERATE_AUDIO_FORMATS;
 type OutputFormat = (typeof VALID_FORMATS)[number];
 
 const DEFAULT_PCM_SAMPLE_RATE = 24000;
@@ -55,50 +58,6 @@ export function createWavHeader(
   return header;
 }
 
-/**
- * Detect audio container format from magic bytes. Uses `Buffer.subarray()`
- * (not deprecated `slice()`). MP3 detection is intentionally strict:
- * - Accept ID3v2 tags (`'ID3'`) as unambiguous MP3.
- * - Accept raw frame sync only when every MPEG header field falls in a
- *   non-reserved range: version != 0b01, layer != 0b00, bitrate != 0b1111,
- *   sample rate index != 0b11. This removes the false positives that a
- *   sync-word-only check produces on random binary.
- */
-export function detectAudioFormat(data: Buffer): { ext: string; mimeType: string } {
-  if (data.length >= 3 && data[0] === 0x49 && data[1] === 0x44 && data[2] === 0x33) {
-    return { ext: 'mp3', mimeType: 'audio/mpeg' };
-  }
-  if (data.length >= 4 && data[0] === 0xff && (data[1]! & 0xe0) === 0xe0) {
-    const b1 = data[1]!;
-    const b2 = data[2]!;
-    const versionBits = (b1 >> 3) & 0x03; // 01 = reserved
-    const layerBits = (b1 >> 1) & 0x03; // 00 = reserved
-    const bitrateIndex = (b2 >> 4) & 0x0f; // 1111 = bad
-    const sampleRateIndex = (b2 >> 2) & 0x03; // 11 = reserved
-    if (
-      versionBits !== 0x01 &&
-      layerBits !== 0x00 &&
-      bitrateIndex !== 0x0f &&
-      sampleRateIndex !== 0x03
-    ) {
-      return { ext: 'mp3', mimeType: 'audio/mpeg' };
-    }
-  }
-  if (data.length >= 12) {
-    const riff = data.subarray(0, 4).toString('ascii');
-    const wave = data.subarray(8, 12).toString('ascii');
-    if (riff === 'RIFF' && wave === 'WAVE') {
-      return { ext: 'wav', mimeType: 'audio/wav' };
-    }
-  }
-  if (data.length >= 4) {
-    const magic = data.subarray(0, 4).toString('ascii');
-    if (magic === 'fLaC') return { ext: 'flac', mimeType: 'audio/flac' };
-    if (magic === 'OggS') return { ext: 'ogg', mimeType: 'audio/ogg' };
-  }
-  return { ext: 'pcm', mimeType: 'audio/pcm' };
-}
-
 export function wrapPcmInWav(
   pcmData: Buffer,
   sampleRate: number = DEFAULT_PCM_SAMPLE_RATE,
@@ -106,7 +65,12 @@ export function wrapPcmInWav(
   return Buffer.concat([createWavHeader(pcmData.length, sampleRate), pcmData]);
 }
 
-export { replaceExtension } from './path-utils.js';
+/** Decode each streamed base64 fragment and concatenate binary (joining strings corrupts padding). */
+export function assembleBase64AudioChunks(chunks: string[]): Buffer {
+  if (chunks.length === 0) return Buffer.alloc(0);
+  if (chunks.length === 1) return Buffer.from(chunks[0]!, 'base64');
+  return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk, 'base64')));
+}
 
 export async function handleGenerateAudio(
   request: { params: { arguments: GenerateAudioToolRequest } },
@@ -120,10 +84,17 @@ export async function handleGenerateAudio(
     return toolError(ErrorCode.INVALID_INPUT, 'prompt is required.');
   }
 
+  if (format && !(VALID_FORMATS as readonly string[]).includes(format)) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `format '${format}' is not supported. Valid: ${VALID_FORMATS.join(', ')}.`,
+    );
+  }
+
   logger.audit('generate_audio.start', {
     model: model || DEFAULT_MODEL,
     voice: voice?.trim() || DEFAULT_VOICE,
-    format: (VALID_FORMATS as readonly string[]).includes(format ?? '') ? format : DEFAULT_FORMAT,
+    format: format || DEFAULT_FORMAT,
     prompt_preview: prompt.slice(0, 80),
     save_path: save_path ? 'provided' : 'none',
   });
@@ -166,10 +137,9 @@ export async function handleGenerateAudio(
       }
     }
 
-    const fullAudioBase64 = audioChunks.join('');
     const transcript = transcriptChunks.join('');
 
-    if (!fullAudioBase64) {
+    if (audioChunks.length === 0) {
       return toolError(
         ErrorCode.INTERNAL,
         transcript
@@ -179,11 +149,11 @@ export async function handleGenerateAudio(
       );
     }
 
-    let audioBuffer = Buffer.from(fullAudioBase64, 'base64');
+    let audioBuffer = assembleBase64AudioChunks(audioChunks);
     const detected = detectAudioFormat(audioBuffer);
 
     if (detected.ext === 'pcm') {
-      audioBuffer = Buffer.from(wrapPcmInWav(audioBuffer));
+      audioBuffer = wrapPcmInWav(audioBuffer);
       detected.ext = 'wav';
       detected.mimeType = 'audio/wav';
     }
@@ -193,7 +163,7 @@ export async function handleGenerateAudio(
       const actualSavePath =
         fileExt === detected.ext ? safeBase : replaceExtension(safeBase, detected.ext);
 
-      await fs.writeFile(actualSavePath, audioBuffer);
+      await writeOutputFile(actualSavePath, audioBuffer);
 
       const formatNote =
         actualSavePath !== safeBase

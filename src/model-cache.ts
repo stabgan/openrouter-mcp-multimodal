@@ -24,6 +24,33 @@ function getCacheTtlMs(): number {
 
 export const MAX_SEARCH_LIMIT = 50;
 
+/** OpenRouter routing suffixes appended at request time — not part of catalog ids (usually). */
+export const ROUTING_SUFFIXES = [':nitro', ':floor', ':free', ':online', ':exacto'] as const;
+
+export type RoutingSuffix = (typeof ROUTING_SUFFIXES)[number];
+
+/** Strip a trailing routing suffix from a model slug for catalog lookup. */
+export function stripRoutingSuffix(modelId: string): string {
+  for (const suffix of ROUTING_SUFFIXES) {
+    if (modelId.endsWith(suffix)) return modelId.slice(0, -suffix.length);
+  }
+  return modelId;
+}
+
+export function clampOffset(offset: number): number {
+  if (!Number.isFinite(offset)) return 0;
+  return Math.max(0, Math.floor(offset));
+}
+
+export function clampLimit(limit: number, fallback = 10): number {
+  if (!Number.isFinite(limit)) return fallback;
+  return Math.min(Math.max(1, Math.floor(limit)), MAX_SEARCH_LIMIT);
+}
+
+function sortedModels(models: Record<string, OpenRouterModelRecord>): OpenRouterModelRecord[] {
+  return Object.values(models).sort((a, b) => a.id.localeCompare(b.id));
+}
+
 function buildMatcher(params: ModelSearchParams): (m: OpenRouterModelRecord) => boolean {
   const q = params.query?.toLowerCase();
   const providerPrefix = params.provider?.toLowerCase();
@@ -110,19 +137,51 @@ export class ModelCache {
     return id in this.models;
   }
 
+  /**
+   * Resolve a user-supplied model id against the catalog: exact match, strip
+   * routing suffixes (`:nitro`, `:free`, …), then case-insensitive id match.
+   */
+  lookup(id: string): OpenRouterModelRecord | null {
+    if (!id) return null;
+    const exact = this.models[id];
+    if (exact) return exact;
+
+    const stripped = stripRoutingSuffix(id);
+    if (stripped !== id) {
+      const base = this.models[stripped];
+      if (base) return base;
+    }
+
+    const lower = id.toLowerCase();
+    for (const model of Object.values(this.models)) {
+      if (model.id.toLowerCase() === lower) return model;
+    }
+    if (stripped !== id) {
+      const lowerStripped = stripped.toLowerCase();
+      for (const model of Object.values(this.models)) {
+        if (model.id.toLowerCase() === lowerStripped) return model;
+      }
+    }
+    return null;
+  }
+
+  catalogHas(id: string): boolean {
+    return this.lookup(id) !== null;
+  }
+
   searchPaginated(
     params: ModelSearchParams,
     offset: number,
     limit: number,
   ): { page: OpenRouterModelRecord[]; total: number } {
     const matches = buildMatcher(params);
-    const safeOffset = Math.max(0, offset);
-    const safeLimit = Math.min(Math.max(1, limit), MAX_SEARCH_LIMIT);
+    const safeOffset = clampOffset(offset);
+    const safeLimit = clampLimit(limit);
     const page: OpenRouterModelRecord[] = [];
     let total = 0;
     let matchIndex = 0;
 
-    for (const model of Object.values(this.models)) {
+    for (const model of sortedModels(this.models)) {
       if (!matches(model)) continue;
       if (matchIndex >= safeOffset && page.length < safeLimit) {
         page.push(model);
@@ -137,13 +196,13 @@ export class ModelCache {
     if (params.all) {
       const matches = buildMatcher(params);
       const results: OpenRouterModelRecord[] = [];
-      for (const model of Object.values(this.models)) {
+      for (const model of sortedModels(this.models)) {
         if (matches(model)) results.push(model);
       }
       return results;
     }
 
-    const limit = Math.min(Math.max(1, params.limit ?? 10), MAX_SEARCH_LIMIT);
+    const limit = clampLimit(params.limit ?? 10);
     return this.searchPaginated(params, 0, limit).page;
   }
 }

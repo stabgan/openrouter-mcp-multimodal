@@ -11,6 +11,8 @@ export interface ProviderRoutingOptions {
   quantizations?: string[];
   /** Exclude these provider slugs (e.g. `['openai', 'anthropic']`). */
   ignore?: string[];
+  /** Allow only these provider slugs for the request. */
+  only?: string[];
   /** Sort providers by this criterion. */
   sort?: ProviderSort;
   /** Prioritized provider list (e.g. `['openai/gpt-4o', 'anthropic/claude-3-opus']`). */
@@ -84,6 +86,14 @@ export function readProviderDefaults(): ProviderRoutingOptions {
   if (quantizations) out.quantizations = quantizations;
   const ignore = parseCsv(env.OPENROUTER_PROVIDER_IGNORE);
   if (ignore) out.ignore = ignore;
+  try {
+    const only = parseJsonArray(env.OPENROUTER_PROVIDER_ONLY, 'OPENROUTER_PROVIDER_ONLY');
+    if (only) out.only = only;
+  } catch (err) {
+    logger.warn('OPENROUTER_PROVIDER_ONLY ignored', {
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
   const sort = parseSort(env.OPENROUTER_PROVIDER_SORT);
   if (sort) out.sort = sort;
   try {

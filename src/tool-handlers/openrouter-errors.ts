@@ -7,13 +7,22 @@ interface SdkLikeError {
   status?: number;
   code?: number | string;
   message?: string;
-  error?: { message?: string; code?: number | string } | string;
-  /**
-   * Some SDK shapes expose the raw Response headers on the error, which
-   * we read to pull `Retry-After` on 429 responses.
-   */
+  error?: { message?: string; code?: number | string; type?: string; error_type?: string } | string;
   headers?: { get?: (name: string) => string | null } | Record<string, string>;
   response?: { headers?: { get?: (name: string) => string | null } | Record<string, string> };
+}
+
+const AUTH_SUGGESTIONS = [
+  'Verify OPENROUTER_API_KEY is set and matches https://openrouter.ai/keys',
+  'Ensure the key has not been revoked or expired',
+] as const;
+
+/** Strip bearer tokens and OpenRouter key material from user-visible messages. */
+export function sanitizeErrorMessage(msg: string): string {
+  return msg
+    .replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]')
+    .replace(/sk-or-v\d+-[\w-]+/gi, '[REDACTED]')
+    .replace(/Authorization:\s*\S+/gi, 'Authorization: [REDACTED]');
 }
 
 function extractRetryAfterSeconds(err: unknown): number | undefined {
@@ -31,18 +40,24 @@ function extractRetryAfterSeconds(err: unknown): number | undefined {
   };
   const raw = getHeader(e.headers) ?? getHeader(e.response?.headers);
   if (!raw) return undefined;
-  const n = Number(raw);
-  if (Number.isFinite(n) && n >= 0) return n;
+  const asInt = parseInt(raw, 10);
+  if (Number.isFinite(asInt) && asInt >= 0) return asInt;
+  const asDate = Date.parse(raw);
+  if (Number.isFinite(asDate)) {
+    const deltaSec = Math.ceil((asDate - Date.now()) / 1000);
+    return deltaSec > 0 ? deltaSec : 0;
+  }
   return undefined;
 }
 
 function extractStatus(err: unknown): number | undefined {
   if (typeof err !== 'object' || err === null) return undefined;
-  const s = (err as SdkLikeError).status;
-  if (typeof s === 'number') return s;
-  const c = (err as SdkLikeError).code;
-  if (typeof c === 'number') return c;
-  if (typeof c === 'string' && /^\d{3}$/.test(c)) return parseInt(c, 10);
+  const e = err as SdkLikeError;
+  if (typeof e.status === 'number') return e.status;
+  if (typeof e.code === 'number') return e.code;
+  if (typeof e.code === 'string' && /^\d{3}$/.test(e.code)) return parseInt(e.code, 10);
+  const nested = e.error;
+  if (nested && typeof nested === 'object' && typeof nested.code === 'number') return nested.code;
   if (err instanceof Error) {
     const m = err.message.match(/\bHTTP (\d{3})\b/);
     if (m) return parseInt(m[1]!, 10);
@@ -50,26 +65,124 @@ function extractStatus(err: unknown): number | undefined {
   return undefined;
 }
 
+function extractNestedError(err: unknown): SdkLikeError['error'] | undefined {
+  if (typeof err !== 'object' || err === null) return undefined;
+  const nested = (err as SdkLikeError).error;
+  if (!nested) return undefined;
+  return nested;
+}
+
 function extractMessage(err: unknown): string {
+  let msg: string;
   if (err instanceof Error) {
-    const nested = (err as unknown as SdkLikeError).error;
+    const nested = extractNestedError(err);
     if (nested && typeof nested === 'object' && typeof nested.message === 'string') {
-      return `${err.message} — ${nested.message}`;
+      msg = `${err.message} — ${nested.message}`;
+    } else if (typeof nested === 'string') {
+      msg = `${err.message} — ${nested}`;
+    } else {
+      msg = err.message;
     }
-    if (typeof nested === 'string') return `${err.message} — ${nested}`;
-    return err.message;
+  } else if (typeof err === 'string') {
+    msg = err;
+  } else if (typeof err === 'object' && err !== null) {
+    const e = err as SdkLikeError;
+    if (typeof e.message === 'string') {
+      msg = e.message;
+    } else {
+      const nested = extractNestedError(err);
+      if (nested && typeof nested === 'object' && typeof nested.message === 'string') {
+        msg = nested.message;
+      } else if (typeof nested === 'string') {
+        msg = nested;
+      } else {
+        msg = 'unknown error';
+      }
+    }
+  } else {
+    msg = 'unknown error';
   }
-  if (typeof err === 'string') return err;
-  return 'unknown error';
+  return sanitizeErrorMessage(msg);
+}
+
+function extractErrorType(err: unknown): string | undefined {
+  const nested = extractNestedError(err);
+  if (nested && typeof nested === 'object') {
+    if (typeof nested.error_type === 'string') return nested.error_type;
+    if (typeof nested.type === 'string') return nested.type;
+  }
+  return undefined;
+}
+
+function isAuthFailure(
+  status: number | undefined,
+  lower: string,
+  errorType: string | undefined,
+): boolean {
+  if (status === 401) return true;
+  if (errorType === 'authentication' || errorType === 'authentication_error') return true;
+  return (
+    lower.includes('invalid api key') ||
+    lower.includes('invalid credentials') ||
+    lower.includes('invalid authentication') ||
+    lower.includes('no auth credentials') ||
+    lower.includes('missing api key') ||
+    lower.includes('unauthorized') ||
+    lower.includes('authentication failed') ||
+    lower.includes('user not found') ||
+    (status === 403 &&
+      (lower.includes('invalid api key') ||
+        lower.includes('invalid credentials') ||
+        lower.includes('authentication')))
+  );
+}
+
+function isModelNotFound(status: number | undefined, lower: string): boolean {
+  if (status === 404) return true;
+  return (
+    lower.includes('model') &&
+    (lower.includes('does not exist') ||
+      lower.includes('not found') ||
+      lower.includes('invalid model'))
+  );
+}
+
+function isGuardrailOrPolicy(lower: string): boolean {
+  return (
+    lower.includes('content policy') ||
+    lower.includes('moderation') ||
+    lower.includes('refused') ||
+    lower.includes('prompt injection') ||
+    lower.includes('guardrail') ||
+    lower.includes('request blocked') ||
+    lower.includes('blocked:')
+  );
+}
+
+function looksLikeHtml(msg: string): boolean {
+  const t = msg.trimStart().toLowerCase();
+  return t.startsWith('<!doctype') || t.startsWith('<html');
 }
 
 /** Classify upstream errors into the closed `ErrorCode` set. */
 export function classifyUpstreamError(err: unknown, contextMessage?: string): ToolErrorResult {
   const rawMsg = extractMessage(err);
   const status = extractStatus(err);
+  const errorType = extractErrorType(err);
   const lower = rawMsg.toLowerCase();
   const fullMsg = contextMessage ? `${contextMessage}: ${rawMsg}` : rawMsg;
   const retryAfterSeconds = extractRetryAfterSeconds(err);
+
+  if (looksLikeHtml(rawMsg)) {
+    return toolError(
+      ErrorCode.UPSTREAM_HTTP,
+      contextMessage
+        ? `${contextMessage}: upstream returned an HTML error page`
+        : 'upstream returned an HTML error page',
+      { status },
+      { suggestions: ['Retry after a brief delay', 'Check https://status.openrouter.ai'] },
+    );
+  }
 
   if (
     lower.includes('insufficient balance') ||
@@ -105,12 +218,7 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
     );
   }
 
-  if (
-    lower.includes('model') &&
-    (lower.includes('does not exist') ||
-      lower.includes('not found') ||
-      lower.includes('invalid model'))
-  ) {
+  if (isModelNotFound(status, lower)) {
     return toolError(
       ErrorCode.MODEL_NOT_FOUND,
       fullMsg,
@@ -120,21 +228,6 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
           'Use search_models to discover valid model ids',
           'Use validate_model to pre-flight a model id',
         ],
-      },
-    );
-  }
-
-  if (
-    lower.includes('content policy') ||
-    lower.includes('moderation') ||
-    lower.includes('refused')
-  ) {
-    return toolError(
-      ErrorCode.UPSTREAM_REFUSED,
-      fullMsg,
-      { status, reason: 'policy' },
-      {
-        suggestions: ['Rephrase the prompt', 'Try a different provider via provider.order'],
       },
     );
   }
@@ -172,8 +265,35 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
     );
   }
 
+  if (isAuthFailure(status, lower, errorType)) {
+    return toolError(
+      ErrorCode.INVALID_CREDENTIALS,
+      fullMsg,
+      { status, reason: 'auth' },
+      { suggestions: [...AUTH_SUGGESTIONS] },
+    );
+  }
+
+  if (isGuardrailOrPolicy(lower) || status === 403) {
+    return toolError(
+      ErrorCode.UPSTREAM_REFUSED,
+      fullMsg,
+      { status, reason: 'policy' },
+      {
+        suggestions: ['Rephrase the prompt', 'Try a different provider via provider.order'],
+      },
+    );
+  }
+
   if (typeof status === 'number' && status >= 400 && status < 500) {
-    return toolError(ErrorCode.INVALID_INPUT, fullMsg, { status });
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      fullMsg,
+      { status },
+      {
+        suggestions: ['Verify request parameters against OpenRouter docs'],
+      },
+    );
   }
 
   if (typeof status === 'number' && status >= 500) {

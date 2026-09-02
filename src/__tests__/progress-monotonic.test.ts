@@ -10,6 +10,8 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { handleGenerateVideo } from '../tool-handlers/generate-video.js';
+import { buildProgressHook } from '../tool-handlers.js';
+import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import type { OpenRouterAPIClient, VideoJobEnvelope, VideoJobStatus } from '../openrouter-api.js';
 
 function mockClient(statuses: VideoJobStatus[]) {
@@ -48,19 +50,13 @@ describe('progress notifications are monotonic', () => {
       },
     ]);
 
-    // Mimic the hook that tool-handlers.ts would construct. We capture
-    // the `progress` field that each notification would carry.
-    let lastSent = -1;
     const emitted: number[] = [];
-    const hook: Parameters<typeof handleGenerateVideo>[2] = ({ status, progress, attempt }) => {
-      // Reproduce the exact logic from `buildProgressHook` in
-      // tool-handlers.ts so this test catches future regressions there.
-      const candidate = typeof progress === 'number' ? Math.max(attempt, progress) : attempt;
-      const next = Math.max(lastSent + 1, candidate);
-      lastSent = next;
-      emitted.push(next);
-      void status;
-    };
+    const server = {
+      notification: vi.fn().mockImplementation(async (n: { params?: { progress?: number } }) => {
+        if (typeof n.params?.progress === 'number') emitted.push(n.params.progress);
+      }),
+    } as unknown as Server;
+    const hook = buildProgressHook(server, 'wire-test');
 
     await handleGenerateVideo(
       {
@@ -75,6 +71,8 @@ describe('progress notifications are monotonic', () => {
       client,
       hook,
     );
+
+    await vi.waitFor(() => expect(emitted.length).toBeGreaterThan(1));
 
     // Assertion: strictly increasing.
     for (let i = 1; i < emitted.length; i++) {
@@ -93,14 +91,13 @@ describe('progress notifications are monotonic', () => {
       },
     ]);
 
-    let lastSent = -1;
     const emitted: number[] = [];
-    const hook: Parameters<typeof handleGenerateVideo>[2] = ({ progress, attempt }) => {
-      const candidate = typeof progress === 'number' ? Math.max(attempt, progress) : attempt;
-      const next = Math.max(lastSent + 1, candidate);
-      lastSent = next;
-      emitted.push(next);
-    };
+    const server = {
+      notification: vi.fn().mockImplementation(async (n: { params?: { progress?: number } }) => {
+        if (typeof n.params?.progress === 'number') emitted.push(n.params.progress);
+      }),
+    } as unknown as Server;
+    const hook = buildProgressHook(server, 'wire-test');
 
     await handleGenerateVideo(
       {
@@ -115,6 +112,8 @@ describe('progress notifications are monotonic', () => {
       client,
       hook,
     );
+
+    await vi.waitFor(() => expect(emitted.length).toBeGreaterThan(1));
 
     for (let i = 1; i < emitted.length; i++) {
       expect(emitted[i]).toBeGreaterThan(emitted[i - 1]!);
@@ -134,14 +133,13 @@ describe('progress: 0 edge case', () => {
       },
     ]);
 
-    let lastSent = -1;
     const emitted: number[] = [];
-    const hook: Parameters<typeof handleGenerateVideo>[2] = ({ progress, attempt }) => {
-      const candidate = typeof progress === 'number' ? Math.max(attempt, progress) : attempt;
-      const next = Math.max(lastSent + 1, candidate);
-      lastSent = next;
-      emitted.push(next);
-    };
+    const server = {
+      notification: vi.fn().mockImplementation(async (n: { params?: { progress?: number } }) => {
+        if (typeof n.params?.progress === 'number') emitted.push(n.params.progress);
+      }),
+    } as unknown as Server;
+    const hook = buildProgressHook(server, 'wire-test');
 
     await handleGenerateVideo(
       {
@@ -156,6 +154,8 @@ describe('progress: 0 edge case', () => {
       client,
       hook,
     );
+
+    await vi.waitFor(() => expect(emitted.length).toBeGreaterThan(0));
 
     // All values must be strictly increasing
     for (let i = 1; i < emitted.length; i++) {

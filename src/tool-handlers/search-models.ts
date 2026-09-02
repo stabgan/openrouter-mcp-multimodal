@@ -1,4 +1,4 @@
-import { ModelCache } from '../model-cache.js';
+import { ModelCache, clampLimit, clampOffset } from '../model-cache.js';
 import { OpenRouterAPIClient } from '../openrouter-api.js';
 import { ErrorCode, toolErrorFrom } from '../errors.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
@@ -13,7 +13,6 @@ export interface SearchModelsArgs {
 }
 
 const DEFAULT_LIMIT = 20;
-const MAX_LIMIT = 50;
 
 export async function handleSearchModels(
   request: { params: { arguments: SearchModelsArgs } },
@@ -27,8 +26,8 @@ export async function handleSearchModels(
   }
   try {
     const args = request.params.arguments ?? {};
-    const limit = Math.min(Math.max(1, args.limit ?? DEFAULT_LIMIT), MAX_LIMIT);
-    const offset = Math.max(0, args.offset ?? 0);
+    const limit = clampLimit(args.limit ?? DEFAULT_LIMIT, DEFAULT_LIMIT);
+    const offset = clampOffset(args.offset ?? 0);
 
     const { page, total } = modelCache.searchPaginated(
       {

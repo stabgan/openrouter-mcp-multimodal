@@ -1,14 +1,13 @@
 /** Dedicated POST /api/v1/audio/transcriptions — Whisper, GPT-4o Transcribe, Voxtral. */
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
 import type { OpenRouterAPIClient, TranscriptionResponse } from '../openrouter-api.js';
-import { resolveSafeInputPath, UnsafeOutputPathError } from './path-safety.js';
-import { fetchHttpResource } from './fetch-utils.js';
+import { STT_RESPONSE_FORMATS } from '../tool-definitions.js';
+import { UnsafeOutputPathError } from './path-safety.js';
+import { resolveSpeechToTextAudio } from './audio-utils.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
-import { type CacheOptions, buildCacheHeaders } from './cache.js';
+import { type CacheOptions, buildCacheHeaders, validateCacheOptions } from './cache.js';
 
 export interface SpeechToTextRequest extends CacheOptions {
   audio_path: string;
@@ -20,58 +19,16 @@ export interface SpeechToTextRequest extends CacheOptions {
 
 const DEFAULT_MODEL = 'openai/whisper-1';
 
-const VALID_RESPONSE_FORMATS = new Set(['json', 'text', 'srt', 'verbose_json', 'vtt']);
+const VALID_RESPONSE_FORMATS = new Set<string>(STT_RESPONSE_FORMATS);
 
-/** Infer audio format from file extension. */
-function audioFormatFromExt(ext: string): string {
-  const normalized = ext.toLowerCase().replace('.', '');
-  switch (normalized) {
-    case 'mp3':
-      return 'mp3';
-    case 'mp4':
-    case 'm4a':
-      return 'mp4';
-    case 'wav':
-      return 'wav';
-    case 'flac':
-      return 'flac';
-    case 'ogg':
-    case 'oga':
-      return 'ogg';
-    case 'webm':
-      return 'webm';
-    case 'opus':
-      return 'opus';
-    default:
-      return 'mp3';
+function formatTranscriptionContent(
+  response: TranscriptionResponse,
+  responseFormat?: string,
+): string | null {
+  if (responseFormat === 'verbose_json') {
+    return JSON.stringify(response, null, 2);
   }
-}
-
-async function resolveAudioInput(audioPath: string): Promise<{ data: string; format: string }> {
-  const trimmed = audioPath.trim();
-  if (!trimmed) throw new Error('audio_path is empty');
-
-  if (trimmed.startsWith('data:')) {
-    const match = trimmed.match(/^data:audio\/([^;,]+)(?:;[^,]*)*;base64,(.+)$/);
-    if (!match) throw new Error('Invalid audio data URL format');
-    return { data: match[2]!, format: match[1]! };
-  }
-
-  if (/^https?:\/\//i.test(trimmed)) {
-    const { buffer, contentType } = await fetchHttpResource(trimmed, {
-      timeoutMs: 60_000,
-      maxBytes: 100 * 1024 * 1024,
-      maxRedirects: 8,
-    });
-    const format = contentType?.match(/audio\/(\w+)/)?.[1] || 'mp3';
-    return { data: buffer.toString('base64'), format };
-  }
-
-  const abs = await resolveSafeInputPath(trimmed);
-  const buf = await fs.readFile(abs);
-  const ext = path.extname(abs);
-  const format = audioFormatFromExt(ext);
-  return { data: buf.toString('base64'), format };
+  return response.text ?? null;
 }
 
 export async function handleSpeechToText(
@@ -101,6 +58,13 @@ export async function handleSpeechToText(
     );
   }
 
+  if (typeof temperature === 'number' && (temperature < 0 || temperature > 1)) {
+    return toolError(ErrorCode.INVALID_INPUT, 'temperature must be between 0 and 1 (inclusive).');
+  }
+
+  const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });
+  if (cacheError) return cacheError;
+
   logger.audit('speech_to_text.start', {
     model: model || DEFAULT_MODEL,
     audio_path: audio_path.startsWith('data:') ? 'data_url' : audio_path.slice(0, 80),
@@ -110,11 +74,17 @@ export async function handleSpeechToText(
 
   let audioInput: { data: string; format: string };
   try {
-    audioInput = await resolveAudioInput(audio_path);
+    audioInput = await resolveSpeechToTextAudio(audio_path);
   } catch (err) {
     if (err instanceof UnsafeOutputPathError) return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('Blocked host')) return toolErrorFrom(ErrorCode.UPSTREAM_REFUSED, err);
+    if (msg.toLowerCase().includes('too large')) {
+      return toolErrorFrom(ErrorCode.RESOURCE_TOO_LARGE, err);
+    }
+    if (msg.toLowerCase().includes('unsupported')) {
+      return toolErrorFrom(ErrorCode.UNSUPPORTED_FORMAT, err);
+    }
     return toolErrorFrom(ErrorCode.INVALID_INPUT, err);
   }
 
@@ -138,7 +108,7 @@ export async function handleSpeechToText(
     return classifyUpstreamError(err, 'speech_to_text');
   }
 
-  const text = response.text;
+  const text = formatTranscriptionContent(response, response_format);
   if (!text) {
     return toolError(ErrorCode.INTERNAL, 'Transcription returned no text.', {
       response_keys: Object.keys(response),

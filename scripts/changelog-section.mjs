@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-/** Print one CHANGELOG.md section for a semver (e.g. 4.7.0). Exits 1 if missing. */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 

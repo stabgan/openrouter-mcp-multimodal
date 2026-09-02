@@ -11,25 +11,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
           cache-dependency-path: package-lock.json
 
-      - name: Install and verify
-        run: |
-          node --version
-          npm --version
-          npm ci
+      - run: npm ci
 
       - name: Version sync check
         run: npm run version:check
@@ -40,14 +35,58 @@ jobs:
       - name: Format check
         run: npm run format:check
 
-      - name: Build TypeScript
-        run: npm run build
+  test:
+    runs-on: ubuntu-latest
+    needs: checks
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['20', '22']
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Unit tests
-        run: npm test
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - run: |
+          node --version
+          npm ci
+          npm run build
+          npm test
+
+  regression:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
 
       - name: Regression tests
         run: npm run test:regression
+
+  integration:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
 
       - name: Integration tests
         run: npm run test:integration

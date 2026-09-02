@@ -8,11 +8,12 @@ import {
   prepareImageUrl,
   isBlockedIPv4,
   assertUrlSafeForFetch,
+  sniffImageMime,
 } from '../tool-handlers/image-utils.js';
 import { UnsafeOutputPathError } from '../tool-handlers/path-safety.js';
 import { withInputSandbox } from './helpers/input-sandbox.js';
-import path from 'path';
-import { writeFileSync } from 'fs';
+import path from 'node:path';
+import { writeFileSync } from 'node:fs';
 
 describe('getMimeType', () => {
   it('should return correct MIME types', () => {
@@ -119,6 +120,17 @@ describe('fetchImageWithMime', () => {
     await withInputSandbox('mcp-fetch-mime-', async () => {
       await expect(fetchImageWithMime('/etc/passwd')).rejects.toBeInstanceOf(UnsafeOutputPathError);
     });
+  });
+});
+
+describe('sniffImageMime', () => {
+  it('returns null for empty or truncated buffers', () => {
+    expect(sniffImageMime(Buffer.alloc(0))).toBeNull();
+    expect(sniffImageMime(Buffer.from([0x89, 0x50]))).toBeNull();
+  });
+
+  it('detects PNG from four-byte signature', () => {
+    expect(sniffImageMime(Buffer.from([0x89, 0x50, 0x4e, 0x47]))).toBe('image/png');
   });
 });
 

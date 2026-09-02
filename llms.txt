@@ -1,60 +1,67 @@
-# @stabgan/openrouter-mcp-multimodal
+# @stabgan/openrouter-mcp-multimodal (v4.7.0)
 
-> MCP (Model Context Protocol) server that gives any MCP client — Claude Desktop, Cursor, Kiro, VS Code, Windsurf, Cline — access to 300+ LLMs through OpenRouter. Covers text chat plus the full multimodal matrix: image / audio / video analysis and image / audio / video generation (Veo 3.1, Sora 2 Pro, Seedance, Wan).
+> MCP server — 19 tools, 300+ OpenRouter models. Text chat, vision/audio/video analysis, image/audio/video generation, model catalog, rerank, health check. Node.js 20+ (Docker uses Node 22).
 
-## Install methods
+Get a free API key: https://openrouter.ai/keys
 
-| Method | Command / package |
+## Install
+
+| Method | Command |
 | :--- | :--- |
-| **npx** (Node, recommended) | `npx -y @stabgan/openrouter-mcp-multimodal` |
-| **uvx** (Python launcher → npx; needs Node too) | `uvx mcp-server-openrouter-multimodal` |
-| **npm global** | `npm i -g @stabgan/openrouter-mcp-multimodal` → `openrouter-multimodal` |
-| **Docker Hub** | `docker run --rm -i -e OPENROUTER_API_KEY=... stabgan/openrouter-mcp-multimodal:latest` |
-| **GHCR** | `docker run --rm -i -e OPENROUTER_API_KEY=... ghcr.io/stabgan/openrouter-mcp-multimodal:latest` |
-| **Smithery** | `npx -y @smithery/cli install @stabgan/openrouter-mcp-multimodal --client claude` |
-| **MCP Registry** | `io.github.stabgan/openrouter-multimodal` — npm + OCI |
-| **Claude Code CLI** | `claude mcp add openrouter -- npx -y @stabgan/openrouter-mcp-multimodal` |
-| **MCP Inspector** | `npx -y @modelcontextprotocol/inspector npx -y @stabgan/openrouter-mcp-multimodal` |
-| **Windows** | `"command": "cmd", "args": ["/c", "npx", "-y", "@stabgan/openrouter-mcp-multimodal"]` |
+| npx | `npx -y @stabgan/openrouter-mcp-multimodal` (pin: `@4.7.0`) |
+| uvx | `uvx mcp-server-openrouter-multimodal` (needs Node 20+; pin: `OPENROUTER_MCP_NPM_VERSION=4.7.0`) |
+| Docker | `docker run --rm -i -e OPENROUTER_API_KEY=... stabgan/openrouter-mcp-multimodal:4.7.0` |
+| GHCR | `ghcr.io/stabgan/openrouter-mcp-multimodal:4.7.0` |
 
-Get a free API key at https://openrouter.ai/keys.
+Full matrix: https://github.com/stabgan/openrouter-mcp-multimodal#install
 
-Full install matrix: https://github.com/stabgan/openrouter-mcp-multimodal#install
+Required env: `OPENROUTER_API_KEY`. Optional sandboxes: `OPENROUTER_INPUT_DIR`, `OPENROUTER_OUTPUT_DIR`.
 
-## Tools
+## Tools (19)
 
-- `chat_completion` — send messages to any OpenRouter model
-- `analyze_image` — vision analysis of local files, URLs, or data URIs (sharp-optimized)
-- `analyze_audio` — transcribe / analyze audio (WAV, MP3, FLAC, OGG, …)
-- `analyze_video` — analyze video (mp4, mpeg, mov, webm)
-- `generate_image` — text-to-image with `aspect_ratio` (14 values), `image_size` (0.5K–4K), `max_tokens`
-- `generate_audio` — text-to-speech / conversational audio / music generation
-- `generate_video` — async text-to-video (Veo 3.1, Sora 2 Pro, Seedance, Wan)
-- `get_video_status` — resume a video-generation job by id
-- `search_models` — filter OpenRouter models by name, provider, or modality
-- `get_model_info` — pricing / context length / capabilities for any model
-- `validate_model` — check if a model id exists
-- `rerank_documents` — rerank candidate documents against a query via OpenRouter's `/rerank` endpoint (Cohere, Fireworks)
-- `generate_video_from_image` — narrower image-to-video wrapper around `generate_video` (Veo 3.1, Sora 2 Pro, Seedance, Wan)
-- `health_check` — verify API-key validity, OpenRouter reachability, and return server + protocol versions
+- `chat_completion` — sync chat, web search, provider routing, caching, reasoning
+- `start_chat_completion` — async background chat job
+- `get_chat_completion_status` — poll async chat by `job_id`
+- `analyze_image` — vision Q&A (`image_path`, optional `question`)
+- `analyze_audio` — transcribe / analyze audio
+- `analyze_video` — video Q&A
+- `generate_image` — text-to-image via chat completions (+ reference images)
+- `generate_image_dedicated` — text-to-image via `/api/v1/images`
+- `generate_audio` — TTS / music via chat completions
+- `text_to_speech` — dedicated TTS API (voices, speed, format)
+- `speech_to_text` — dedicated STT API (Whisper, GPT-4o transcribe)
+- `generate_video` — async text-to-video
+- `generate_video_from_image` — image-to-video
+- `get_video_status` — poll / resume video jobs
+- `search_models` — paginated catalog search
+- `get_model_info` — pricing, context, modalities
+- `validate_model` — cheap model ID check
+- `rerank_documents` — OpenRouter `/rerank`
+- `health_check` — API key + reachability probe
 
-All error responses carry `_meta.code` from a closed taxonomy: `INVALID_INPUT`, `UNSAFE_PATH`, `UPSTREAM_HTTP`, `UPSTREAM_TIMEOUT`, `UPSTREAM_REFUSED`, `UNSUPPORTED_FORMAT`, `RESOURCE_TOO_LARGE`, `ZDR_INCOMPATIBLE`, `MODEL_NOT_FOUND`, `JOB_FAILED`, `JOB_STILL_RUNNING`, `INTERNAL`.
+Errors: `_meta.code` — `INVALID_INPUT`, `UNSAFE_PATH`, `UPSTREAM_HTTP`, `UPSTREAM_TIMEOUT`, `MODEL_NOT_FOUND`, `JOB_STILL_RUNNING`, etc.
+
+## Binary tool results (v4.7.0+)
+
+Generate tools with optional `save_path`:
+
+- **`save_path` set** → text pointer + `_meta.save_path` only (no inline media)
+- **no `save_path`, under ceiling** → inline media (video uses MCP `resource` blocks)
+- **no `save_path`, over ceiling** → text hint to use `save_path`
+
+Inline defaults: image/audio 1 MiB, video 10 MiB. Env: `OPENROUTER_INLINE_MAX_BYTES`, `OPENROUTER_IMAGE_INLINE_MAX_BYTES`, `OPENROUTER_AUDIO_INLINE_MAX_BYTES`, `OPENROUTER_VIDEO_INLINE_MAX_BYTES`.
 
 ## Security
 
-- IPv4 + IPv6 SSRF blocklist (loopback, private, mapped, compat, multicast, 6to4, Teredo, ORCHID)
-- Output path sandbox for `save_path`, overridable with `OPENROUTER_ALLOW_UNSAFE_PATHS=1`
-- Retry-After-aware HTTP retries with jitter
-- MCP 2025 tool annotations (`readOnlyHint` / `destructiveHint` / `idempotentHint`)
+- Input/output path sandboxes (`OPENROUTER_INPUT_DIR`, `OPENROUTER_OUTPUT_DIR`); bypass `OPENROUTER_ALLOW_UNSAFE_PATHS=1`
+- SSRF blocklist on URL fetches
+- Async `job_id` disk reads sandboxed (4.7.0)
+- Report issues: SECURITY.md (private disclosure)
 
 ## Links
 
-- Repository: https://github.com/stabgan/openrouter-mcp-multimodal
-- Issues: https://github.com/stabgan/openrouter-mcp-multimodal/issues
+- Repo: https://github.com/stabgan/openrouter-mcp-multimodal
 - Changelog: https://github.com/stabgan/openrouter-mcp-multimodal/blob/main/CHANGELOG.md
 - npm: https://www.npmjs.com/package/@stabgan/openrouter-mcp-multimodal
-- PyPI (uvx launcher): https://pypi.org/project/mcp-server-openrouter-multimodal/
-- Docker Hub: https://hub.docker.com/r/stabgan/openrouter-mcp-multimodal
-- GHCR: https://github.com/stabgan/openrouter-mcp-multimodal/pkgs/container/openrouter-mcp-multimodal
 - MCP Registry: https://registry.modelcontextprotocol.io/servers/io.github.stabgan/openrouter-multimodal
 - License: Apache-2.0

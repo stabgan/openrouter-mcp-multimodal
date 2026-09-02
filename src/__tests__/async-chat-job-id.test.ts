@@ -2,7 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { loadJobFromDisk } from '../tool-handlers/async-chat.js';
+import {
+  loadJobFromDisk,
+  generateJobId,
+  resetAsyncJobStateForTests,
+} from '../tool-handlers/async-chat.js';
 import { isValidJobId, resolveSafeJobStatusPath } from '../tool-handlers/path-safety.js';
 
 describe('async chat job_id sandbox', () => {
@@ -20,10 +24,21 @@ describe('async chat job_id sandbox', () => {
 
   it('isValidJobId rejects traversal segments', () => {
     expect(isValidJobId('chat_20250823120000_001')).toBe(true);
+    expect(isValidJobId('chat_20250823120000_1000')).toBe(true);
+    expect(isValidJobId('chat_20250823120000_1000_a1b2c3d4')).toBe(true);
     expect(isValidJobId('chat_disk_completed')).toBe(true);
     expect(isValidJobId('../etc/passwd')).toBe(false);
     expect(isValidJobId('chat_20250823120000_001/../../secret')).toBe(false);
     expect(isValidJobId('not-a-job')).toBe(false);
+  });
+
+  it('generateJobId produces unique ids across rapid calls', () => {
+    resetAsyncJobStateForTests();
+    const ids = new Set(Array.from({ length: 50 }, () => generateJobId()));
+    expect(ids.size).toBe(50);
+    for (const id of ids) {
+      expect(isValidJobId(id)).toBe(true);
+    }
   });
 
   it('loadJobFromDisk rejects malicious job_id before filesystem read', async () => {

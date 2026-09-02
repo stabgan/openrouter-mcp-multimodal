@@ -1,5 +1,9 @@
-/** Dedicated POST /api/v1/images — distinct from chat-completions `generate_image`. */
-import { promises as fs } from 'node:fs';
+import {
+  IMAGE_ASPECT_RATIOS,
+  IMAGE_DEDICATED_QUALITIES,
+  IMAGE_DEDICATED_RESOLUTIONS,
+  IMAGE_OUTPUT_FORMATS,
+} from '../tool-definitions.js';
 import type { OpenRouterAPIClient, ImageGenerationResponse } from '../openrouter-api.js';
 import {
   resolveOptionalOutputPath,
@@ -13,7 +17,8 @@ import { logger } from '../logger.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
 import { buildBinaryToolResult } from './tool-result-payload.js';
 import { fetchHttpResource, readEnvInt } from './fetch-utils.js';
-import { type CacheOptions, buildCacheHeaders } from './cache.js';
+import { type CacheOptions, buildCacheHeaders, validateCacheOptions } from './cache.js';
+import { writeOutputFile } from './path-utils.js';
 
 export interface GenerateImageDedicatedRequest extends CacheOptions {
   prompt: string;
@@ -29,10 +34,12 @@ export interface GenerateImageDedicatedRequest extends CacheOptions {
 }
 
 const DEFAULT_MODEL = 'google/gemini-2.5-flash-image';
+const MAX_IMAGES = 10;
 
-const VALID_RESOLUTIONS = new Set(['512', '0.5K', '1K', '2K', '4K']);
-const VALID_QUALITIES = new Set(['auto', 'low', 'medium', 'high']);
-const VALID_OUTPUT_FORMATS = new Set(['png', 'jpeg', 'webp', 'svg']);
+const VALID_ASPECT_RATIOS = new Set<string>(IMAGE_ASPECT_RATIOS);
+const VALID_RESOLUTIONS = new Set<string>(IMAGE_DEDICATED_RESOLUTIONS);
+const VALID_QUALITIES = new Set<string>(IMAGE_DEDICATED_QUALITIES);
+const VALID_OUTPUT_FORMATS = new Set<string>(IMAGE_OUTPUT_FORMATS);
 
 const MIME_BY_FORMAT: Record<string, string> = {
   png: 'image/png',
@@ -77,6 +84,12 @@ export async function handleGenerateImageDedicated(
     save_path: save_path ? 'provided' : 'none',
   });
 
+  if (aspect_ratio && !VALID_ASPECT_RATIOS.has(aspect_ratio)) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `aspect_ratio '${aspect_ratio}' is not supported. Valid: ${[...VALID_ASPECT_RATIOS].join(', ')}.`,
+    );
+  }
   if (resolution && !VALID_RESOLUTIONS.has(resolution)) {
     return toolError(
       ErrorCode.INVALID_INPUT,
@@ -95,6 +108,12 @@ export async function handleGenerateImageDedicated(
       `output_format '${output_format}' is not supported. Valid: ${[...VALID_OUTPUT_FORMATS].join(', ')}.`,
     );
   }
+  if (typeof n === 'number' && (n < 1 || n > MAX_IMAGES)) {
+    return toolError(ErrorCode.INVALID_INPUT, `n must be between 1 and ${MAX_IMAGES} (inclusive).`);
+  }
+
+  const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });
+  if (cacheError) return cacheError;
 
   const savePathResult = await resolveOptionalOutputPath(save_path);
   if (isToolErrorResult(savePathResult)) return savePathResult;
@@ -108,7 +127,7 @@ export async function handleGenerateImageDedicated(
   if (aspect_ratio) body.aspect_ratio = aspect_ratio;
   if (quality) body.quality = quality;
   if (output_format) body.output_format = output_format;
-  if (typeof n === 'number' && n > 0) body.n = n;
+  if (typeof n === 'number') body.n = n;
   if (provider && typeof provider === 'object') body.provider = provider;
 
   if (input_references?.length) {
@@ -138,37 +157,31 @@ export async function handleGenerateImageDedicated(
   }
 
   const firstImage = images[0]!;
-  const imageData = firstImage.b64_json;
   const mimeType = MIME_BY_FORMAT[output_format ?? ''] ?? 'image/png';
 
   const baseMeta: Record<string, unknown> = {
     server_version: SERVER_VERSION,
     model: model || DEFAULT_MODEL,
     images_count: images.length,
+    saved_image_index: 0,
   };
+  if (images.length > 1) {
+    baseMeta.images_note = 'Only images[0] is saved or inlined; request n=1 for a single image.';
+  }
   if (response.usage) baseMeta.usage = response.usage;
   if (firstImage.revised_prompt) baseMeta.revised_prompt = firstImage.revised_prompt;
 
-  if (safeSavePath) {
-    let buffer: Buffer | null = null;
-    if (imageData) {
-      try {
-        buffer = Buffer.from(imageData, 'base64');
-        if (buffer.length === 0) buffer = null;
-      } catch {
-        buffer = null;
-      }
-    }
+  const decoded = decodeImageBuffer(firstImage.b64_json);
 
-    if (buffer) {
+  if (safeSavePath) {
+    if (decoded) {
       try {
-        await fs.writeFile(safeSavePath, buffer);
+        await writeOutputFile(safeSavePath, decoded);
       } catch (err) {
         return toolErrorFrom(ErrorCode.INTERNAL, err, 'Write');
       }
-      baseMeta.save_path = safeSavePath;
       return buildBinaryToolResult(
-        { kind: 'image', buffer, mimeType },
+        { kind: 'image', buffer: decoded, mimeType },
         {
           savedPath: safeSavePath,
           summaryText: `Image saved to: ${safeSavePath}`,
@@ -185,9 +198,11 @@ export async function handleGenerateImageDedicated(
           maxRedirects: 3,
           timeoutMs: 30_000,
         });
+        if (fetched.length === 0) {
+          return toolError(ErrorCode.UPSTREAM_REFUSED, 'Downloaded image URL returned empty body.');
+        }
         const resolvedMime = contentType?.split(';')[0]?.trim() || mimeType;
-        await fs.writeFile(safeSavePath, fetched);
-        baseMeta.save_path = safeSavePath;
+        await writeOutputFile(safeSavePath, fetched);
         return buildBinaryToolResult(
           { kind: 'image', buffer: fetched, mimeType: resolvedMime },
           {
@@ -207,15 +222,29 @@ export async function handleGenerateImageDedicated(
     );
   }
 
-  if (imageData) {
+  if (decoded) {
     return buildBinaryToolResult(
-      { kind: 'image', buffer: Buffer.from(imageData, 'base64'), mimeType },
+      { kind: 'image', buffer: decoded, mimeType },
       { inlineOnly: true, meta: baseMeta },
     );
   }
 
-  return {
-    content: [{ type: 'text' as const, text: `Image generated. URL: ${firstImage.url}` }],
-    _meta: { ...baseMeta, image_url: firstImage.url },
-  };
+  if (firstImage.url) {
+    return {
+      content: [{ type: 'text' as const, text: `Image generated. URL: ${firstImage.url}` }],
+      _meta: { ...baseMeta, image_url: firstImage.url },
+    };
+  }
+
+  return toolError(ErrorCode.UPSTREAM_REFUSED, 'Model returned no usable image data.');
+}
+
+function decodeImageBuffer(b64?: string | null): Buffer | null {
+  if (!b64) return null;
+  try {
+    const buffer = Buffer.from(b64, 'base64');
+    return buffer.length > 0 ? buffer : null;
+  } catch {
+    return null;
+  }
 }

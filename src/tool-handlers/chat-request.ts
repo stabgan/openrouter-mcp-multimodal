@@ -1,5 +1,6 @@
 import type OpenAI from 'openai';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions.js';
+import { ErrorCode, toolError, type ToolErrorResult } from '../errors.js';
 import {
   type ProviderRoutingOptions,
   readProviderDefaults,
@@ -26,6 +27,41 @@ export interface ChatToolRequest extends CacheOptions {
 export function readIncludeReasoningDefault(): boolean {
   const raw = (process.env.OPENROUTER_INCLUDE_REASONING ?? '').trim().toLowerCase();
   return raw === '1' || raw === 'true' || raw === 'yes';
+}
+
+export function validateChatMessages(
+  messages: ChatCompletionMessageParam[] | undefined,
+): ToolErrorResult | null {
+  if (!messages?.length) {
+    return toolError(ErrorCode.INVALID_INPUT, 'Messages array cannot be empty.');
+  }
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i]!;
+    const role = (msg as { role?: string }).role;
+    if (typeof role !== 'string' || role.trim().length === 0) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `Message at index ${i} has an empty or missing role.`,
+      );
+    }
+    if ('content' in msg && msg.content === null) {
+      return toolError(ErrorCode.INVALID_INPUT, `Message at index ${i} has null content.`);
+    }
+  }
+  return null;
+}
+
+export function validateMaxTokens(max_tokens: number | undefined): ToolErrorResult | null {
+  if (max_tokens === undefined) return null;
+  if (
+    typeof max_tokens !== 'number' ||
+    !Number.isFinite(max_tokens) ||
+    max_tokens <= 0 ||
+    !Number.isInteger(max_tokens)
+  ) {
+    return toolError(ErrorCode.INVALID_INPUT, 'max_tokens must be a positive integer.');
+  }
+  return null;
 }
 
 export function buildChatCompletionBody(

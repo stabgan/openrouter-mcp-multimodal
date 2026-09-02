@@ -41,6 +41,25 @@ function isUnsafeMode(): boolean {
   return v === '1' || v?.toLowerCase() === 'true';
 }
 
+function pathHasNullByte(p: string): boolean {
+  return p.includes('\0');
+}
+
+function withRootSep(rootReal: string): string {
+  return rootReal.endsWith(path.sep) ? rootReal : rootReal + path.sep;
+}
+
+/** Prefix check; case-insensitive on Windows (drive letter / path casing). */
+function isInsideRoot(resolved: string, rootReal: string): boolean {
+  const withSep = withRootSep(rootReal);
+  if (process.platform === 'win32') {
+    const lower = resolved.toLowerCase();
+    const rootLower = rootReal.toLowerCase();
+    return lower === rootLower || lower.startsWith(withRootSep(rootLower));
+  }
+  return resolved === rootReal || resolved.startsWith(withSep);
+}
+
 export class UnsafeOutputPathError extends Error {
   constructor(message: string) {
     super(message);
@@ -59,21 +78,24 @@ export async function resolveSafeOutputPath(savePath: string): Promise<string> {
     return abs;
   }
 
+  if (pathHasNullByte(savePath)) {
+    throw new UnsafeOutputPathError('save_path contains a null byte');
+  }
+
   const root = getOutputRoot();
   const rootReal = await fs.realpath(root).catch(() => path.resolve(root));
   const candidate = path.isAbsolute(savePath)
     ? path.resolve(savePath)
     : path.resolve(rootReal, savePath);
 
-  const withSep = rootReal.endsWith(path.sep) ? rootReal : rootReal + path.sep;
   const candidateDir = path.dirname(candidate);
 
   const existingAncestor = await findExistingAncestor(candidateDir);
   const ancestorReal = await fs.realpath(existingAncestor);
 
-  if (!(ancestorReal === rootReal || ancestorReal.startsWith(withSep))) {
+  if (!isInsideRoot(ancestorReal, rootReal)) {
     throw new UnsafeOutputPathError(
-      `save_path resolves outside OPENROUTER_OUTPUT_DIR (${rootReal}). ` +
+      `save_path resolves outside OPENROUTER_OUTPUT_DIR. ` +
         `Set OPENROUTER_OUTPUT_DIR to a wider root or OPENROUTER_ALLOW_UNSAFE_PATHS=1 to disable this check.`,
     );
   }
@@ -81,9 +103,10 @@ export async function resolveSafeOutputPath(savePath: string): Promise<string> {
   await fs.mkdir(candidateDir, { recursive: true });
 
   const parentReal = await fs.realpath(candidateDir);
-  if (!(parentReal === rootReal || parentReal.startsWith(withSep))) {
+  if (!isInsideRoot(parentReal, rootReal)) {
     throw new UnsafeOutputPathError(
-      `save_path escapes OPENROUTER_OUTPUT_DIR via symlink (${rootReal}).`,
+      'save_path escapes OPENROUTER_OUTPUT_DIR via symlink. ' +
+        'Set OPENROUTER_OUTPUT_DIR to a wider root or OPENROUTER_ALLOW_UNSAFE_PATHS=1 to disable this check.',
     );
   }
 
@@ -131,28 +154,45 @@ export async function resolveSafeInputPath(inputPath: string): Promise<string> {
     return path.resolve(inputPath);
   }
 
+  if (pathHasNullByte(inputPath)) {
+    throw new UnsafeOutputPathError('input path contains a null byte');
+  }
+
   const root = getInputRoot();
   const rootReal = await fs.realpath(root).catch(() => path.resolve(root));
-  const withSep = rootReal.endsWith(path.sep) ? rootReal : rootReal + path.sep;
 
   const abs = path.isAbsolute(inputPath)
     ? path.resolve(inputPath)
     : path.resolve(rootReal, inputPath);
 
-  let canonical: string;
-  try {
-    canonical = await fs.realpath(abs);
-  } catch {
-    canonical = abs;
-  }
-
-  if (!(canonical === rootReal || canonical.startsWith(withSep))) {
+  const existingAncestor = await findExistingAncestor(abs);
+  const ancestorReal = await fs.realpath(existingAncestor);
+  if (!isInsideRoot(ancestorReal, rootReal)) {
     throw new UnsafeOutputPathError(
-      `input path resolves outside OPENROUTER_INPUT_DIR (${rootReal}): ${inputPath}`,
+      `input path resolves outside OPENROUTER_INPUT_DIR: ${inputPath}. ` +
+        'Set OPENROUTER_INPUT_DIR to a wider root or OPENROUTER_ALLOW_UNSAFE_PATHS=1 to disable this check.',
     );
   }
 
-  return abs;
+  try {
+    const canonical = await fs.realpath(abs);
+    if (!isInsideRoot(canonical, rootReal)) {
+      throw new UnsafeOutputPathError(
+        `input path resolves outside OPENROUTER_INPUT_DIR: ${inputPath}. ` +
+          'Set OPENROUTER_INPUT_DIR to a wider root or OPENROUTER_ALLOW_UNSAFE_PATHS=1 to disable this check.',
+      );
+    }
+    return canonical;
+  } catch (err) {
+    if (err instanceof UnsafeOutputPathError) throw err;
+    if (!isInsideRoot(abs, rootReal)) {
+      throw new UnsafeOutputPathError(
+        `input path resolves outside OPENROUTER_INPUT_DIR: ${inputPath}. ` +
+          'Set OPENROUTER_INPUT_DIR to a wider root or OPENROUTER_ALLOW_UNSAFE_PATHS=1 to disable this check.',
+      );
+    }
+    return abs;
+  }
 }
 
 export type OptionalOutputPath = { path: string | null };
@@ -195,17 +235,16 @@ export async function resolveSafeJobStatusPath(
   if (!isValidJobId(jobId)) return null;
 
   const rootReal = await fs.realpath(jobsDir).catch(() => path.resolve(jobsDir));
-  const withSep = rootReal.endsWith(path.sep) ? rootReal : rootReal + path.sep;
   const jobDirCandidate = path.resolve(jobsDir, jobId);
 
   let jobDirReal: string;
   try {
     jobDirReal = await fs.realpath(jobDirCandidate);
   } catch {
-    if (!(jobDirCandidate === rootReal || jobDirCandidate.startsWith(withSep))) return null;
+    if (!isInsideRoot(jobDirCandidate, rootReal)) return null;
     return path.join(jobDirCandidate, 'status.json');
   }
 
-  if (!(jobDirReal === rootReal || jobDirReal.startsWith(withSep))) return null;
+  if (!isInsideRoot(jobDirReal, rootReal)) return null;
   return path.join(jobDirReal, 'status.json');
 }

@@ -15,6 +15,7 @@ import 'dotenv/config';
 import { spawn } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 
@@ -324,9 +325,7 @@ try {
   });
 
   await run('analyze_image', async () => {
-    // Use the repo's checked-in test.png. Avoid reasoning models (Nemotron VL
-    // on the free tier will exhaust max_tokens on CoT and return empty).
-    const file = path.resolve('test.png');
+    const file = fileURLToPath(new URL('../src/__tests__/fixtures/test.png', import.meta.url));
     await fs.access(file);
     const r = await callTool(
       client,

@@ -27,6 +27,6 @@ export async function handleValidateModel(
     return toolError(ErrorCode.INTERNAL, 'No model data available.');
   }
 
-  const valid = modelCache.has(model);
+  const valid = modelCache.catalogHas(model);
   return buildStructuredResult({ valid, model });
 }

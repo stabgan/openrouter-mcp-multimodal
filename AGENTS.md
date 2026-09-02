@@ -66,6 +66,7 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 | Tests | `src/__tests__/` |
 | Python uvx launcher | `python/mcp_server_openrouter_multimodal/` |
 | MCP registry manifest | `server.json` |
+| Security policy | `SECURITY.md` |
 | Smoke tests | `scripts/smoke-*.mjs` |
 | CI | `.github/workflows/ci.yml` |
 | Publish | `.github/workflows/publish.yml` |

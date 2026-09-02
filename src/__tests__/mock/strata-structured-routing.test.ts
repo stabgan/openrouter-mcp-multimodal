@@ -78,6 +78,12 @@ describe('mock strata: cache header matrix', () => {
   ] as const)('buildCacheHeaders handles options %#', (opts) => {
     const headers = buildCacheHeaders(opts);
     expect(typeof headers).toBe('object');
+    if ('cache_ttl' in opts && opts.cache_ttl === '1h') {
+      expect(headers['X-OpenRouter-Cache-TTL']).toBe('3600');
+    }
+    if ('cache_ttl' in opts && opts.cache_ttl === '30m') {
+      expect(headers['X-OpenRouter-Cache-TTL']).toBe('1800');
+    }
   });
 });
 

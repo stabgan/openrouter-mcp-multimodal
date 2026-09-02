@@ -31,6 +31,7 @@
   <a href="#tools">Tools</a> ·
   <a href="#examples">Examples</a> ·
   <a href="#security">Security</a> ·
+  <a href="#troubleshooting">Troubleshooting</a> ·
   <a href="#development">Development</a> ·
   <a href="#releasing">Releasing</a> ·
   <a href="#faq">FAQ</a>
@@ -52,7 +53,7 @@ Unlike text-only MCP servers, one install covers the **full multimodal surface**
 | **Video**   | `analyze_video`, `generate_video`, `generate_video_from_image`, `get_video_status`      | Clip understanding, Veo 3.1 / Seedance 2.0 / Wan 2.7 generation with progress notifications                                                                                       |
 | **Catalog** | `search_models`, `get_model_info`, `validate_model`, `rerank_documents`, `health_check` | Model discovery, validation, reranking, ops health                                                                                                                                |
 
-**Production hardening:** input/output path sandboxes (including analyze\_\* local files as of v4.5.2), SSRF guards, structured errors with `_meta.code`, MCP 2025-06-18 structured outputs, tool icons (2025-11-25), async video progress notifications, and **770+** automated tests (unit, mock, regression, and live integration).
+**Production hardening:** input/output path sandboxes (including analyze\_\* local files as of v4.5.2), SSRF guards, structured errors with `_meta.code`, MCP 2025-06-18 structured outputs, tool icons (2025-11-25), async video progress notifications, and **1000+** automated tests (unit, mock, regression, and live integration).
 
 ## Quick start
 
@@ -65,7 +66,16 @@ export OPENROUTER_API_KEY=sk-or-v1-...
 npx -y @stabgan/openrouter-mcp-multimodal
 ```
 
-**3. Add to your MCP client** (Cursor, Claude Desktop, VS Code, etc.) — see [Install](#install) below.
+**3. Add to your MCP client** — copy one JSON block from [Install](#install) into your client config:
+
+| Client             | Config location                                                                                                                   |
+| :----------------- | :-------------------------------------------------------------------------------------------------------------------------------- |
+| **Cursor**         | Project: `.cursor/mcp.json` · User: Cursor Settings → MCP                                                                         |
+| **Claude Desktop** | macOS: `~/Library/Application Support/Claude/claude_desktop_config.json` · Windows: `%APPDATA%\Claude\claude_desktop_config.json` |
+| **VS Code**        | `.vscode/mcp.json` (workspace) or User Settings → MCP                                                                             |
+| **Windsurf**       | Windsurf Settings → MCP (same `mcpServers` JSON shape as Cursor)                                                                  |
+
+Use the `mcpServers` object from [Manual config](#manual-config) below.
 
 > **No credits required to start.** Free models such as `google/gemma-4-26b-a4b-it:free` work for chat and vision. Video/audio generation typically needs credits.
 
@@ -73,23 +83,23 @@ npx -y @stabgan/openrouter-mcp-multimodal
 
 MCP servers are distributed through several packaging models. **This server is implemented in Node.js/TypeScript**; the table below maps each ecosystem method to how you run it here.
 
-| Method                                       | Runtime                          | Best for                                                       | This server                                                                                            |
-| :------------------------------------------- | :------------------------------- | :------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------- |
-| **[npx](#npx-recommended)**                  | Node.js 20+                      | Most MCP clients (default)                                     | ✅ `@stabgan/openrouter-mcp-multimodal`                                                                |
-| **[uvx / pipx](#uvx--pipx-python-launcher)** | Python 3.10+ **and** Node.js 20+ | Python-first workflows, same pattern as PyPI MCP servers       | ✅ [`mcp-server-openrouter-multimodal`](https://pypi.org/project/mcp-server-openrouter-multimodal/)    |
-| **[npm global](#npm-global)**                | Node.js 20+                      | Pin a version without re-downloading                           | ✅                                                                                                     |
-| **[node (local)](#node-local-clone)**        | Node.js 20+                      | Contributors / air-gapped builds                               | ✅                                                                                                     |
-| **[Docker Hub](#docker)**                    | Docker                           | Isolation, no Node on host                                     | ✅ `stabgan/openrouter-mcp-multimodal`                                                                 |
-| **[GHCR](#ghcr-github-container-registry)**  | Docker                           | GitHub-native OCI pulls                                        | ✅ `ghcr.io/stabgan/openrouter-mcp-multimodal`                                                         |
-| **[Smithery CLI](#smithery)**                | Node.js (via installer)          | Interactive install into Claude/Cursor/etc.                    | ✅                                                                                                     |
-| **[MCP Registry](#mcp-registry)**            | npm or OCI                       | Official discovery (`io.github.stabgan/openrouter-multimodal`) | ✅ [listing](https://registry.modelcontextprotocol.io/servers/io.github.stabgan/openrouter-multimodal) |
-| **[One-click deeplinks](#one-click)**        | Node.js                          | Cursor, VS Code, Kiro                                          | ✅                                                                                                     |
-| **[Claude Code CLI](#claude-code-cli)**      | Node.js                          | Terminal-first Claude Code users                               | ✅                                                                                                     |
-| **[MCP Inspector](#mcp-inspector)**          | Node.js                          | Debug / list tools locally                                     | ✅                                                                                                     |
-| **Windows `cmd /c npx`**                     | Node.js                          | Claude Desktop / Cursor when `npx` not on GUI PATH             | ✅ [see below](#windows-npx)                                                                           |
-| pip / uv (direct)                            | —                                | Native Python MCP servers only                                 | — use **uvx** row above                                                                                |
-| DXT desktop extensions                       | —                                | Bundled Claude Desktop `.dxt`                                  | not yet                                                                                                |
-| Remote HTTP / SSE                            | —                                | Hosted Smithery / Cloudflare endpoints                         | via [Smithery](https://smithery.ai/server/@stabgan/openrouter-mcp-multimodal)                          |
+| Method                                  | Runtime                          | Best for                                                       | This server                                                                                            |
+| :-------------------------------------- | :------------------------------- | :------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------- |
+| **[npx](#manual-config)**               | Node.js 20+                      | Most MCP clients (default)                                     | ✅ `@stabgan/openrouter-mcp-multimodal`                                                                |
+| **[uvx / pipx](#manual-config)**        | Python 3.10+ **and** Node.js 20+ | Python-first workflows, same pattern as PyPI MCP servers       | ✅ [`mcp-server-openrouter-multimodal`](https://pypi.org/project/mcp-server-openrouter-multimodal/)    |
+| **[npm global](#manual-config)**        | Node.js 20+                      | Pin a version without re-downloading                           | ✅                                                                                                     |
+| **[node (local)](#manual-config)**      | Node.js 20+                      | Contributors / air-gapped builds                               | ✅                                                                                                     |
+| **[Docker Hub](#manual-config)**        | Docker                           | Isolation, no Node on host                                     | ✅ `stabgan/openrouter-mcp-multimodal`                                                                 |
+| **[GHCR](#manual-config)**              | Docker                           | GitHub-native OCI pulls                                        | ✅ `ghcr.io/stabgan/openrouter-mcp-multimodal`                                                         |
+| **[Smithery CLI](#smithery)**           | Node.js (via installer)          | Interactive install into Claude/Cursor/etc.                    | ✅                                                                                                     |
+| **[MCP Registry](#mcp-registry)**       | npm or OCI                       | Official discovery (`io.github.stabgan/openrouter-multimodal`) | ✅ [listing](https://registry.modelcontextprotocol.io/servers/io.github.stabgan/openrouter-multimodal) |
+| **[One-click deeplinks](#one-click)**   | Node.js                          | Cursor, VS Code, Kiro                                          | ✅                                                                                                     |
+| **[Claude Code CLI](#claude-code-cli)** | Node.js                          | Terminal-first Claude Code users                               | ✅                                                                                                     |
+| **[MCP Inspector](#mcp-inspector)**     | Node.js                          | Debug / list tools locally                                     | ✅                                                                                                     |
+| **Windows `cmd /c npx`**                | Node.js                          | Claude Desktop / Cursor when `npx` not on GUI PATH             | ✅ [see below](#windows-npx)                                                                           |
+| pip / uv (direct)                       | —                                | Native Python MCP servers only                                 | — use **uvx** row above                                                                                |
+| DXT desktop extensions                  | —                                | Bundled Claude Desktop `.dxt`                                  | not yet                                                                                                |
+| Remote HTTP / SSE                       | —                                | Hosted Smithery / Cloudflare endpoints                         | via [Smithery](https://smithery.ai/server/@stabgan/openrouter-mcp-multimodal)                          |
 
 > **uvx vs npx:** In the MCP ecosystem, **`npx` runs npm (Node) packages** and **`uvx` runs PyPI (Python) packages**. Because this server is Node-based, `uvx` uses a thin [Python launcher](./python/) that execs `npx -y @stabgan/openrouter-mcp-multimodal` — you still need Node installed.
 
@@ -130,7 +140,7 @@ npx -y @stabgan/openrouter-mcp-multimodal
 }
 ```
 
-Pin a release: `"args": ["-y", "@stabgan/openrouter-mcp-multimodal@4.7.0"]`
+Pin a release: `"args": ["-y", "@stabgan/openrouter-mcp-multimodal@4.8.0"]`
 
 </details>
 
@@ -142,7 +152,7 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/) (includes 
 ```bash
 export OPENROUTER_API_KEY=sk-or-v1-...
 uvx mcp-server-openrouter-multimodal
-# pin npm version: OPENROUTER_MCP_NPM_VERSION=4.7.0 uvx mcp-server-openrouter-multimodal
+# pin npm version: OPENROUTER_MCP_NPM_VERSION=4.8.0 uvx mcp-server-openrouter-multimodal
 ```
 
 ```json
@@ -161,7 +171,7 @@ uvx mcp-server-openrouter-multimodal
 
 **pipx equivalent:** `pipx run mcp-server-openrouter-multimodal`
 
-Optional: `OPENROUTER_MCP_NPM_VERSION=4.7.0` pins the underlying npm package.
+Optional: `OPENROUTER_MCP_NPM_VERSION=4.8.0` pins the underlying npm package.
 
 </details>
 
@@ -242,7 +252,7 @@ Use `-i` (interactive stdio). Avoid `-t` (TTY corrupts MCP framing on some hosts
 
 ```bash
 docker run --rm -i -e OPENROUTER_API_KEY=sk-or-v1-... \
-  ghcr.io/stabgan/openrouter-mcp-multimodal:4.7.0
+  ghcr.io/stabgan/openrouter-mcp-multimodal:4.8.0
 ```
 
 ```json
@@ -256,7 +266,7 @@ docker run --rm -i -e OPENROUTER_API_KEY=sk-or-v1-... \
         "-i",
         "-e",
         "OPENROUTER_API_KEY=sk-or-v1-...",
-        "ghcr.io/stabgan/openrouter-mcp-multimodal:latest"
+        "ghcr.io/stabgan/openrouter-mcp-multimodal:4.8.0"
       ]
     }
   }
@@ -379,6 +389,26 @@ If still failing, use the full path from `where npx` as the command.
 
 Errors use a closed `_meta.code` taxonomy: `INVALID_INPUT` · `UNSAFE_PATH` · `UPSTREAM_*` · `MODEL_NOT_FOUND` · `JOB_STILL_RUNNING` · and more.
 
+### Binary tool results (v4.7.0+)
+
+Generate tools (`generate_image`, `generate_image_dedicated`, `generate_audio`, `text_to_speech`, `generate_video`, `generate_video_from_image`, `get_video_status`) return image, audio, or video bytes. As of **4.7.0** the behavior is explicit:
+
+| `save_path`                   | Tool result                                                                                                                                                                      |
+| :---------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Set**                       | **Text pointer only** — e.g. `Image saved to: out.png (… bytes, image/png)` plus `_meta.save_path`. **No inline base64** (avoids duplicating large payloads in the MCP channel). |
+| **Unset, under byte ceiling** | Inline media block **and** summary text (images/audio use MCP `image` / `audio` types; video uses MCP `resource` blocks).                                                        |
+| **Unset, over ceiling**       | Text only with a hint to pass `save_path`.                                                                                                                                       |
+
+Default inline ceilings (override per kind or globally):
+
+| Kind  | Default | Env vars (precedence: per-kind → global)                            |
+| :---- | :------ | :------------------------------------------------------------------ |
+| Image | 1 MiB   | `OPENROUTER_IMAGE_INLINE_MAX_BYTES` → `OPENROUTER_INLINE_MAX_BYTES` |
+| Audio | 1 MiB   | `OPENROUTER_AUDIO_INLINE_MAX_BYTES` → `OPENROUTER_INLINE_MAX_BYTES` |
+| Video | 10 MiB  | `OPENROUTER_VIDEO_INLINE_MAX_BYTES` → `OPENROUTER_INLINE_MAX_BYTES` |
+
+If you previously relied on **both** a saved file **and** inline media in the same tool result, read the file from `_meta.save_path` (or omit `save_path` to get inline media when under the ceiling).
+
 ## Examples
 
 ### Chat (free model)
@@ -437,32 +467,40 @@ Errors use a closed `_meta.code` taxonomy: `INVALID_INPUT` · `UNSAFE_PATH` · `
 
 If the job is still running when `max_wait_ms` elapses, the response succeeds with `_meta.code: JOB_STILL_RUNNING` and a `video_id` — call `get_video_status` to resume. **This is not an error.**
 
+With `save_path` set (as above), the result is a **text pointer** to the saved file once complete — not inline video. See [Binary tool results](#binary-tool-results-v470).
+
 More examples: [docs/plans/tool-description-improvement.md](./docs/plans/tool-description-improvement.md)
 
 ## Security
 
-- **Input path sandbox** — `analyze_*` and reference images must stay inside `OPENROUTER_INPUT_DIR`
+- **Input path sandbox** — local paths on `analyze_*` and reference images must stay inside `OPENROUTER_INPUT_DIR` (falls back to `OPENROUTER_OUTPUT_DIR`, then `cwd`)
 - **Output path sandbox** — `save_path` must stay inside `OPENROUTER_OUTPUT_DIR`
+- **Async job reads** — `get_chat_completion_status` resolves disk paths only under `OPENROUTER_OUTPUT_DIR/openrouter-jobs/` (4.7.0+)
 - **SSRF protection** — private/reserved IPs blocked on URL fetches
 - **Untrusted content** — analyze outputs tagged `_meta.content_is_untrusted: true`
 
 Override sandboxes only with `OPENROUTER_ALLOW_UNSAFE_PATHS=1` (discouraged).
+
+Report vulnerabilities: **[SECURITY.md](./SECURITY.md)** (private disclosure — do not file public issues for exploits).
 
 ## Configuration
 
 <details>
 <summary><strong>Environment variables</strong></summary>
 
-| Variable                       | Required | Default                               | Description                          |
-| :----------------------------- | :------: | :------------------------------------ | :----------------------------------- |
-| `OPENROUTER_API_KEY`           | **Yes**  | —                                     | OpenRouter API key                   |
-| `OPENROUTER_DEFAULT_MODEL`     |    No    | `nvidia/nemotron-nano-12b-v2-vl:free` | Default when tools omit `model`      |
-| `OPENROUTER_INTEGRATION_MODEL` |    No    | `google/gemma-4-26b-a4b-it:free`      | Model used by live integration tests |
-| `OPENROUTER_OUTPUT_DIR`        |    No    | `cwd`                                 | Sandbox root for `save_path`         |
-| `OPENROUTER_INPUT_DIR`         |    No    | —                                     | Sandbox root for local input files   |
-| `OPENROUTER_LOG_LEVEL`         |    No    | `info`                                | `error` / `warn` / `info` / `debug`  |
+| Variable                            | Required | Default                               | Description                         |
+| :---------------------------------- | :------: | :------------------------------------ | :---------------------------------- |
+| `OPENROUTER_API_KEY`                | **Yes**  | —                                     | OpenRouter API key                  |
+| `OPENROUTER_DEFAULT_MODEL`          |    No    | `nvidia/nemotron-nano-12b-v2-vl:free` | Default when tools omit `model`     |
+| `OPENROUTER_OUTPUT_DIR`             |    No    | `cwd`                                 | Sandbox root for `save_path`        |
+| `OPENROUTER_INPUT_DIR`              |    No    | `OUTPUT_DIR` or `cwd`                 | Sandbox root for local input files  |
+| `OPENROUTER_INLINE_MAX_BYTES`       |    No    | `1048576` (image/audio)               | Global inline media ceiling         |
+| `OPENROUTER_IMAGE_INLINE_MAX_BYTES` |    No    | falls back to global                  | Per-kind inline ceiling             |
+| `OPENROUTER_AUDIO_INLINE_MAX_BYTES` |    No    | falls back to global                  | Per-kind inline ceiling             |
+| `OPENROUTER_VIDEO_INLINE_MAX_BYTES` |    No    | `10485760`                            | Video inline ceiling                |
+| `OPENROUTER_LOG_LEVEL`              |    No    | `info`                                | `error` / `warn` / `info` / `debug` |
 
-See [`.env.example`](./.env.example) for the full list (provider routing, image/audio/video limits, caching, video polling).
+See [`.env.example`](./.env.example) for the full list (provider routing, fetch limits, caching, video polling, async jobs, integration-test overrides).
 
 </details>
 
@@ -480,7 +518,7 @@ npm run build
 
 | Command                    | What it runs                                               |
 | :------------------------- | :--------------------------------------------------------- |
-| `npm test`                 | **773** unit + mock tests (no API key, &lt;20s)            |
+| `npm test`                 | **1018** unit + mock tests (no API key, &lt;20s)           |
 | `npm run test:regression`  | Security + schema regression guards                        |
 | `npm run test:integration` | **16** live OpenRouter scenarios (**requires** `.env` key) |
 | `npm run test:e2e`         | Full MCP stdio smoke (`scripts/live-e2e.mjs`)              |
@@ -509,6 +547,22 @@ Full checklist, file list, CI secrets, and agent instructions:
 - **[`docs/RELEASING.md`](docs/RELEASING.md)** — maintainer release guide
 - **[`AGENTS.md`](AGENTS.md)** — quick reference for AI agents
 
+## Troubleshooting
+
+| Symptom                                                     | Likely cause                             | Fix                                                                                                             |
+| :---------------------------------------------------------- | :--------------------------------------- | :-------------------------------------------------------------------------------------------------------------- |
+| Server exits immediately / `OPENROUTER_API_KEY is required` | Missing or empty API key                 | Set `OPENROUTER_API_KEY` in client `env` or shell — get one at [openrouter.ai/keys](https://openrouter.ai/keys) |
+| `_meta.code: INVALID_CREDENTIALS` or HTTP 401               | Bad or revoked key                       | Regenerate at [openrouter.ai/keys](https://openrouter.ai/keys); restart the MCP client                          |
+| `_meta.code: MODEL_NOT_FOUND`                               | Typo or retired model ID                 | Run `search_models` or `validate_model`; check [openrouter.ai/models](https://openrouter.ai/models)             |
+| HTTP 402 / insufficient credits                             | Paid model or generation on zero balance | Add credits at [openrouter.ai/credits](https://openrouter.ai/credits) or use a `:free` model                    |
+| `_meta.code: UPSTREAM_HTTP` with 429                        | Rate limit                               | Wait for `_meta.retry_after_seconds` if present; reduce concurrency                                             |
+| `_meta.code: UNSAFE_PATH`                                   | Local path outside sandbox               | Put files under `OPENROUTER_INPUT_DIR` or set `OPENROUTER_OUTPUT_DIR` wider; see [Security](#security)          |
+| `npx` not found (Windows GUI apps)                          | GUI `PATH` differs from terminal         | Use the [Windows npx](#windows-npx) `cmd /c` wrapper                                                            |
+| No inline image/audio after upgrade                         | **v4.7.0** with `save_path` set          | Expected — result is text + `_meta.save_path` only; omit `save_path` or read the saved file                     |
+| MCP client shows stale tool list                            | Client cache                             | Restart MCP / reload window after upgrading the package pin                                                     |
+
+Structured errors include `_meta.suggestions` with agent-oriented next steps when available.
+
 ## FAQ
 
 ### Do I need paid OpenRouter credits?
@@ -525,7 +579,7 @@ This server adds MCP tool schemas, security sandboxes, error taxonomy, model cac
 
 ### Where is the security advisory for path traversal?
 
-Fixed in 4.5.2+ — see [GHSA-3q7p-736f-x44v](https://github.com/stabgan/openrouter-mcp-multimodal/security/advisories/GHSA-3q7p-736f-x44v) and `docs/solutions/security-issues/`.
+Fixed in 4.5.2+ — see [GHSA-3q7p-736f-x44v](https://github.com/stabgan/openrouter-mcp-multimodal/security/advisories/GHSA-3q7p-736f-x44v), [`SECURITY.md`](./SECURITY.md), and `docs/solutions/security-issues/`.
 
 ## Compatibility
 

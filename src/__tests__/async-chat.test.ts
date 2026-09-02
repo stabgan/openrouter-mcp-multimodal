@@ -6,9 +6,12 @@ import {
   loadJobFromDisk,
   handleGetChatCompletionStatus,
   handleStartChatCompletion,
+  generateJobId,
+  resetAsyncJobStateForTests,
   type AsyncJob,
 } from '../tool-handlers/async-chat.js';
 import { ErrorCode } from '../errors.js';
+import { isValidJobId } from '../tool-handlers/path-safety.js';
 import OpenAI from 'openai';
 
 function mockOpenAI(
@@ -77,9 +80,26 @@ describe('loadJobFromDisk', () => {
 });
 
 describe('handleStartChatCompletion', () => {
+  beforeEach(() => resetAsyncJobStateForTests());
+
   it('rejects empty messages', async () => {
     const { openai, create } = mockOpenAI({});
     const r = await handleStartChatCompletion({ params: { arguments: { messages: [] } } }, openai);
+    expect(r.isError).toBe(true);
+    expect((r as { _meta: { code: string } })._meta.code).toBe(ErrorCode.INVALID_INPUT);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid max_tokens before starting a job', async () => {
+    const { openai, create } = mockOpenAI({});
+    const r = await handleStartChatCompletion(
+      {
+        params: {
+          arguments: { messages: [{ role: 'user', content: 'hi' }], max_tokens: -5 },
+        },
+      },
+      openai,
+    );
     expect(r.isError).toBe(true);
     expect((r as { _meta: { code: string } })._meta.code).toBe(ErrorCode.INVALID_INPUT);
     expect(create).not.toHaveBeenCalled();
@@ -107,6 +127,8 @@ describe('handleStartChatCompletion', () => {
 });
 
 describe('async chat in-memory lifecycle', () => {
+  beforeEach(() => resetAsyncJobStateForTests());
+
   it('completes job and returns text via status poll', async () => {
     const { openai } = mockOpenAI({
       choices: [{ message: { content: 'async result' }, finish_reason: 'stop' }],
@@ -308,5 +330,102 @@ describe('handleGetChatCompletionStatus disk fallback', () => {
       job_id: job.id,
       status: 'running',
     });
+  });
+
+  it('returns null for partial/corrupt status.json without throwing', async () => {
+    const jobDir = path.join(outputRoot, 'openrouter-jobs', 'chat_partial_json');
+    await fs.mkdir(jobDir, { recursive: true });
+    await fs.writeFile(path.join(jobDir, 'status.json'), '{"id":"chat_partial_json","status":');
+    await expect(loadJobFromDisk('chat_partial_json')).resolves.toBeNull();
+    await expect(
+      handleGetChatCompletionStatus({ params: { arguments: { job_id: 'chat_partial_json' } } }),
+    ).resolves.toMatchObject({ isError: true });
+  });
+});
+
+describe('generateJobId', () => {
+  beforeEach(() => resetAsyncJobStateForTests());
+
+  it('produces ids accepted by isValidJobId including counter past 999', () => {
+    const ids = new Set<string>();
+    for (let i = 0; i < 1005; i++) {
+      const id = generateJobId();
+      expect(isValidJobId(id)).toBe(true);
+      ids.add(id);
+    }
+    expect(ids.size).toBe(1005);
+  });
+});
+
+describe('async chat memory eviction', () => {
+  beforeEach(() => resetAsyncJobStateForTests());
+  afterEach(() => vi.unstubAllEnvs());
+
+  it('evicts oldest terminal jobs when OPENROUTER_ASYNC_JOBS_MEMORY_MAX is exceeded', async () => {
+    vi.stubEnv('OPENROUTER_ASYNC_JOBS_MEMORY_MAX', '3');
+    vi.stubEnv('OPENROUTER_OUTPUT_DIR', '');
+    const { openai } = mockOpenAI({
+      choices: [{ message: { content: 'done' }, finish_reason: 'stop' }],
+    });
+
+    const jobIds: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      const start = await handleStartChatCompletion(
+        { params: { arguments: { messages: [{ role: 'user', content: 'hi' }] } } },
+        openai,
+      );
+      jobIds.push((start as { _meta: { job_id: string } })._meta.job_id);
+    }
+
+    for (const jobId of jobIds.slice(1)) {
+      await vi.waitFor(
+        async () => {
+          const status = await handleGetChatCompletionStatus({
+            params: { arguments: { job_id: jobId } },
+          });
+          expect(status.isError).toBeUndefined();
+          expect((status as { content: Array<{ text: string }> }).content[0]!.text).toBe('done');
+        },
+        { timeout: 3000, interval: 20 },
+      );
+    }
+
+    const evicted = await handleGetChatCompletionStatus({
+      params: { arguments: { job_id: jobIds[0]! } },
+    });
+    expect(evicted.isError).toBe(true);
+    expect((evicted as { content: Array<{ text: string }> }).content[0]!.text).toContain(
+      'No job found',
+    );
+
+    const latest = await handleGetChatCompletionStatus({
+      params: { arguments: { job_id: jobIds[3]! } },
+    });
+    expect(latest.isError).toBeUndefined();
+  });
+
+  it('resolves completed jobs in memory even when persist fails', async () => {
+    vi.stubEnv('OPENROUTER_OUTPUT_DIR', '/definitely/not/writable/on/test/system');
+    const { openai } = mockOpenAI({
+      choices: [{ message: { content: 'memory only' }, finish_reason: 'stop' }],
+    });
+    const start = await handleStartChatCompletion(
+      { params: { arguments: { messages: [{ role: 'user', content: 'hi' }] } } },
+      openai,
+    );
+    const jobId = (start as { _meta: { job_id: string } })._meta.job_id;
+
+    await vi.waitFor(
+      async () => {
+        const status = await handleGetChatCompletionStatus({
+          params: { arguments: { job_id: jobId } },
+        });
+        expect(status.isError).toBeUndefined();
+        expect((status as { content: Array<{ text: string }> }).content[0]!.text).toBe(
+          'memory only',
+        );
+      },
+      { timeout: 3000, interval: 20 },
+    );
   });
 });

@@ -14,7 +14,12 @@ import {
   detectReasoningCutoff,
   buildCompletionMeta,
 } from './completion-utils.js';
-import { type CacheOptions, buildCacheHeaders, extractCacheMeta } from './cache.js';
+import {
+  type CacheOptions,
+  buildCacheHeaders,
+  extractCacheMeta,
+  validateCacheOptions,
+} from './cache.js';
 import { awaitCompletionWithHeaders } from './openai-withresponse.js';
 
 const FALLBACK_DEFAULT_MODEL = 'google/gemini-2.5-flash';
@@ -38,6 +43,9 @@ export async function handleAnalyzeVideo(
     return toolError(ErrorCode.INVALID_INPUT, 'video_path is required.');
   }
 
+  const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });
+  if (cacheError) return cacheError;
+
   const pickedModel =
     model || process.env.OPENROUTER_DEFAULT_VIDEO_MODEL || defaultModel || FALLBACK_DEFAULT_MODEL;
 
@@ -49,16 +57,17 @@ export async function handleAnalyzeVideo(
       return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
     }
     const msg = err instanceof Error ? err.message : String(err);
+    const detail = `video_path "${video_path}": ${msg}`;
     if (msg.includes('Blocked host')) {
-      return toolErrorFrom(ErrorCode.UPSTREAM_REFUSED, err);
+      return toolError(ErrorCode.UPSTREAM_REFUSED, detail);
     }
     if (msg.includes('too large')) {
-      return toolErrorFrom(ErrorCode.RESOURCE_TOO_LARGE, err);
+      return toolError(ErrorCode.RESOURCE_TOO_LARGE, detail);
     }
     if (msg.includes('Unsupported') || msg.includes('not a video')) {
-      return toolErrorFrom(ErrorCode.UNSUPPORTED_FORMAT, err);
+      return toolError(ErrorCode.UNSUPPORTED_FORMAT, detail);
     }
-    return toolErrorFrom(ErrorCode.INVALID_INPUT, err);
+    return toolError(ErrorCode.INVALID_INPUT, detail);
   }
 
   const videoBlock: Record<string, unknown> = {

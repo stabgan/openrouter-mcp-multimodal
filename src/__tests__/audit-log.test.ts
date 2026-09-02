@@ -50,6 +50,6 @@ describe('logger.audit', () => {
     const parsed = JSON.parse(writes[0]!);
     expect(parsed.level).toBe('audit');
     expect(parsed.msg).toBe('circular-case');
-    expect(parsed.ctx).toEqual({ note: 'unserializable' });
+    expect(parsed.ctx).toEqual({ self: { note: 'circular' } });
   });
 });

@@ -57,9 +57,15 @@ server.onerror = (error) => logFatal('mcpError', error);
 
 new ToolHandlers(server, apiKey, defaultModel);
 
-process.on('SIGINT', async () => {
+async function shutdown(): Promise<void> {
   await server.close();
   process.exit(0);
+}
+process.on('SIGINT', () => {
+  void shutdown();
+});
+process.on('SIGTERM', () => {
+  void shutdown();
 });
 
 // Stdin may arrive as strings on some MCP hosts; re-wrap as raw Buffers for the SDK.

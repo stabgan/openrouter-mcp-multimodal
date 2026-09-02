@@ -2,6 +2,58 @@
 
 All notable changes to `@stabgan/openrouter-mcp-multimodal` are recorded here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.8.0] — 2026-09-02
+
+Minor release: security hardening across outbound fetches and path sandbox, correctness fixes for audio/STT/caching/model lookup, and expanded validation and observability.
+
+### Security
+
+- **DNS-rebinding SSRF closed** — Outbound media fetches pin the socket to a pre-validated IP via `node:http`/`node:https` with a custom `lookup`, re-validating and re-pinning on every redirect hop; TLS SNI and certificate validation unchanged.
+- **Symlinked intermediate directory escape** — `resolveSafeInputPath` now resolves ancestor realpaths so a symlinked parent directory cannot bypass the input sandbox.
+- **Obfuscated IPv4 literals blocked** — Octal, decimal, and shorthand forms (e.g. `0177.0.0.1`, `2130706433`, `127.1`) are rejected before fetch.
+- **Path hardening** — Null bytes rejected in caller-supplied paths; path prefix comparison is case-insensitive on Windows.
+- **Credential redaction** — API keys are redacted from error messages, `health_check` output, and logs; the logger also guards against circular-reference crashes.
+- **Response body draining** — Redirect and error paths now drain response bodies, fixing a socket leak under load.
+- **Publish workflow hardened** — `publish.yml` jobs run only on version tags, the tag is verified against `package.json`, and an in-flight release can no longer be cancelled.
+
+### Fixed
+
+- **`analyze_audio` local file size limit** — Local sandbox files bypassed `OPENROUTER_AUDIO_MAX_DOWNLOAD_BYTES` while HTTP, data-URL, and `speech_to_text` paths enforced it; local inputs now stat-check before read and reject oversize files with `RESOURCE_TOO_LARGE`.
+- **`generate_audio` corrupt multi-chunk output** — Independently padded base64 chunks were concatenated before a single decode; each chunk is now decoded before concatenation (affected most non-trivial audio).
+- **`speech_to_text` text/srt/vtt failures** — Responses in `text`, `srt`, or `vtt` format were always parsed as JSON; plain-text formats are now handled correctly.
+- **`cache_ttl` duration strings ignored** — Values like `"5m"` and `"1h"` (the examples in the tool schema) were forwarded verbatim and never honored upstream; they are now normalized to integer seconds so response caching works when following the docs.
+- **`get_model_info` / `validate_model` routing suffixes** — Valid model ids with `:nitro`, `:floor`, `:free`, `:online`, or `:exacto` suffixes returned `MODEL_NOT_FOUND`; lookup is now suffix-aware and case-insensitive.
+- **`search_models` unstable pagination** — Pages could skip or repeat models because pagination used insertion order; results are now stably sorted.
+- **Auth and upstream error mapping** — Invalid or missing API keys returned `INVALID_INPUT` instead of `INVALID_CREDENTIALS`; upstream 404s map to `MODEL_NOT_FOUND`, HTTP-date `Retry-After` is honored, and a 200 response carrying an embedded error is no longer treated as success.
+- **Cancelled video jobs** — Cancelled jobs polled until timeout and reported as still running; they are now terminal. A throwing progress hook no longer aborts the poll loop.
+- **Empty upstream payloads** — Zero-byte and empty upstream payloads were reported as successful saves; file writes are now atomic (temp file plus rename) so a failure cannot leave a truncated file.
+- **`text_to_speech` wrong file extension** — The saved extension came from the requested format rather than actual bytes (e.g. `.mp3` containing WAV); the extension now comes from magic-byte detection and `_meta.save_path` reflects the final path.
+- **Async chat job ID collisions** — Job IDs used a restart-resettable counter and could overwrite a previous run's persisted job directory; they now include random entropy. Completed jobs are evicted from memory instead of accumulating forever.
+- **Unhandled rejections and shutdown** — Background completions and failed progress notifications no longer cause unhandled promise rejections; `SIGTERM` shuts down cleanly (Docker/Kubernetes); a throwing handler returns a tool error instead of a JSON-RPC internal error.
+- **`OPENROUTER_INLINE_MAX_BYTES` floor** — Explicit values below 4096 were silently ignored; explicit values are now respected and `0` means never inline.
+- **Tool-router type safety** — Removed an unsound cast at the tool-router boundary that masked a real type error; `tsc` now genuinely validates that path.
+- **Compressed responses** — `gzip`, `deflate`, and `br` responses are now decompressed; the size cap applies to decompressed bytes.
+- **Input validation gaps** — Closed gaps for `rerank_documents` out-of-range indices and non-positive `top_n`, `text_to_speech` `speed` outside 0.25–4.0, `generate_image_dedicated` `n` above 10 and unvalidated `aspect_ratio`, and empty or null chat message content.
+- **`analyze_image` / `analyze_video` cache validation order** — Invalid `cache_ttl` was validated after reading and decoding local media; validation now runs before expensive I/O, matching `analyze_audio`.
+- **`chat_completion` / `start_chat_completion` invalid `max_tokens`** — Present-but-invalid values (zero, negative, or non-finite) were silently replaced by the `OPENROUTER_MAX_TOKENS` default; they now return `INVALID_INPUT` while omitted `max_tokens` still falls back to the env default.
+- **Stale metadata** — `llms.txt` listed only 14 of 19 tools; `smithery.yaml` and the Python `__version__` had been stuck at 4.5.3; `python/README.md` pinned 4.5.3.
+
+### Added
+
+- **`INVALID_CREDENTIALS` error code** — Additive; clients switching on `_meta.code` should handle it alongside existing codes.
+- **New env vars** — `OPENROUTER_PROVIDER_ONLY`, `OPENROUTER_MAX_RESULT_TEXT_CHARS` (default 512000, `0` disables), and `OPENROUTER_ASYNC_JOBS_MEMORY_MAX` (default 200, `0` unlimited).
+- **Provider routing `only` field** — Restrict requests to an allowlist of provider slugs.
+- **`SECURITY.md`** — Security policy plus README troubleshooting, per-client config paths, and documentation of the binary-result policy.
+- **CI and version tooling** — CI tests Node 20 and 22; `server.json` declares path-sandbox and inline-byte settings; `version:check` covers the lockfile, release-please manifest, `smithery.yaml`, Python `__version__`, the CHANGELOG heading, and README pins.
+
+### Changed
+
+- **`cache_ttl` accepts duration strings** — `"30s"`, `"5m"`, `"1h"`, or integer seconds, validated to 1–86400.
+- **Result text cap** — Completion and rerank result text is capped by default; raise or disable via `OPENROUTER_MAX_RESULT_TEXT_CHARS`.
+- **Canonical enums from schemas** — Handlers import enums from `tool-definitions.ts` so advertised schemas and runtime validation cannot drift.
+
+**Upgrade notes:** Invalid or missing API keys now return **`INVALID_CREDENTIALS`** instead of **`INVALID_INPUT`** — update any client logic that keyed off the old code. Chat and rerank result text is **capped at 512000 characters by default**; set `OPENROUTER_MAX_RESULT_TEXT_CHARS=0` to disable or raise the limit. **`cache_ttl`** now rejects genuinely invalid values while **duration strings like `"5m"` and `"1h"` work as documented**.
+
 ## [4.7.0] — 2026-09-02
 
 Minor release: canonical MCP binary result policy, security hardening, and contract documentation.
@@ -27,6 +79,7 @@ Minor release: canonical MCP binary result policy, security hardening, and contr
 - **Inline byte ceilings** — Image/audio default to 1 MiB (`OPENROUTER_INLINE_MAX_BYTES` / per-kind env vars); video remains 10 MiB default. Documented in `.env.example` and tool JSON schemas.
 - **Inline video MCP shape** — Video payloads use spec-valid `resource` blocks (blob + mimeType) instead of non-standard `type: video`.
 - **Tool schema `save_path` descriptions** — Document text-only result policy and inline size limits.
+- **GitHub Releases** — Tag pushes create Release pages with notes extracted from this changelog (`scripts/changelog-section.mjs`).
 
 ## [4.6.2] — 2026-08-23
 

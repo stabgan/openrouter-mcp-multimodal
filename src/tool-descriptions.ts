@@ -75,8 +75,8 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
       'You already know the model id (or rely on the server default)',
     ],
     notWhen: [
-      'Input is an image/audio/video file → use analyze_image / analyze_audio / analyze_video',
-      'You need to create images, audio, or video → use generate_* tools',
+      'Input is a single image/audio/video file → use analyze_image / analyze_audio / analyze_video (dedicated wrappers)',
+      'You need to create images, audio, or video → use generate_* / text_to_speech tools',
       'You only need to check if a model exists → use validate_model',
     ],
     goodExamples: [
@@ -162,14 +162,14 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
       'The image is a local file under the input sandbox, a public https URL, or a data URL',
     ],
     notWhen: [
-      'You want to generate a new image → use generate_image',
+      'You want to generate a new image → use generate_image or generate_image_dedicated',
       'You need multi-file batch analysis in one call → not supported; call once per image',
-      'Pure text chat → use chat_completion with a vision-capable model instead (less ergonomic)',
+      'Multi-turn vision chat with several images → use chat_completion with a vision model (analyze_image is single-image only)',
     ],
     goodExamples: [
       '`{ "image_path": "diagram.png", "question": "List every label in this diagram." }`',
       '`{ "image_path": "https://example.com/photo.jpg", "question": "Describe the scene." }`',
-      '`{ "model": "google/gemini-2.5-flash", "image_path": "scan.jpg", "question": "Extract text" }`',
+      '`{ "image_path": "scan.jpg", "question": "Extract text", "model": "google/gemini-2.5-flash" }` (optional model override)',
     ],
     badExamples: [
       '`{ "url": "photo.jpg" }` → wrong key; use `image_path`',
@@ -194,9 +194,9 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
       'Format is a common audio container the decoder recognizes',
     ],
     notWhen: [
-      'You want text-to-speech → use generate_audio',
+      'You want text-to-speech → use text_to_speech (dedicated, faster) or generate_audio (chat route, music/SFX)',
+      'You want pure transcription without Q&A → use speech_to_text',
       'Input is video → use analyze_video (or extract audio first)',
-      'Pure text chat → use chat_completion',
     ],
     goodExamples: [
       '`{ "audio_path": "meeting.wav", "question": "Transcribe verbatim." }`',
@@ -328,13 +328,15 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
 
   generate_image: buildToolDescription({
     summary:
-      'Generate an image from a text prompt. Optional `input_images` condition style/identity. ' +
-      'Default model: google/gemini-2.5-flash-image.',
+      'Generate an image via chat completions (modalities route). Optional `input_images` for style/identity. ' +
+      'Default model: google/gemini-2.5-flash-image. Use generate_image_dedicated for resolution/quality/format control or newer Image API models.',
     useWhen: [
-      'You need a new image from a text prompt',
-      'You have reference images for style or subject consistency',
+      'You need a new image from a text prompt via the chat-completions route',
+      'You have reference images for style or subject consistency (`input_images`)',
+      'Simple text-to-image without dedicated API knobs',
     ],
     notWhen: [
+      'You need resolution tiers, quality, output_format, or Image API-only models → generate_image_dedicated',
       'You want to analyze an existing image → analyze_image',
       'You want video → generate_video or generate_video_from_image',
       'Prompt is empty or only whitespace',
@@ -369,6 +371,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
       'You need image-to-image with `input_references`',
     ],
     notWhen: [
+      'Simple text-to-image without format/resolution control → generate_image (fewer params)',
       'You want to analyze an existing image → analyze_image',
       'You want video → generate_video or generate_video_from_image',
       'Prompt is empty or only whitespace',
@@ -394,12 +397,17 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
 
   generate_audio: buildToolDescription({
     summary:
-      'Generate speech or music from a text prompt. Output format is auto-detected; file extension auto-corrected on save.',
+      'Generate speech or music via chat completions (modalities route). Formats: wav, mp3, flac, opus, pcm16. ' +
+      'Default model: openai/gpt-audio, voice alloy. Use text_to_speech for dedicated TTS with speed/instructions.',
     useWhen: [
-      'You need TTS or audio generation from text',
-      'Optional save_path is inside the output sandbox',
+      'You need music, sound effects, or expressive speech via the chat route',
+      'You want pcm16/wav output from the gpt-audio family',
     ],
-    notWhen: ['You want to transcribe existing audio → analyze_audio', 'Prompt is empty'],
+    notWhen: [
+      'You want fast dedicated TTS with speed/instructions → text_to_speech',
+      'You want to transcribe existing audio → speech_to_text or analyze_audio',
+      'Prompt is empty',
+    ],
     goodExamples: [
       '`{ "prompt": "Say hello world in a calm voice." }`',
       '`{ "prompt": "Upbeat jingle", "save_path": "out/jingle.mp3" }`',

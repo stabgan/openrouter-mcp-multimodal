@@ -7,11 +7,12 @@ on:
 
 concurrency:
   group: release-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/checkout@v4
         with:
@@ -25,6 +26,15 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - run: npm ci
+
+      - name: Verify tag matches package.json
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Tag v$TAG_VERSION does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
 
       - name: Verify version files are in sync
         run: node scripts/check-version-sync.mjs
@@ -40,6 +50,7 @@ jobs:
 
   publish-npm:
     needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -73,6 +84,7 @@ jobs:
 
   publish-pypi:
     needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -96,6 +108,7 @@ jobs:
 
   docker:
     needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -169,6 +182,7 @@ jobs:
 
   github-release:
     needs: [publish-npm, publish-pypi, docker]
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -180,12 +194,17 @@ jobs:
       - name: Extract release notes from CHANGELOG
         id: notes
         run: |
+          set -euo pipefail
           VERSION="${GITHUB_REF_NAME#v}"
-          NOTES=$(node scripts/changelog-section.mjs "$VERSION")
+          NOTES="$(node scripts/changelog-section.mjs "$VERSION")"
+          if [ -z "${NOTES// /}" ]; then
+            echo "::error::Empty CHANGELOG section for $VERSION"
+            exit 1
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           {
             echo 'body<<EOF'
-            echo "$NOTES"
+            printf '%s\n' "$NOTES"
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 

@@ -47,8 +47,8 @@ describe('ModelCache.searchPaginated', () => {
     const { page, total } = cache.searchPaginated({ capabilities: { vision: true } }, 0, 2);
     expect(total).toBe(4);
     expect(page).toHaveLength(2);
-    expect(page[0].id).toBe('openai/gpt-4');
-    expect(page[1].id).toBe('anthropic/claude-3');
+    expect(page[0].id).toBe('anthropic/claude-3');
+    expect(page[1].id).toBe('google/gemini-2.5-flash');
   });
 
   it('honors offset for second page', () => {
@@ -56,8 +56,8 @@ describe('ModelCache.searchPaginated', () => {
     const second = cache.searchPaginated({ capabilities: { vision: true } }, 2, 2);
     expect(first.total).toBe(second.total);
     expect(second.page).toHaveLength(2);
-    expect(second.page[0].id).toBe('qwen/qwen-vl:free');
-    expect(second.page[1].id).toBe('google/gemini-2.5-flash');
+    expect(second.page[0].id).toBe('openai/gpt-4');
+    expect(second.page[1].id).toBe('qwen/qwen-vl:free');
   });
 
   it('returns empty page when offset exceeds total matches', () => {
@@ -100,6 +100,21 @@ describe('ModelCache.searchPaginated', () => {
   it('matches provider prefix case-insensitively', () => {
     const { total } = cache.searchPaginated({ provider: 'OpenAI' }, 0, 10);
     expect(total).toBe(1);
+  });
+
+  it('sorts results by id for stable pagination', () => {
+    cache.setModels([{ id: 'z/z-last' }, { id: 'a/a-first' }, { id: 'm/m-mid' }]);
+    const page1 = cache.searchPaginated({}, 0, 2);
+    const page2 = cache.searchPaginated({}, 2, 2);
+    expect(page1.page.map((m) => m.id)).toEqual(['a/a-first', 'm/m-mid']);
+    expect(page2.page.map((m) => m.id)).toEqual(['z/z-last']);
+    expect(page1.total).toBe(3);
+  });
+
+  it('floors fractional offset and limit', () => {
+    const { page } = cache.searchPaginated({}, 0.9, 2.9);
+    expect(page).toHaveLength(2);
+    expect(page[0].id).toBe('anthropic/claude-3');
   });
 });
 

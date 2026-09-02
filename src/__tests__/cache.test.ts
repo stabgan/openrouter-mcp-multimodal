@@ -1,5 +1,45 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { buildCacheHeaders, extractCacheMeta, readCacheDefault } from '../tool-handlers/cache.js';
+import {
+  buildCacheHeaders,
+  extractCacheMeta,
+  readCacheDefault,
+  resolveCacheTtl,
+  validateCacheOptions,
+} from '../tool-handlers/cache.js';
+
+describe('resolveCacheTtl', () => {
+  it.each([
+    ['300', '300'],
+    ['3600', '3600'],
+    ['30s', '30'],
+    ['5m', '300'],
+    ['1h', '3600'],
+    ['24h', '86400'],
+  ])('accepts %s as %s seconds', (input, expected) => {
+    expect(resolveCacheTtl(input)).toBe(expected);
+  });
+
+  it.each(['abc', '1.5h', '0', '90000', '2d', ''])('rejects invalid %j', (input) => {
+    const r = resolveCacheTtl(input);
+    expect(r).toMatchObject({ isError: true, _meta: { code: 'INVALID_INPUT' } });
+  });
+});
+
+describe('validateCacheOptions', () => {
+  it('returns null when cache_ttl is omitted', () => {
+    expect(validateCacheOptions({ cache: true })).toBeNull();
+    expect(validateCacheOptions(undefined)).toBeNull();
+  });
+
+  it('returns null for valid duration strings', () => {
+    expect(validateCacheOptions({ cache_ttl: '5m' })).toBeNull();
+  });
+
+  it('returns INVALID_INPUT for out-of-range ttl', () => {
+    const r = validateCacheOptions({ cache_ttl: '90000' });
+    expect(r).toMatchObject({ isError: true, _meta: { code: 'INVALID_INPUT' } });
+  });
+});
 
 describe('buildCacheHeaders', () => {
   afterEach(() => vi.unstubAllEnvs());
@@ -15,10 +55,27 @@ describe('buildCacheHeaders', () => {
     });
   });
 
-  it('passes through cache_ttl verbatim', () => {
+  it('normalizes valid cache_ttl seconds', () => {
+    expect(buildCacheHeaders({ cache: true, cache_ttl: '300' })).toEqual({
+      'X-OpenRouter-Cache': 'true',
+      'X-OpenRouter-Cache-TTL': '300',
+    });
+  });
+
+  it('normalizes duration strings to integer seconds', () => {
     expect(buildCacheHeaders({ cache: true, cache_ttl: '15m' })).toEqual({
       'X-OpenRouter-Cache': 'true',
-      'X-OpenRouter-Cache-TTL': '15m',
+      'X-OpenRouter-Cache-TTL': '900',
+    });
+    expect(buildCacheHeaders({ cache: true, cache_ttl: '1h' })).toEqual({
+      'X-OpenRouter-Cache': 'true',
+      'X-OpenRouter-Cache-TTL': '3600',
+    });
+  });
+
+  it('omits ttl header for invalid cache_ttl without prior validation', () => {
+    expect(buildCacheHeaders({ cache: true, cache_ttl: '90000' })).toEqual({
+      'X-OpenRouter-Cache': 'true',
     });
   });
 

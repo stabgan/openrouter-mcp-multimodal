@@ -1,9 +1,6 @@
-/**
- * Closed error-code taxonomy for MCP tool responses.
- * Every handler uses `toolError()` so clients can switch on `_meta.code`.
- */
 export const ErrorCode = {
   INVALID_INPUT: 'INVALID_INPUT',
+  INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
   UNSAFE_PATH: 'UNSAFE_PATH',
   UPSTREAM_HTTP: 'UPSTREAM_HTTP',
   UPSTREAM_TIMEOUT: 'UPSTREAM_TIMEOUT',
@@ -19,31 +16,24 @@ export const ErrorCode = {
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 
-export interface ToolErrorMeta {
+export type ToolErrorMeta = {
   code: ErrorCode;
   details?: Record<string, unknown>;
-  /** Optional next steps for the agent (e.g. "Wait and retry"). */
   suggestions?: string[];
-  /**
-   * For rate-limit / backoff errors, the number of seconds the caller
-   * should wait before retrying. Derived from `Retry-After` headers when
-   * available.
-   */
   retry_after_seconds?: number;
-}
+} & Record<string, unknown>;
 
-export interface ToolErrorResult {
+export type ToolErrorResult = {
   content: Array<{ type: 'text'; text: string }>;
   isError: true;
   _meta: ToolErrorMeta;
-}
+} & Record<string, unknown>;
 
 export interface ToolErrorOptions {
   suggestions?: string[];
   retry_after_seconds?: number;
 }
 
-/** Build a structured MCP error result. */
 export function toolError(
   code: ErrorCode,
   message: string,
@@ -63,11 +53,6 @@ export function toolError(
   };
 }
 
-/**
- * Convert a caught `unknown` error into a structured tool result. Preserves
- * user-visible messages for known `Error` types and refuses to leak stack
- * traces or raw objects.
- */
 export function toolErrorFrom(
   code: ErrorCode,
   err: unknown,

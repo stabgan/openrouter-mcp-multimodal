@@ -1,4 +1,3 @@
-import { promises as fs } from 'node:fs';
 import { extname } from 'node:path';
 import type { OpenRouterAPIClient, VideoJobEnvelope, VideoJobStatus } from '../openrouter-api.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
@@ -13,6 +12,7 @@ import { resolveImageBase64 } from './image-source.js';
 import { readEnvInt } from './fetch-utils.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
 import { buildBinaryToolResult } from './tool-result-payload.js';
+import { replaceExtension, writeOutputFile } from './path-utils.js';
 
 const FALLBACK_MODEL = 'google/veo-3.1';
 const DEFAULT_POLL_INTERVAL_MS = 15_000;
@@ -68,7 +68,6 @@ export interface GenerateVideoToolRequest {
 export interface GetVideoStatusToolRequest {
   video_id: string;
   save_path?: string;
-  polling_url?: string;
 }
 
 type ProgressHook = (update: {
@@ -77,6 +76,26 @@ type ProgressHook = (update: {
   attempt: number;
   video_id: string;
 }) => void | Promise<void>;
+
+function isTerminalFailureStatus(status: string): boolean {
+  const normalized = status.toLowerCase();
+  return normalized === 'failed' || normalized === 'cancelled' || normalized === 'canceled';
+}
+
+async function invokeProgressHook(
+  hook: ProgressHook | undefined,
+  update: Parameters<ProgressHook>[0],
+) {
+  if (!hook) return;
+  try {
+    await hook(update);
+  } catch (err) {
+    logger.warn('generate_video.progress_hook_error', {
+      video_id: update.video_id,
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
 
 function getDefaultPollInterval(): number {
   return readEnvInt(
@@ -161,7 +180,11 @@ async function pollUntilTerminal(
   let attempt = 0;
   let last: VideoJobStatus | null = null;
   const initialStatus = (envelope.status ?? 'pending') as string;
-  await opts.onProgress?.({ status: initialStatus, attempt: 0, video_id: envelope.id });
+  await invokeProgressHook(opts.onProgress, {
+    status: initialStatus,
+    attempt: 0,
+    video_id: envelope.id,
+  });
 
   while (Date.now() < opts.deadlineAt) {
     attempt += 1;
@@ -173,16 +196,16 @@ async function pollUntilTerminal(
         id: envelope.id,
         err: err instanceof Error ? err.message : String(err),
       });
-      continue; // transient; try again until deadline
+      continue;
     }
-    await opts.onProgress?.({
+    await invokeProgressHook(opts.onProgress, {
       status: last.status,
       progress: typeof last.progress === 'number' ? last.progress : undefined,
       attempt,
       video_id: envelope.id,
     });
     if (last.status === 'completed') return { kind: 'completed', status: last };
-    if (last.status === 'failed') return { kind: 'failed', status: last };
+    if (isTerminalFailureStatus(last.status)) return { kind: 'failed', status: last };
   }
   return { kind: 'timeout', last };
 }
@@ -216,14 +239,17 @@ async function finalizeCompletedJob(
     0,
     getMaxDownloadBytes(),
   );
+  if (buffer.length === 0) {
+    throw new Error('Completed job returned empty video content.');
+  }
   const mime = (contentType?.split(';')[0]?.trim() || 'video/mp4').toLowerCase();
   const ext = mime.includes('webm')
-    ? '.webm'
+    ? 'webm'
     : mime.includes('mov')
-      ? '.mov'
+      ? 'mov'
       : mime.includes('mpeg')
-        ? '.mpeg'
-        : '.mp4';
+        ? 'mpeg'
+        : 'mp4';
 
   const baseMeta: Record<string, unknown> = {
     server_version: SERVER_VERSION,
@@ -235,8 +261,8 @@ async function finalizeCompletedJob(
   if (status.unsigned_urls) baseMeta.unsigned_urls = status.unsigned_urls;
 
   if (savePath) {
-    const finalPath = extname(savePath) === ext ? savePath : stripAndReplaceExt(savePath, ext);
-    await fs.writeFile(finalPath, buffer);
+    const finalPath = extname(savePath) === `.${ext}` ? savePath : replaceExtension(savePath, ext);
+    await writeOutputFile(finalPath, buffer);
     baseMeta.save_path = finalPath;
     const summaryNote = finalPath !== savePath ? ` (detected ${mime}, saved as ${finalPath})` : '';
     return buildBinaryToolResult(
@@ -256,12 +282,6 @@ async function finalizeCompletedJob(
       meta: baseMeta,
     },
   );
-}
-
-function stripAndReplaceExt(p: string, newExt: string): string {
-  const cur = extname(p);
-  const base = cur ? p.slice(0, -cur.length) : p;
-  return base + newExt;
 }
 
 export async function handleGenerateVideo(
@@ -386,7 +406,7 @@ export async function handleGetVideoStatus(
     return classifyUpstreamError(err, 'get_video_status.poll');
   }
 
-  if (status.status === 'failed') {
+  if (status.status === 'failed' || isTerminalFailureStatus(status.status)) {
     return toolError(ErrorCode.JOB_FAILED, extractJobError(status), { video_id: id });
   }
   if (status.status === 'completed') {
@@ -466,4 +486,9 @@ export async function handleGenerateVideoFromImage(
   );
 }
 
-export const _internals = { buildRequestBody, stripAndReplaceExt, extractJobError };
+export const _internals = {
+  buildRequestBody,
+  extractJobError,
+  isTerminalFailureStatus,
+  invokeProgressHook,
+};

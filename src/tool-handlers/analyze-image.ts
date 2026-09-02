@@ -13,7 +13,12 @@ import {
   detectReasoningCutoff,
   buildCompletionMeta,
 } from './completion-utils.js';
-import { type CacheOptions, buildCacheHeaders, extractCacheMeta } from './cache.js';
+import {
+  type CacheOptions,
+  buildCacheHeaders,
+  extractCacheMeta,
+  validateCacheOptions,
+} from './cache.js';
 import { awaitCompletionWithHeaders } from './openai-withresponse.js';
 
 const DEFAULT_MODEL = 'nvidia/nemotron-nano-12b-v2-vl:free';
@@ -37,6 +42,9 @@ export async function handleAnalyzeImage(
     return toolError(ErrorCode.INVALID_INPUT, 'image_path is required.');
   }
 
+  const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });
+  if (cacheError) return cacheError;
+
   let imageUrl: string;
   try {
     imageUrl = await prepareImageUrl(image_path);
@@ -45,11 +53,14 @@ export async function handleAnalyzeImage(
       return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
     }
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('Blocked host')) return toolErrorFrom(ErrorCode.UPSTREAM_REFUSED, err);
-    if (msg.toLowerCase().includes('too large')) {
-      return toolErrorFrom(ErrorCode.RESOURCE_TOO_LARGE, err);
+    const detail = `image_path "${image_path}": ${msg}`;
+    if (msg.includes('Blocked host')) {
+      return toolError(ErrorCode.UPSTREAM_REFUSED, detail);
     }
-    return toolErrorFrom(ErrorCode.INVALID_INPUT, err);
+    if (msg.toLowerCase().includes('too large')) {
+      return toolError(ErrorCode.RESOURCE_TOO_LARGE, detail);
+    }
+    return toolError(ErrorCode.INVALID_INPUT, detail);
   }
 
   const imageBlock: Record<string, unknown> = {
