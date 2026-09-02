@@ -29,7 +29,7 @@ flowchart LR
   A[Push conventional commits to main] --> B[Release Please opens Release PR]
   B --> C[Merge Release PR]
   C --> D[Release Please creates tag vX.Y.Z]
-  D --> E[publish.yml publishes npm + PyPI + Docker]
+  D --> E[publish.yml publishes npm + PyPI + Docker + GitHub Release]
 ```
 
 ### Step-by-step
@@ -48,10 +48,11 @@ flowchart LR
 
 4. **Merge the Release PR** — Release Please creates git tag `vX.Y.Z` and a GitHub Release.
 
-5. **Verify publish** — workflow: [`.github/workflows/publish.yml`](../.github/workflows/publish.yml) runs on the new tag:
+5. **Verify publish** — workflow: [`.github/workflows/publish.yml`](../.github/workflows/publish.yml) runs on the new tag (npm, PyPI, Docker, and a **GitHub Release** whose body is extracted from [`CHANGELOG.md`](../CHANGELOG.md) via [`scripts/changelog-section.mjs`](../scripts/changelog-section.mjs)):
    ```bash
    npm view @stabgan/openrouter-mcp-multimodal@X.Y.Z version
    curl -s https://pypi.org/pypi/mcp-server-openrouter-multimodal/json | jq -r .info.version
+   gh release view vX.Y.Z --json name,isLatest
    # Docker: check hub.docker.com/r/stabgan/openrouter-mcp-multimodal/tags
    gh run list --workflow=publish.yml --limit 3
    ```
