@@ -80,7 +80,12 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPMJS_TOKEN }}
         run: |
-          npm publish --access=public --provenance || npm publish --access=public
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if npm view "@stabgan/openrouter-mcp-multimodal@${PKG_VERSION}" version >/dev/null 2>&1; then
+            echo "npm @${PKG_VERSION} already published; skipping"
+          else
+            npm publish --access=public --provenance || npm publish --access=public
+          fi
 
   publish-pypi:
     needs: build
@@ -92,7 +97,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.0.1
 
       - name: Build Python package
         working-directory: python
