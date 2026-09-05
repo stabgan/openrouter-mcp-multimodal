@@ -2,6 +2,15 @@
 
 All notable changes to `@stabgan/openrouter-mcp-multimodal` are recorded here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.1] — 2026-09-05
+
+Patch release: dependency security updates and refreshed security policy documentation.
+
+### Security
+
+- **npm transitive dependency updates** — `fast-uri` 3.1.5 → 3.1.7 (high: SSRF/host-confusion in URI parsing, via `@modelcontextprotocol/sdk` → `ajv`), `qs` 6.15.3 → 6.16.0 (moderate: DoS / array-limit bypass, via MCP SDK → `express`), `@humanfs/node` 0.16.7 → 0.16.8 (moderate: dev-only ESLint dependency). Outbound tool HTTP fetches use custom IP-pinned fetch logic, not `fast-uri`; the server uses stdio transport only (Express is not started). Updates reduce supply-chain exposure in published npm/Docker artifacts.
+- **`SECURITY.md` refreshed** — Documents 5.0.x support, DNS rebinding mitigation (4.8.0), and credential redaction controls.
+
 ## [5.0.0] — 2026-09-02
 
 Major release: retired default models replaced, minimum Node.js raised to 22, OpenAI SDK v7, modernized CI/CD and supply chain, and toolchain updates across Docker, GitHub Actions, and dev dependencies.

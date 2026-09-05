@@ -1,6 +1,6 @@
 {
   "name": "@stabgan/openrouter-mcp-multimodal",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "mcpName": "io.github.stabgan/openrouter-multimodal",
   "description": "MCP server for OpenRouter — chat with 300+ LLMs, analyze images/audio/video, generate images (dedicated API), TTS/STT, video generation (Veo 3.1 / Seedance / Wan), async completions, response caching",
   "type": "module",

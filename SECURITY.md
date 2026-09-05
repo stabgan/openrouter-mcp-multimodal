@@ -4,12 +4,14 @@
 
 | Version | Supported |
 | :------ | :-------- |
+| 5.0.x   | ✅        |
+| 4.8.x   | ✅        |
 | 4.7.x   | ✅        |
 | 4.6.x   | ✅        |
-| 4.5.x   | ✅        |
+| 4.5.x   | ✅ (≥ 4.5.2 for analyze\_\* sandbox) |
 | below 4.5.2 | ❌ — upgrade for analyze\_\* path sandbox ([GHSA-3q7p-736f-x44v](https://github.com/stabgan/openrouter-mcp-multimodal/security/advisories/GHSA-3q7p-736f-x44v)) |
 
-Security fixes land on the latest minor release. Prefer **`@stabgan/openrouter-mcp-multimodal@latest`** or pin **`4.7.0`**.
+Security fixes land on the latest patch release. Prefer **`@stabgan/openrouter-mcp-multimodal@latest`** or pin **`5.0.1`**.
 
 ## Reporting a vulnerability
 
@@ -26,8 +28,9 @@ Security fixes land on the latest minor release. Prefer **`@stabgan/openrouter-m
 | **Input path sandbox** | Local paths on `analyze_*`, reference images, and async job reads must resolve inside `OPENROUTER_INPUT_DIR` (fallback: `OPENROUTER_OUTPUT_DIR`, then `cwd`). Violations return `_meta.code: UNSAFE_PATH`. |
 | **Output path sandbox** | `save_path` on generate tools must stay inside `OPENROUTER_OUTPUT_DIR`. Symlink escapes blocked via `realpath`. |
 | **Legacy bypass** | `OPENROUTER_ALLOW_UNSAFE_PATHS=1` disables both sandboxes (discouraged). |
-| **SSRF protection** | HTTP(S) fetches block private/reserved IPv4 and IPv6 ranges. |
+| **SSRF protection** | HTTP(S) fetches block private/reserved IPv4 and IPv6 ranges; outbound connections use IP pinning to mitigate DNS rebinding (since **4.8.0**). |
 | **Async job isolation** | `get_chat_completion_status` validates `job_id` format and resolves disk paths under `OPENROUTER_OUTPUT_DIR/openrouter-jobs/` only (fixed in **4.7.0**). |
+| **Credential redaction** | API keys and Bearer tokens are redacted from logs and user-visible error messages. |
 
 Configure sandboxes in [`.env.example`](./.env.example):
 
@@ -42,5 +45,6 @@ OPENROUTER_OUTPUT_DIR=./output   # save_path writes + optional job persistence
 | :-- | :------- | :------- | :------ |
 | [GHSA-3q7p-736f-x44v](https://github.com/stabgan/openrouter-mcp-multimodal/security/advisories/GHSA-3q7p-736f-x44v) | Medium | **4.5.2** | `analyze_image` / `analyze_audio` / `analyze_video` read arbitrary local files without sandbox. |
 | Async `job_id` path traversal | — | **4.7.0** | Malicious `job_id` could escape `openrouter-jobs/` before disk read; blocked by `isValidJobId` + `resolveSafeJobStatusPath`. No public GHSA filed. |
+| DNS rebinding SSRF | — | **4.8.0** | Connect-time DNS re-resolution could bypass pre-flight SSRF checks; mitigated by IP-pinned HTTP(S) fetches. No public GHSA filed. |
 
 Post-mortem for the analyze-path issue: [`docs/solutions/security-issues/analyze-path-traversal-ghsa-3q7p-736f-x44v.md`](docs/solutions/security-issues/analyze-path-traversal-ghsa-3q7p-736f-x44v.md).

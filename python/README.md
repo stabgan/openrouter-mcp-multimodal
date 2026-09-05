@@ -16,7 +16,7 @@ uvx mcp-server-openrouter-multimodal
 Pin the npm release:
 
 ```bash
-export OPENROUTER_MCP_NPM_VERSION=5.0.0
+export OPENROUTER_MCP_NPM_VERSION=5.0.1
 uvx mcp-server-openrouter-multimodal
 ```
 
