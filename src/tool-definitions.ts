@@ -811,6 +811,7 @@ export const TOOL_DEFINITIONS = [
         aspect_ratio: { type: 'string', description: 'Provider-specific aspect ratio.' },
         duration: { type: 'number', minimum: 1, description: 'Clip duration in seconds.' },
         seed: { type: 'number', description: 'Optional reproducibility seed.' },
+        provider: { type: 'object', description: 'Provider routing overrides.' },
         save_path: SAVE_PATH_PROPERTY,
         max_wait_ms: {
           type: 'number',

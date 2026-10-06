@@ -476,6 +476,7 @@ export interface GenerateVideoFromImageRequest {
   aspect_ratio?: string;
   duration?: number;
   seed?: number;
+  provider?: Record<string, unknown>;
   save_path?: string;
   max_wait_ms?: number;
   poll_interval_ms?: number;
@@ -504,6 +505,7 @@ export async function handleGenerateVideoFromImage(
           aspect_ratio: args.aspect_ratio,
           duration: args.duration,
           seed: args.seed,
+          provider: args.provider,
           save_path: args.save_path,
           max_wait_ms: args.max_wait_ms,
           poll_interval_ms: args.poll_interval_ms,
