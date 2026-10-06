@@ -19,6 +19,12 @@ import { buildBinaryToolResult } from './tool-result-payload.js';
 import { fetchHttpResource, readEnvInt } from './fetch-utils.js';
 import { type CacheOptions, buildCacheHeaders, validateCacheOptions } from './cache.js';
 import { writeOutputFile } from './path-utils.js';
+import {
+  readProviderDefaults,
+  mergeProviderOptions,
+  buildProviderBody,
+  type ProviderRoutingOptions,
+} from './provider-routing.js';
 
 export interface GenerateImageDedicatedRequest extends CacheOptions {
   prompt: string;
@@ -138,7 +144,12 @@ export async function handleGenerateImageDedicated(
   if (quality) body.quality = quality;
   if (output_format) body.output_format = output_format;
   if (typeof n === 'number') body.n = n;
-  if (provider && typeof provider === 'object') body.provider = provider;
+  // Merge user-supplied provider options with OPENROUTER_PROVIDER_* env defaults.
+  // Previously generate_image_dedicated bypassed env defaults — only chat tools applied them.
+  const mergedProvider = buildProviderBody(
+    mergeProviderOptions(readProviderDefaults(), provider as ProviderRoutingOptions),
+  );
+  if (mergedProvider) body.provider = mergedProvider;
 
   if (input_references?.length) {
     try {

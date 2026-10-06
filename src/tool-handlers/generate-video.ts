@@ -13,6 +13,12 @@ import { readEnvInt } from './fetch-utils.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
 import { buildBinaryToolResult } from './tool-result-payload.js';
 import { replaceExtension, writeOutputFile } from './path-utils.js';
+import {
+  readProviderDefaults,
+  mergeProviderOptions,
+  buildProviderBody,
+  type ProviderRoutingOptions,
+} from './provider-routing.js';
 
 const FALLBACK_MODEL = 'google/veo-3.1';
 const DEFAULT_POLL_INTERVAL_MS = 15_000;
@@ -351,6 +357,18 @@ export async function handleGenerateVideo(
   const safeSavePath = savePathResult.path;
 
   const body = buildRequestBody(args, model);
+
+  // Merge user-supplied provider options with OPENROUTER_PROVIDER_* env defaults.
+  // Previously generate_video bypassed env defaults — only chat tools applied them.
+  const mergedProvider = buildProviderBody(
+    mergeProviderOptions(readProviderDefaults(), args.provider as ProviderRoutingOptions),
+  );
+  if (mergedProvider) {
+    body.provider = mergedProvider;
+  } else {
+    delete body.provider;
+  }
+
   try {
     await attachFrameImages(args, body);
   } catch (err) {
