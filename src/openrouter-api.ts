@@ -81,7 +81,10 @@ export class OpenRouterAPIClient {
       { headers: this.authHeaders() },
       { retries: 2, timeoutMs: DEFAULT_TIMEOUT_MS },
     );
-    if (!res.ok) throw new Error(`Failed to fetch models: HTTP ${res.status}`);
+    if (!res.ok) {
+      const detail = await safeReadText(res);
+      throw new Error(`Failed to fetch models: HTTP ${res.status}${detail ? ` — ${detail}` : ''}`);
+    }
     const data = await readJsonOrThrow<{ data?: OpenRouterModelRecord[] }>(res, 'GET /models');
     return data.data ?? [];
   }
@@ -142,6 +145,11 @@ export class OpenRouterAPIClient {
     if (declared) {
       const n = parseInt(declared, 10);
       if (Number.isFinite(n) && n > maxBytes) {
+        try {
+          await res.body?.cancel();
+        } catch {
+          /* ignore */
+        }
         throw new Error(`Generated video too large: ${n} bytes > ${maxBytes}`);
       }
     }
