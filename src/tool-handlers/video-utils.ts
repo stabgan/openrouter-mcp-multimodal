@@ -4,8 +4,6 @@ import { promises as fs } from 'node:fs';
 import { readEnvInt, fetchHttpResource, parseBase64DataUrl } from './fetch-utils.js';
 import { resolveSafeInputPath } from './path-safety.js';
 
-export { isBlockedIPv4, assertUrlSafeForFetch } from './fetch-utils.js';
-
 const DEFAULT_FETCH_TIMEOUT_MS = 60_000;
 const DEFAULT_MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024; // 100 MB
 const DEFAULT_MAX_REDIRECTS = 8;

@@ -5,11 +5,11 @@ import { tmpdir } from 'node:os';
 import OpenAI from 'openai';
 import {
   createWavHeader,
-  detectAudioFormat,
   wrapPcmInWav,
   assembleBase64AudioChunks,
   handleGenerateAudio,
 } from '../tool-handlers/generate-audio.js';
+import { detectAudioFormat } from '../tool-handlers/audio-utils.js';
 import { replaceExtension } from '../tool-handlers/path-utils.js';
 import { handleTextToSpeech } from '../tool-handlers/text-to-speech.js';
 import type { OpenRouterAPIClient } from '../openrouter-api.js';

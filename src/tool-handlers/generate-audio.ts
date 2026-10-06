@@ -11,8 +11,6 @@ import { buildBinaryToolResult } from './tool-result-payload.js';
 import { replaceExtension, writeOutputFile } from './path-utils.js';
 import { detectAudioFormat } from './audio-utils.js';
 
-export { detectAudioFormat } from './audio-utils.js';
-
 export interface GenerateAudioToolRequest {
   prompt: string;
   model?: string;
