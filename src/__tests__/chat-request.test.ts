@@ -30,6 +30,15 @@ describe('validateChatMessages', () => {
     expect(r?.content[0]?.text).toContain('null content');
   });
 
+  it('accepts assistant messages with null content (tool-call turns)', () => {
+    expect(
+      validateChatMessages([
+        { role: 'user', content: 'hi' },
+        { role: 'assistant', content: null, tool_calls: [] },
+      ]),
+    ).toBeNull();
+  });
+
   it('accepts assistant messages without content (tool-call turns)', () => {
     expect(
       validateChatMessages([
