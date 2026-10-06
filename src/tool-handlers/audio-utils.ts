@@ -1,10 +1,53 @@
-/** Audio format detection and fetch utilities. */
+/** Audio format detection, WAV helpers, and fetch utilities. */
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
 import { readEnvInt, fetchHttpResource, parseBase64DataUrl } from './fetch-utils.js';
 import { resolveSafeInputPath } from './path-safety.js';
 
 export { isBlockedIPv4, assertUrlSafeForFetch } from './fetch-utils.js';
+
+// ---------------------------------------------------------------------------
+// WAV header helpers — used by generate_audio and text_to_speech to wrap raw
+// PCM output in a universally-playable WAV container.
+// ---------------------------------------------------------------------------
+
+const DEFAULT_PCM_SAMPLE_RATE = 24000;
+const PCM_BITS_PER_SAMPLE = 16;
+const PCM_NUM_CHANNELS = 1;
+
+/** Create a 44-byte WAV header for raw PCM16 data at `sampleRate` Hz. */
+export function createWavHeader(
+  dataLength: number,
+  sampleRate: number = DEFAULT_PCM_SAMPLE_RATE,
+): Buffer {
+  const header = Buffer.alloc(44);
+  const byteRate = sampleRate * PCM_NUM_CHANNELS * (PCM_BITS_PER_SAMPLE / 8);
+  const blockAlign = PCM_NUM_CHANNELS * (PCM_BITS_PER_SAMPLE / 8);
+
+  header.write('RIFF', 0);
+  header.writeUInt32LE(36 + dataLength, 4);
+  header.write('WAVE', 8);
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(PCM_NUM_CHANNELS, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(PCM_BITS_PER_SAMPLE, 34);
+  header.write('data', 36);
+  header.writeUInt32LE(dataLength, 40);
+
+  return header;
+}
+
+/** Wrap raw PCM16 bytes in a WAV container so the output is universally playable. */
+export function wrapPcmInWav(
+  pcmData: Buffer,
+  sampleRate: number = DEFAULT_PCM_SAMPLE_RATE,
+): Buffer {
+  return Buffer.concat([createWavHeader(pcmData.length, sampleRate), pcmData]);
+}
 
 const DEFAULT_FETCH_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024;

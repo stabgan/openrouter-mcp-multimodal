@@ -15,7 +15,7 @@ import { classifyUpstreamError } from './openrouter-errors.js';
 import { buildBinaryToolResult } from './tool-result-payload.js';
 import { replaceExtension, writeOutputFile } from './path-utils.js';
 import { type CacheOptions, buildCacheHeaders, validateCacheOptions } from './cache.js';
-import { detectAudioFormat } from './audio-utils.js';
+import { detectAudioFormat, wrapPcmInWav } from './audio-utils.js';
 
 export interface TextToSpeechRequest extends CacheOptions {
   input: string;
@@ -109,8 +109,18 @@ export async function handleTextToSpeech(
     return classifyUpstreamError(err, 'text_to_speech');
   }
 
-  const { buffer, contentType } = result;
-  const detected = detectAudioFormat(buffer);
+  const { buffer: rawBuffer, contentType } = result;
+
+  // Wrap raw PCM in a WAV container so the output is universally playable,
+  // matching the behaviour of generate_audio (see BUG-005).
+  let buffer = rawBuffer;
+  const detected = detectAudioFormat(rawBuffer);
+  if (detected.ext === 'pcm') {
+    buffer = wrapPcmInWav(rawBuffer);
+    detected.ext = 'wav';
+    detected.mimeType = 'audio/wav';
+  }
+
   const mimeType = detected.mimeType || contentType.split(';')[0]?.trim() || 'audio/mpeg';
   const ext = detected.ext;
 
