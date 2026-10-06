@@ -121,6 +121,7 @@ export async function handleSpeechToText(
   const baseMeta: Record<string, unknown> = {
     server_version: SERVER_VERSION,
     model: model || DEFAULT_MODEL,
+    content_is_untrusted: true,
   };
   if (response.language) baseMeta.language = response.language;
   if (response.duration) baseMeta.duration_seconds = response.duration;

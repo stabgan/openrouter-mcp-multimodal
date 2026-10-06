@@ -468,7 +468,8 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
   speech_to_text: buildToolDescription({
     summary:
       "Transcribe audio via OpenRouter's dedicated STT endpoint (POST /api/v1/audio/transcriptions). " +
-      'Faster and cheaper than chat completions for pure transcription. Models: Whisper-1, GPT-4o Transcribe, Voxtral.',
+      'Faster and cheaper than chat completions for pure transcription. Models: Whisper-1, GPT-4o Transcribe, Voxtral. ' +
+      'Output is tagged `_meta.content_is_untrusted: true`.',
     useWhen: [
       'You need fast transcription of audio files',
       'You want pure speech-to-text without analysis or Q&A',
