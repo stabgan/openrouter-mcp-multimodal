@@ -21,6 +21,7 @@ import {
   validateChatMessages,
   validateTemperature,
   validateMaxTokens,
+  validateWebSearchOptions,
 } from './chat-request.js';
 
 export type ChatCompletionToolRequest = ChatToolRequest;
@@ -60,6 +61,9 @@ export async function handleChatCompletion(
 
   const maxTokensError = validateMaxTokens(max_tokens);
   if (maxTokensError) return maxTokensError;
+
+  const webSearchError = validateWebSearchOptions(web_max_results, web_blocked_domains);
+  if (webSearchError) return webSearchError;
 
   const wantsReasoning = include_reasoning ?? readIncludeReasoningDefault();
 

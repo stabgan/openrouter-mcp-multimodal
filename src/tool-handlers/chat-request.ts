@@ -98,6 +98,36 @@ export function validateMaxTokens(max_tokens: number | undefined): ToolErrorResu
   return null;
 }
 
+export function validateWebSearchOptions(
+  webMaxResults: number | undefined,
+  webBlockedDomains: string[] | undefined,
+): ToolErrorResult | null {
+  if (webMaxResults !== undefined) {
+    if (
+      typeof webMaxResults !== 'number' ||
+      !Number.isFinite(webMaxResults) ||
+      !Number.isInteger(webMaxResults) ||
+      webMaxResults < 1
+    ) {
+      return toolError(ErrorCode.INVALID_INPUT, 'web_max_results must be a positive integer.');
+    }
+  }
+  if (webBlockedDomains !== undefined) {
+    if (!Array.isArray(webBlockedDomains)) {
+      return toolError(ErrorCode.INVALID_INPUT, 'web_blocked_domains must be an array of strings.');
+    }
+    for (let i = 0; i < webBlockedDomains.length; i++) {
+      if (typeof webBlockedDomains[i] !== 'string' || !webBlockedDomains[i]!.trim()) {
+        return toolError(
+          ErrorCode.INVALID_INPUT,
+          `web_blocked_domains[${i}] must be a non-empty string.`,
+        );
+      }
+    }
+  }
+  return null;
+}
+
 export function buildChatCompletionBody(
   input: ChatToolRequest & { model: string },
 ): Record<string, unknown> {

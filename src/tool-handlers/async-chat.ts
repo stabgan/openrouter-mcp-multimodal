@@ -26,6 +26,7 @@ import {
   validateChatMessages,
   validateTemperature,
   validateMaxTokens,
+  validateWebSearchOptions,
 } from './chat-request.js';
 
 export type StartChatCompletionRequest = ChatToolRequest;
@@ -180,6 +181,9 @@ export async function handleStartChatCompletion(
 
   const maxTokensError = validateMaxTokens(max_tokens);
   if (maxTokensError) return maxTokensError;
+
+  const webSearchError = validateWebSearchOptions(web_max_results, web_blocked_domains);
+  if (webSearchError) return webSearchError;
 
   const effectiveModel = model || defaultModel || DEFAULT_CHAT_MODEL;
   const jobId = generateJobId();
