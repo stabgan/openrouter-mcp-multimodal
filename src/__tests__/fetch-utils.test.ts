@@ -87,6 +87,44 @@ describe('isBlockedIPv4', () => {
     expect(isBlockedIPv4('100.127.255.255')).toBe(true);
   });
 
+  it('blocks IETF Protocol Assignments 192.0.0.0/24', () => {
+    expect(isBlockedIPv4('192.0.0.0')).toBe(true);
+    expect(isBlockedIPv4('192.0.0.255')).toBe(true);
+    expect(isBlockedIPv4('192.0.1.0')).toBe(false);
+  });
+
+  it('blocks TEST-NET-1 192.0.2.0/24', () => {
+    expect(isBlockedIPv4('192.0.2.0')).toBe(true);
+    expect(isBlockedIPv4('192.0.2.255')).toBe(true);
+    expect(isBlockedIPv4('192.0.3.0')).toBe(false);
+  });
+
+  it('blocks Benchmarking 198.18.0.0/15', () => {
+    expect(isBlockedIPv4('198.18.0.0')).toBe(true);
+    expect(isBlockedIPv4('198.19.255.255')).toBe(true);
+    expect(isBlockedIPv4('198.17.255.255')).toBe(false);
+    expect(isBlockedIPv4('198.20.0.0')).toBe(false);
+  });
+
+  it('blocks TEST-NET-2 198.51.100.0/24', () => {
+    expect(isBlockedIPv4('198.51.100.0')).toBe(true);
+    expect(isBlockedIPv4('198.51.100.255')).toBe(true);
+    expect(isBlockedIPv4('198.51.101.0')).toBe(false);
+  });
+
+  it('blocks TEST-NET-3 203.0.113.0/24', () => {
+    expect(isBlockedIPv4('203.0.113.0')).toBe(true);
+    expect(isBlockedIPv4('203.0.113.255')).toBe(true);
+    expect(isBlockedIPv4('203.0.114.0')).toBe(false);
+  });
+
+  it('blocks reserved 240.0.0.0/4 and broadcast', () => {
+    expect(isBlockedIPv4('240.0.0.0')).toBe(true);
+    expect(isBlockedIPv4('255.255.255.255')).toBe(true);
+    expect(isBlockedIPv4('250.1.2.3')).toBe(true);
+    expect(isBlockedIPv4('239.255.255.255')).toBe(false);
+  });
+
   it('allows public IPs', () => {
     expect(isBlockedIPv4('8.8.8.8')).toBe(false);
     expect(isBlockedIPv4('1.1.1.1')).toBe(false);

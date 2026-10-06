@@ -69,18 +69,24 @@ function ipv4ToUint(ip: string): number {
   return ((parts[0]! << 24) | (parts[1]! << 16) | (parts[2]! << 8) | parts[3]!) >>> 0;
 }
 
-/** Blocks RFC1918, loopback, link-local, CGNAT, metadata. */
+/** Blocks RFC1918, loopback, link-local, CGNAT, metadata, TEST-NETs, benchmarking, reserved. */
 export function isBlockedIPv4(ip: string): boolean {
   const normalized = normalizeIPv4Literal(ip);
   if (!normalized) return false;
   const n = ipv4ToUint(normalized);
-  if (n >>> 24 === 127) return true;
-  if (n >>> 24 === 10) return true;
-  if (n >>> 20 === 0xac1) return true;
-  if (n >>> 16 === 0xc0a8) return true;
-  if (n >>> 16 === 0xa9fe) return true;
-  if (n >>> 24 === 0) return true;
-  if (n >= 0x64400000 && n <= 0x647fffff) return true;
+  if (n >>> 24 === 127) return true; // 127.0.0.0/8 — Loopback (RFC 1122)
+  if (n >>> 24 === 10) return true; // 10.0.0.0/8 — Private (RFC 1918)
+  if (n >>> 20 === 0xac1) return true; // 172.16.0.0/12 — Private (RFC 1918)
+  if (n >>> 16 === 0xc0a8) return true; // 192.168.0.0/16 — Private (RFC 1918)
+  if (n >>> 16 === 0xa9fe) return true; // 169.254.0.0/16 — Link-Local (RFC 3927)
+  if (n >>> 24 === 0) return true; // 0.0.0.0/8 — "This" network (RFC 791)
+  if (n >= 0x64400000 && n <= 0x647fffff) return true; // 100.64.0.0/10 — CGNAT (RFC 6598)
+  if (n >>> 8 === 0xc00000) return true; // 192.0.0.0/24 — IETF Protocol Assignments (RFC 6890)
+  if (n >>> 8 === 0xc00002) return true; // 192.0.2.0/24 — TEST-NET-1 (RFC 5737)
+  if (n >>> 17 === 0x6309) return true; // 198.18.0.0/15 — Benchmarking (RFC 2544)
+  if (n >>> 8 === 0xc63364) return true; // 198.51.100.0/24 — TEST-NET-2 (RFC 5737)
+  if (n >>> 8 === 0xcb0071) return true; // 203.0.113.0/24 — TEST-NET-3 (RFC 5737)
+  if (n >>> 28 === 0xf) return true; // 240.0.0.0/4 — Reserved + Broadcast (RFC 1112)
   return false;
 }
 
