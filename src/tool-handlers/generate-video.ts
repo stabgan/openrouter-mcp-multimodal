@@ -375,9 +375,14 @@ export async function handleGenerateVideo(
   });
 
   if (outcome.kind === 'failed') {
-    return toolError(ErrorCode.JOB_FAILED, extractJobError(outcome.status), {
-      video_id: outcome.status.id,
-    });
+    const errorMsg = extractJobError(outcome.status);
+    const details: Record<string, unknown> = { video_id: outcome.status.id };
+    if (deprecationWarning) details.deprecated_model = true;
+    return toolError(
+      ErrorCode.JOB_FAILED,
+      deprecationWarning ? `${deprecationWarning}\n\n${errorMsg}` : errorMsg,
+      details,
+    );
   }
   if (outcome.kind === 'timeout') {
     const timeoutContent: Array<{ type: string; text: string }> = [];
