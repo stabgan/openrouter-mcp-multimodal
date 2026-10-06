@@ -274,6 +274,43 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
     );
   }
 
+  // Network-level failures — DNS resolution, connection refused, host/network unreachable.
+  // Must precede the guardrail/policy check because ECONNREFUSED contains "refused".
+  if (
+    lower.includes('econnrefused') ||
+    lower.includes('enotfound') ||
+    lower.includes('enetunreach') ||
+    lower.includes('ehostunreach')
+  ) {
+    return toolError(
+      ErrorCode.UPSTREAM_REFUSED,
+      fullMsg,
+      { status, reason: 'network' },
+      {
+        suggestions: [
+          'Verify internet connectivity',
+          'Check https://status.openrouter.ai for outages',
+          'Retry after a brief delay',
+        ],
+      },
+    );
+  }
+
+  // Transient connection interruptions — socket reset, broken pipe, hang-up.
+  if (lower.includes('econnreset') || lower.includes('epipe') || lower.includes('socket hang up')) {
+    return toolError(
+      ErrorCode.UPSTREAM_HTTP,
+      fullMsg,
+      { status, reason: 'connection_reset' },
+      {
+        suggestions: [
+          'Retry — the connection was interrupted',
+          'Check https://status.openrouter.ai for outages',
+        ],
+      },
+    );
+  }
+
   if (isGuardrailOrPolicy(lower) || status === 403) {
     return toolError(
       ErrorCode.UPSTREAM_REFUSED,

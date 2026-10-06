@@ -178,3 +178,68 @@ describe('classifyUpstreamError — auth and status codes', () => {
     expect(r._meta.code).toBe('RESOURCE_TOO_LARGE');
   });
 });
+
+describe('classifyUpstreamError — network-level errors', () => {
+  it('maps ECONNREFUSED to UPSTREAM_REFUSED with network suggestions', () => {
+    const err = Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:443'), {
+      code: 'ECONNREFUSED',
+    });
+    const r = classifyUpstreamError(err, 'chat_completion');
+    expect(r._meta.code).toBe('UPSTREAM_REFUSED');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'network' });
+    expect(r._meta.suggestions).toBeDefined();
+    expect(r._meta.suggestions!.some((s) => /connectivity/i.test(s))).toBe(true);
+    expect(r._meta.suggestions!.some((s) => /status\.openrouter\.ai/i.test(s))).toBe(true);
+  });
+
+  it('maps ENOTFOUND (DNS failure) to UPSTREAM_REFUSED with network suggestions', () => {
+    const err = Object.assign(new Error('getaddrinfo ENOTFOUND openrouter.ai'), {
+      code: 'ENOTFOUND',
+    });
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_REFUSED');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'network' });
+  });
+
+  it('maps ENETUNREACH to UPSTREAM_REFUSED', () => {
+    const err = new Error('connect ENETUNREACH ::1:443');
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_REFUSED');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'network' });
+  });
+
+  it('maps EHOSTUNREACH to UPSTREAM_REFUSED', () => {
+    const err = new Error('connect EHOSTUNREACH 10.0.0.1:443');
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_REFUSED');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'network' });
+  });
+
+  it('maps ECONNRESET to UPSTREAM_HTTP with connection_reset reason', () => {
+    const err = Object.assign(new Error('read ECONNRESET'), { code: 'ECONNRESET' });
+    const r = classifyUpstreamError(err, 'generate_video');
+    expect(r._meta.code).toBe('UPSTREAM_HTTP');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'connection_reset' });
+    expect(r._meta.suggestions!.some((s) => /retry/i.test(s))).toBe(true);
+  });
+
+  it('maps EPIPE to UPSTREAM_HTTP with connection_reset reason', () => {
+    const err = new Error('write EPIPE');
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_HTTP');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'connection_reset' });
+  });
+
+  it('maps "socket hang up" to UPSTREAM_HTTP with connection_reset reason', () => {
+    const err = new Error('socket hang up');
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_HTTP');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'connection_reset' });
+  });
+
+  it('context label is preserved on network errors', () => {
+    const err = new Error('connect ECONNREFUSED 127.0.0.1:443');
+    const r = classifyUpstreamError(err, 'rerank');
+    expect(r.content[0].text.startsWith('rerank:')).toBe(true);
+  });
+});
