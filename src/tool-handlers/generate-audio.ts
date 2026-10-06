@@ -10,6 +10,7 @@ import { classifyUpstreamError } from './openrouter-errors.js';
 import { buildBinaryToolResult } from './tool-result-payload.js';
 import { replaceExtension, writeOutputFile } from './path-utils.js';
 import { createWavHeader, wrapPcmInWav, detectAudioFormat } from './audio-utils.js';
+import { readEnvInt } from './fetch-utils.js';
 
 // Re-export WAV helpers so existing test imports from this module keep working.
 export { createWavHeader, wrapPcmInWav };
@@ -25,6 +26,11 @@ export interface GenerateAudioToolRequest {
 const DEFAULT_MODEL = 'openai/gpt-audio';
 const DEFAULT_VOICE = 'alloy';
 const DEFAULT_FORMAT = 'pcm16';
+const DEFAULT_AUDIO_GEN_MAX_BYTES = 50 * 1024 * 1024; // 50 MiB — matches SPEECH_MAX_BYTES
+
+function getAudioGenMaxBytes(): number {
+  return readEnvInt('OPENROUTER_AUDIO_GEN_MAX_BYTES', DEFAULT_AUDIO_GEN_MAX_BYTES, 1024);
+}
 
 const VALID_FORMATS = GENERATE_AUDIO_FORMATS;
 type OutputFormat = (typeof VALID_FORMATS)[number];
@@ -90,13 +96,25 @@ export async function handleGenerateAudio(
   try {
     const audioChunks: string[] = [];
     const transcriptChunks: string[] = [];
+    let approxRawBytes = 0;
+    const maxBytes = getAudioGenMaxBytes();
 
     for await (const chunk of stream) {
       const delta = (chunk as { choices?: Array<{ delta?: Record<string, unknown> }> }).choices?.[0]
         ?.delta;
       if (delta && typeof delta === 'object' && delta.audio) {
         const a = delta.audio as { data?: unknown; transcript?: unknown };
-        if (typeof a.data === 'string') audioChunks.push(a.data);
+        if (typeof a.data === 'string') {
+          approxRawBytes += Math.ceil((a.data.length * 3) / 4);
+          if (approxRawBytes > maxBytes) {
+            return toolError(
+              ErrorCode.RESOURCE_TOO_LARGE,
+              `Streaming audio exceeded ${maxBytes} bytes. ` +
+                'Raise OPENROUTER_AUDIO_GEN_MAX_BYTES or shorten the prompt.',
+            );
+          }
+          audioChunks.push(a.data);
+        }
         if (typeof a.transcript === 'string') transcriptChunks.push(a.transcript);
       }
     }
