@@ -58,7 +58,10 @@ export async function handleSpeechToText(
     );
   }
 
-  if (typeof temperature === 'number' && (temperature < 0 || temperature > 1)) {
+  if (
+    typeof temperature === 'number' &&
+    (!Number.isFinite(temperature) || temperature < 0 || temperature > 1)
+  ) {
     return toolError(ErrorCode.INVALID_INPUT, 'temperature must be between 0 and 1 (inclusive).');
   }
 

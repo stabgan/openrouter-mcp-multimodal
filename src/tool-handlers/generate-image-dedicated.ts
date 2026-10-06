@@ -108,7 +108,10 @@ export async function handleGenerateImageDedicated(
       `output_format '${output_format}' is not supported. Valid: ${[...VALID_OUTPUT_FORMATS].join(', ')}.`,
     );
   }
-  if (typeof n === 'number' && (n < 1 || n > MAX_IMAGES)) {
+  if (
+    typeof n === 'number' &&
+    (!Number.isFinite(n) || !Number.isInteger(n) || n < 1 || n > MAX_IMAGES)
+  ) {
     return toolError(ErrorCode.INVALID_INPUT, `n must be between 1 and ${MAX_IMAGES} (inclusive).`);
   }
 
