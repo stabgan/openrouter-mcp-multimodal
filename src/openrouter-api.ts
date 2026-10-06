@@ -353,6 +353,11 @@ function extractEmbeddedError(data: unknown): string | undefined {
     const err = record.error as { message?: string; code?: number };
     if (typeof err.message === 'string') return err.message;
   }
+  // Handle { error: "string" } without the type: 'error' wrapper — some
+  // upstream endpoints use this minimal format for error responses.
+  if (typeof record.error === 'string' && record.error.length > 0) {
+    return record.error;
+  }
   return undefined;
 }
 

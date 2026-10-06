@@ -174,6 +174,14 @@ describe('extractEmbeddedError', () => {
     );
   });
 
+  it('detects plain string error without type envelope', () => {
+    expect(extractEmbeddedError({ error: 'Something went wrong' })).toBe('Something went wrong');
+  });
+
+  it('ignores empty string error field', () => {
+    expect(extractEmbeddedError({ error: '' })).toBeUndefined();
+  });
+
   it('returns undefined for success payloads', () => {
     expect(extractEmbeddedError({ data: [{ id: 'x' }] })).toBeUndefined();
   });
@@ -191,6 +199,11 @@ describe('readJsonOrThrow', () => {
       { status: 200 },
     );
     await expect(readJsonOrThrow(res, 'GET /models')).rejects.toThrow(/Invalid credentials/);
+  });
+
+  it('throws on plain string error field in 200 responses', async () => {
+    const res = new Response(JSON.stringify({ error: 'Bad request' }), { status: 200 });
+    await expect(readJsonOrThrow(res, 'POST /videos')).rejects.toThrow(/Bad request/);
   });
 });
 
