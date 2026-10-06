@@ -29,10 +29,12 @@ export const ROUTING_SUFFIXES = [':nitro', ':floor', ':free', ':online', ':exact
 
 export type RoutingSuffix = (typeof ROUTING_SUFFIXES)[number];
 
-/** Strip a trailing routing suffix from a model slug for catalog lookup. */
+/** Strip a trailing routing suffix from a model slug for catalog lookup.
+ *  Comparison is case-insensitive so `:FREE`, `:Nitro`, etc. are stripped. */
 export function stripRoutingSuffix(modelId: string): string {
+  const lower = modelId.toLowerCase();
   for (const suffix of ROUTING_SUFFIXES) {
-    if (modelId.endsWith(suffix)) return modelId.slice(0, -suffix.length);
+    if (lower.endsWith(suffix)) return modelId.slice(0, -suffix.length);
   }
   return modelId;
 }

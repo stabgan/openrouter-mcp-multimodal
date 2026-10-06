@@ -144,4 +144,14 @@ describe('ModelCache', () => {
     cache.setModels([{ id: 'openai/gpt-4o' }]);
     expect(cache.lookup('OpenAI/GPT-4o')?.id).toBe('openai/gpt-4o');
   });
+
+  it('lookup strips routing suffixes case-insensitively', () => {
+    cache.setModels([{ id: 'openai/gpt-4o', name: 'GPT-4o' }]);
+    expect(cache.lookup('openai/gpt-4o:FREE')?.id).toBe('openai/gpt-4o');
+    expect(cache.lookup('openai/gpt-4o:Nitro')?.id).toBe('openai/gpt-4o');
+    expect(cache.lookup('openai/gpt-4o:FLOOR')?.id).toBe('openai/gpt-4o');
+    expect(cache.lookup('openai/gpt-4o:ONLINE')?.id).toBe('openai/gpt-4o');
+    expect(cache.lookup('openai/gpt-4o:Exacto')?.id).toBe('openai/gpt-4o');
+    expect(cache.catalogHas('openai/gpt-4o:FREE')).toBe(true);
+  });
 });
