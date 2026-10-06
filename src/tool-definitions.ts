@@ -228,6 +228,31 @@ export const TOOL_DEFINITIONS = [
         include_reasoning: { type: 'boolean' },
         online: { type: 'boolean' },
         web_max_results: { type: 'number', minimum: 1 },
+        web_blocked_domains: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Block specific domains from web search results.',
+        },
+        fusion: {
+          type: 'boolean',
+          description: 'Enable `openrouter:fusion` — multi-model deliberation.',
+        },
+        subagent: {
+          oneOf: [
+            { type: 'boolean' },
+            {
+              type: 'object',
+              properties: {
+                model: { type: 'string', description: 'Worker model ID.' },
+              },
+            },
+          ],
+          description: 'Enable `openrouter:subagent` — delegate subtasks to a cheaper model.',
+        },
+        response_healing: {
+          type: 'boolean',
+          description: 'Enable `openrouter:response_healing` — auto-fix malformed JSON.',
+        },
         ...CACHE_PROPERTIES,
       },
       required: ['messages'],
