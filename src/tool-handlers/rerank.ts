@@ -85,8 +85,8 @@ export async function handleRerankDocuments(
     return toolError(ErrorCode.INVALID_INPUT, 'every document must be a string.');
   }
   if (top_n !== undefined) {
-    if (typeof top_n !== 'number' || !Number.isFinite(top_n)) {
-      return toolError(ErrorCode.INVALID_INPUT, 'top_n must be a finite number.');
+    if (typeof top_n !== 'number' || !Number.isFinite(top_n) || !Number.isInteger(top_n)) {
+      return toolError(ErrorCode.INVALID_INPUT, 'top_n must be a positive integer.');
     }
     if (top_n < 1) {
       return toolError(ErrorCode.INVALID_INPUT, 'top_n must be at least 1 when specified.');

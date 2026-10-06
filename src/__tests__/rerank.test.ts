@@ -137,6 +137,17 @@ describe('handleRerankDocuments', () => {
     expect(client.rerank).not.toHaveBeenCalled();
   });
 
+  it('returns INVALID_INPUT for non-integer top_n', async () => {
+    const client = mockApiClient({ results: [] });
+    const r = await handleRerankDocuments(
+      { params: { arguments: { query: 'q', documents: ['a'], top_n: 1.5 } } },
+      client,
+    );
+    expect((r as { isError?: boolean }).isError).toBe(true);
+    expect((r as { _meta: { code: string } })._meta.code).toBe('INVALID_INPUT');
+    expect(client.rerank).not.toHaveBeenCalled();
+  });
+
   it('returns INVALID_INPUT for negative top_n', async () => {
     const client = mockApiClient({ results: [] });
     const r = await handleRerankDocuments(
