@@ -12,6 +12,7 @@ import {
   extractCompletionText,
   detectReasoningCutoff,
   buildCompletionMeta,
+  capResultText,
 } from './completion-utils.js';
 import {
   type CacheOptions,
@@ -114,8 +115,11 @@ export async function handleAnalyzeAudio(
   };
   if (cacheMeta) extra.cache = cacheMeta;
 
+  const capped = capResultText(extracted.text);
+  if (capped.truncated) extra.result_truncated = true;
+
   return {
-    content: [{ type: 'text' as const, text: extracted.text }],
+    content: [{ type: 'text' as const, text: capped.text }],
     _meta: buildCompletionMeta(extracted, { extra }),
   };
 }
