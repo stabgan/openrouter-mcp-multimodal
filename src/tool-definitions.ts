@@ -146,6 +146,12 @@ export const TOOL_DEFINITIONS = [
               items: { type: 'string' },
               description: 'Exclude these provider slugs.',
             },
+            only: {
+              type: 'array',
+              items: { type: 'string' },
+              description:
+                'Allow only these provider slugs for the request (e.g. `["anthropic","openai"]`). Env default: `OPENROUTER_PROVIDER_ONLY`.',
+            },
             sort: { type: 'string', enum: [...PROVIDER_SORT_VALUES] },
             order: { type: 'array', items: { type: 'string' } },
             require_parameters: { type: 'boolean' },
