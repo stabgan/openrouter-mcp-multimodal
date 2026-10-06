@@ -22,6 +22,25 @@ export interface ChatToolRequest extends CacheOptions {
   include_reasoning?: boolean;
   online?: boolean;
   web_max_results?: number;
+  /** Block specific domains from web search results. */
+  web_blocked_domains?: string[];
+  /**
+   * Enable `openrouter:fusion` — multi-model deliberation. A panel of models
+   * answers in parallel, an analyst synthesizes. Adds ~2-5x latency but
+   * higher quality for complex prompts.
+   */
+  fusion?: boolean;
+  /**
+   * Enable `openrouter:subagent` — lets the model delegate subtasks to a
+   * smaller, cheaper worker model mid-generation.
+   */
+  subagent?: boolean | { model?: string };
+  /**
+   * Enable `openrouter:response_healing` — automatically fix malformed JSON
+   * responses (missing brackets, trailing commas, markdown wrappers).
+   * Reduces JSON defects by 80%+.
+   */
+  response_healing?: boolean;
 }
 
 export function readIncludeReasoningDefault(): boolean {
@@ -44,7 +63,9 @@ export function validateChatMessages(
         `Message at index ${i} has an empty or missing role.`,
       );
     }
-    if ('content' in msg && msg.content === null) {
+    // Assistant messages may legitimately have content: null when tool_calls
+    // is present (standard OpenAI multi-turn tool-use pattern).
+    if ('content' in msg && msg.content === null && role !== 'assistant') {
       return toolError(ErrorCode.INVALID_INPUT, `Message at index ${i} has null content.`);
     }
   }
@@ -86,8 +107,31 @@ export function buildChatCompletionBody(
     if (typeof input.web_max_results === 'number' && input.web_max_results > 0) {
       plugin.max_results = input.web_max_results;
     }
+    if (input.web_blocked_domains?.length) {
+      plugin.blocked_domains = input.web_blocked_domains;
+    }
     body.plugins = [plugin];
   }
+
+  // OpenRouter server tools — executed server-side, no client implementation needed.
+  const tools: Array<Record<string, unknown>> = [];
+  if (input.fusion) {
+    tools.push({ type: 'openrouter:fusion' });
+  }
+  if (input.subagent) {
+    const subagentTool: Record<string, unknown> = { type: 'openrouter:subagent' };
+    if (typeof input.subagent === 'object' && input.subagent.model) {
+      subagentTool.parameters = { model: input.subagent.model };
+    }
+    tools.push(subagentTool);
+  }
+  if (input.response_healing) {
+    body.plugins = [
+      ...((body.plugins as Array<Record<string, unknown>>) ?? []),
+      { id: 'response_healing' },
+    ];
+  }
+  if (tools.length) body.tools = tools;
   return body;
 }
 

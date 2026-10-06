@@ -39,6 +39,10 @@ export async function handleChatCompletion(
     include_reasoning,
     online,
     web_max_results,
+    web_blocked_domains,
+    fusion,
+    subagent,
+    response_healing,
     cache,
     cache_ttl,
     cache_clear,
@@ -64,6 +68,10 @@ export async function handleChatCompletion(
     include_reasoning,
     online,
     web_max_results,
+    web_blocked_domains,
+    fusion,
+    subagent,
+    response_healing,
   });
   const requestOpts = buildChatCompletionRequestOpts({ cache, cache_ttl, cache_clear });
 

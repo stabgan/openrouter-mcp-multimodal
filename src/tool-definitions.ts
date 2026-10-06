@@ -167,6 +167,41 @@ export const TOOL_DEFINITIONS = [
           minimum: 1,
           description: 'Max web-search results when `online: true` (default 5).',
         },
+        web_blocked_domains: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Block specific domains from web search results (e.g. `["reddit.com", "pinterest.com"]`).',
+        },
+        fusion: {
+          type: 'boolean',
+          description:
+            'Enable `openrouter:fusion` — multi-model deliberation. Multiple models answer ' +
+            'in parallel, an analyst synthesizes. Higher quality but ~2-5x latency.',
+        },
+        subagent: {
+          oneOf: [
+            { type: 'boolean' },
+            {
+              type: 'object',
+              properties: {
+                model: {
+                  type: 'string',
+                  description: 'Worker model ID (default: auto-selected cheaper model).',
+                },
+              },
+            },
+          ],
+          description:
+            'Enable `openrouter:subagent` — model can delegate subtasks to a smaller, cheaper ' +
+            'worker model mid-generation. Pass `true` or `{model: "..."}` to specify the worker.',
+        },
+        response_healing: {
+          type: 'boolean',
+          description:
+            'Enable `openrouter:response_healing` — auto-fix malformed JSON (missing brackets, ' +
+            'trailing commas, markdown wrappers). Reduces JSON defects by 80%+.',
+        },
         ...CACHE_PROPERTIES,
       },
       required: ['messages'],

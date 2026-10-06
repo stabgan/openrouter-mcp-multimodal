@@ -73,10 +73,14 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
     summary:
       'Send messages to an OpenRouter chat model and get a text reply. Supports provider routing, ' +
       'model suffixes (`:nitro` fastest, `:floor` cheapest, `:free` zero-cost, `:online` web search, ' +
-      '`:exacto` tool accuracy), reasoning tokens, web search (`online: true`), and response caching.',
+      '`:exacto` tool accuracy), reasoning tokens, web search (`online: true`), response caching, ' +
+      'multi-model fusion (`fusion: true`), subagent delegation (`subagent: true`), and JSON response healing.',
     useWhen: [
       'You need text generation, Q&A, summarization, or multi-turn dialogue',
       'You want web-grounded answers (`online: true`)',
+      'You want multi-model consensus (`fusion: true`) for critical decisions',
+      'You want the model to delegate busywork to a cheaper model (`subagent: true`)',
+      'You need reliable JSON output (`response_healing: true`)',
       'You already know the model id (or rely on the server default)',
     ],
     notWhen: [
