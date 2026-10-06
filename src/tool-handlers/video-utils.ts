@@ -164,6 +164,11 @@ export async function prepareVideoData(source: string): Promise<VideoData> {
   }
 
   const safe = await resolveSafeInputPath(source);
+  const maxBytes = getMaxDownloadBytes();
+  const { size } = await fs.stat(safe);
+  if (size > maxBytes) {
+    throw new Error(`Video file too large (${size} bytes, max ${maxBytes})`);
+  }
   const buffer = await fs.readFile(safe);
   const format = detectVideoFormat(buffer) ?? getVideoFormat(safe);
   if (!format) {
