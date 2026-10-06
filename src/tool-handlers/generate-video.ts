@@ -294,6 +294,32 @@ export async function handleGenerateVideo(
     return toolError(ErrorCode.INVALID_INPUT, 'prompt is required.');
   }
 
+  if (
+    typeof args.duration === 'number' &&
+    (!Number.isFinite(args.duration) || args.duration <= 0)
+  ) {
+    return toolError(ErrorCode.INVALID_INPUT, 'duration must be a positive finite number.');
+  }
+  if (typeof args.seed === 'number' && !Number.isFinite(args.seed)) {
+    return toolError(ErrorCode.INVALID_INPUT, 'seed must be a finite number.');
+  }
+  if (
+    args.poll_interval_ms !== undefined &&
+    (typeof args.poll_interval_ms !== 'number' ||
+      !Number.isFinite(args.poll_interval_ms) ||
+      args.poll_interval_ms <= 0)
+  ) {
+    return toolError(ErrorCode.INVALID_INPUT, 'poll_interval_ms must be a positive finite number.');
+  }
+  if (
+    args.max_wait_ms !== undefined &&
+    (typeof args.max_wait_ms !== 'number' ||
+      !Number.isFinite(args.max_wait_ms) ||
+      args.max_wait_ms <= 0)
+  ) {
+    return toolError(ErrorCode.INVALID_INPUT, 'max_wait_ms must be a positive finite number.');
+  }
+
   const model = args.model || process.env.OPENROUTER_DEFAULT_VIDEO_GEN_MODEL || FALLBACK_MODEL;
 
   const deprecationWarning = checkSoraDeprecation(model);
