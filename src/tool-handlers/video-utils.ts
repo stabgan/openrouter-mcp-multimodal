@@ -47,7 +47,7 @@ export function getVideoMimeType(format: VideoFormat): string {
   const map: Record<VideoFormat, string> = {
     mp4: 'video/mp4',
     mpeg: 'video/mpeg',
-    mov: 'video/mov',
+    mov: 'video/quicktime',
     webm: 'video/webm',
   };
   return map[format];

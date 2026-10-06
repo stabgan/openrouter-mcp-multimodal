@@ -40,7 +40,7 @@ describe('getVideoMimeType', () => {
   it('maps formats to canonical MIME', () => {
     expect(getVideoMimeType('mp4')).toBe('video/mp4');
     expect(getVideoMimeType('mpeg')).toBe('video/mpeg');
-    expect(getVideoMimeType('mov')).toBe('video/mov');
+    expect(getVideoMimeType('mov')).toBe('video/quicktime');
     expect(getVideoMimeType('webm')).toBe('video/webm');
   });
 });

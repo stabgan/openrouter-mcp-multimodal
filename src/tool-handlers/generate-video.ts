@@ -245,7 +245,7 @@ async function finalizeCompletedJob(
   const mime = (contentType?.split(';')[0]?.trim() || 'video/mp4').toLowerCase();
   const ext = mime.includes('webm')
     ? 'webm'
-    : mime.includes('mov')
+    : mime.includes('quicktime') || mime.includes('mov')
       ? 'mov'
       : mime.includes('mpeg')
         ? 'mpeg'
