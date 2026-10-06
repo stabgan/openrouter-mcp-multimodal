@@ -1,5 +1,5 @@
 # Both FROM lines must pin the same digest; Dependabot cannot update an ARG-defined base image.
-FROM node:24-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf AS builder
+FROM node:26-alpine@sha256:2d984a15c9b54fd0aeb608b8e0d0d83529eb34d2966db27a1fb4f1edc3d298a3 AS builder
 WORKDIR /app
 
 RUN apk add --no-cache g++ make python3 vips-dev
@@ -12,7 +12,7 @@ COPY src/ ./src/
 RUN npx tsc
 RUN npm prune --omit=dev
 
-FROM node:24-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf
+FROM node:26-alpine@sha256:2d984a15c9b54fd0aeb608b8e0d0d83529eb34d2966db27a1fb4f1edc3d298a3
 WORKDIR /app
 
 ARG IMAGE_VERSION=dev
