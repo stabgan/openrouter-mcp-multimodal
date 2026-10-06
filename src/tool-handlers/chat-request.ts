@@ -72,6 +72,19 @@ export function validateChatMessages(
   return null;
 }
 
+export function validateTemperature(temperature: number | undefined): ToolErrorResult | null {
+  if (temperature === undefined) return null;
+  if (
+    typeof temperature !== 'number' ||
+    !Number.isFinite(temperature) ||
+    temperature < 0 ||
+    temperature > 2
+  ) {
+    return toolError(ErrorCode.INVALID_INPUT, 'temperature must be a number between 0 and 2.');
+  }
+  return null;
+}
+
 export function validateMaxTokens(max_tokens: number | undefined): ToolErrorResult | null {
   if (max_tokens === undefined) return null;
   if (

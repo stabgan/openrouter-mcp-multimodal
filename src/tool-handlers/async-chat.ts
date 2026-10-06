@@ -19,6 +19,7 @@ import {
   asOpenAIChatBody,
   readIncludeReasoningDefault,
   validateChatMessages,
+  validateTemperature,
   validateMaxTokens,
 } from './chat-request.js';
 
@@ -168,6 +169,9 @@ export async function handleStartChatCompletion(
 
   const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });
   if (cacheError) return cacheError;
+
+  const temperatureError = validateTemperature(temperature);
+  if (temperatureError) return temperatureError;
 
   const maxTokensError = validateMaxTokens(max_tokens);
   if (maxTokensError) return maxTokensError;
