@@ -7,7 +7,12 @@ import type { ChatCompletion } from 'openai/resources/chat/completions.js';
 import { ErrorCode, toolError } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
-import { extractCompletionText, buildCompletionMeta, capResultText } from './completion-utils.js';
+import {
+  extractCompletionText,
+  detectReasoningCutoff,
+  buildCompletionMeta,
+  capResultText,
+} from './completion-utils.js';
 import { resolveSafeJobStatusPath, isValidJobId } from './path-safety.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
 import { validateCacheOptions } from './cache.js';
@@ -263,6 +268,16 @@ async function runCompletionInBackground(
         requestOpts,
       )) as ChatCompletion;
       const extracted = extractCompletionText(completion);
+
+      const cutoff = detectReasoningCutoff(extracted);
+      if (cutoff) {
+        job.status = 'failed';
+        job.error = cutoff.content[0]?.text ?? 'Reasoning cutoff detected.';
+        job.error_code = cutoff._meta.code;
+        await persistJob(job);
+        evictTerminalJobsIfNeeded();
+        return;
+      }
 
       if (!extracted.text) {
         job.status = 'failed';
