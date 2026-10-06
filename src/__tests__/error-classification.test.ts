@@ -147,4 +147,34 @@ describe('classifyUpstreamError — auth and status codes', () => {
     expect(r._meta.code).toBe('UPSTREAM_HTTP');
     expect(r.content[0].text).toContain('HTML error page');
   });
+
+  it('maps HTTP 408 to UPSTREAM_TIMEOUT', () => {
+    const err = Object.assign(new Error('Request Timeout'), { status: 408 });
+    const r = classifyUpstreamError(err, 'chat_completion');
+    expect(r._meta.code).toBe('UPSTREAM_TIMEOUT');
+    expect(r._meta.details).toEqual({ status: 408 });
+    expect(r._meta.suggestions).toBeDefined();
+    expect(r._meta.suggestions!.some((s) => /retry/i.test(s))).toBe(true);
+  });
+
+  it('maps HTTP 413 to RESOURCE_TOO_LARGE', () => {
+    const err = Object.assign(new Error('Payload Too Large'), { status: 413 });
+    const r = classifyUpstreamError(err, 'generate_image');
+    expect(r._meta.code).toBe('RESOURCE_TOO_LARGE');
+    expect(r._meta.details).toEqual({ status: 413 });
+    expect(r._meta.suggestions).toBeDefined();
+    expect(r._meta.suggestions!.some((s) => /size/i.test(s))).toBe(true);
+  });
+
+  it('maps "payload too large" text to RESOURCE_TOO_LARGE even without 413 status', () => {
+    const err = new Error('Request payload too large for upstream');
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('RESOURCE_TOO_LARGE');
+  });
+
+  it('maps "body too large" text to RESOURCE_TOO_LARGE', () => {
+    const err = new Error('Request body too large');
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('RESOURCE_TOO_LARGE');
+  });
 });

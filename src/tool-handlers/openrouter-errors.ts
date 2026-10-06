@@ -285,6 +285,31 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
     );
   }
 
+  if (status === 408) {
+    return toolError(
+      ErrorCode.UPSTREAM_TIMEOUT,
+      fullMsg,
+      { status },
+      {
+        suggestions: ['Retry', 'Raise max_wait_ms or max_tokens'],
+      },
+    );
+  }
+
+  if (status === 413 || lower.includes('payload too large') || lower.includes('body too large')) {
+    return toolError(
+      ErrorCode.RESOURCE_TOO_LARGE,
+      fullMsg,
+      { status },
+      {
+        suggestions: [
+          'Reduce the size of input images, audio, or video',
+          'Use save_path to reference local files instead of inlining large payloads',
+        ],
+      },
+    );
+  }
+
   if (typeof status === 'number' && status >= 400 && status < 500) {
     return toolError(
       ErrorCode.INVALID_INPUT,
