@@ -323,6 +323,13 @@ export async function handleGenerateVideo(
     return toolError(ErrorCode.INVALID_INPUT, 'max_wait_ms must be a positive finite number.');
   }
 
+  if (args.reference_images && args.reference_images.length > 50) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `reference_images has ${args.reference_images.length} entries — max 50.`,
+    );
+  }
+
   const model = args.model || process.env.OPENROUTER_DEFAULT_VIDEO_GEN_MODEL || FALLBACK_MODEL;
 
   const deprecationWarning = checkSoraDeprecation(model);

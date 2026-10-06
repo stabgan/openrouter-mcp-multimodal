@@ -79,6 +79,13 @@ export async function handleGenerateImage(
     }
   }
 
+  if (input_images && input_images.length > 20) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `input_images has ${input_images.length} entries — max 20.`,
+    );
+  }
+
   const savePathResult = await resolveOptionalOutputPath(save_path);
   if (isToolErrorResult(savePathResult)) return savePathResult;
   const safePathResolved = savePathResult.path;

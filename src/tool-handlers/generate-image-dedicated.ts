@@ -115,6 +115,13 @@ export async function handleGenerateImageDedicated(
     return toolError(ErrorCode.INVALID_INPUT, `n must be between 1 and ${MAX_IMAGES} (inclusive).`);
   }
 
+  if (input_references && input_references.length > 20) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `input_references has ${input_references.length} entries — max 20.`,
+    );
+  }
+
   const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });
   if (cacheError) return cacheError;
 

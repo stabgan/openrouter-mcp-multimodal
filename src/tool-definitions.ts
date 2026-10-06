@@ -527,8 +527,9 @@ export const TOOL_DEFINITIONS = [
         input_images: {
           type: 'array',
           items: { type: 'string' },
+          maxItems: 20,
           description:
-            'Reference images (local path, URL, or data URL) for style/identity conditioning.',
+            'Reference images (local path, URL, or data URL) for style/identity conditioning. Max 20.',
         },
         modalities: {
           type: 'array',
@@ -590,8 +591,9 @@ export const TOOL_DEFINITIONS = [
         input_references: {
           type: 'array',
           items: { type: 'string' },
+          maxItems: 20,
           description:
-            'Reference images for image-to-image. Each entry: local path, http(s) URL, or data URL.',
+            'Reference images for image-to-image. Each entry: local path, http(s) URL, or data URL. Max 20.',
         },
         save_path: SAVE_PATH_WITH_PREFIX('Save generated image to this path.'),
         provider: {
@@ -768,7 +770,9 @@ export const TOOL_DEFINITIONS = [
         reference_images: {
           type: 'array',
           items: { type: 'string' },
-          description: 'Optional reference images for style/subject guidance.',
+          maxItems: 50,
+          description:
+            'Optional reference images for style/subject guidance. Max 50 (seedance-2.5 supports up to 50 reference assets).',
         },
         provider: { type: 'object', description: 'Provider routing overrides.' },
         save_path: SAVE_PATH_PROPERTY,
