@@ -101,6 +101,7 @@ export function validateMaxTokens(max_tokens: number | undefined): ToolErrorResu
 export function validateWebSearchOptions(
   webMaxResults: number | undefined,
   webBlockedDomains: string[] | undefined,
+  online?: boolean,
 ): ToolErrorResult | null {
   if (webMaxResults !== undefined) {
     if (
@@ -124,6 +125,17 @@ export function validateWebSearchOptions(
         );
       }
     }
+  }
+  // Catch the common mistake of setting web search params without enabling online mode.
+  const hasActiveWebSearchParams =
+    webMaxResults !== undefined ||
+    (Array.isArray(webBlockedDomains) && webBlockedDomains.length > 0);
+  if (hasActiveWebSearchParams && !online) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      'web_max_results and web_blocked_domains require `online: true` to take effect. ' +
+        'Set online: true to enable web search, or remove these parameters.',
+    );
   }
   return null;
 }

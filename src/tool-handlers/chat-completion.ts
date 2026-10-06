@@ -62,7 +62,7 @@ export async function handleChatCompletion(
   const maxTokensError = validateMaxTokens(max_tokens);
   if (maxTokensError) return maxTokensError;
 
-  const webSearchError = validateWebSearchOptions(web_max_results, web_blocked_domains);
+  const webSearchError = validateWebSearchOptions(web_max_results, web_blocked_domains, online);
   if (webSearchError) return webSearchError;
 
   const wantsReasoning = include_reasoning ?? readIncludeReasoningDefault();
