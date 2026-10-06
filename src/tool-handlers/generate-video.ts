@@ -31,8 +31,11 @@ const SORA_DEPRECATED_MODELS = new Set([
 const SORA_ALTERNATIVES = [
   'google/veo-3.1 (recommended — fast, audio support)',
   'google/veo-3.1-fast (budget-friendly)',
-  'bytedance/seedance-2.0 (high quality)',
+  'bytedance/seedance-2.5 (high quality, up to 30s, 50 reference assets)',
   'bytedance/seedance-2.0-fast (fast turnaround)',
+  'kwaivgi/kling-v3.0-pro (cinematic, first+last frame control)',
+  'kwaivgi/kling-v3.0-std (standard tier)',
+  'x-ai/grok-imagine-video (fast, $0.02/sec)',
   'alibaba/wan-2.7 (good for artistic styles)',
 ];
 
