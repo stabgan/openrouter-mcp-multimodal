@@ -4,6 +4,7 @@ const BASE_URL = 'https://openrouter.ai/api/v1';
 const DEFAULT_TIMEOUT_MS = 30_000;
 const VIDEO_TIMEOUT_MS = 60_000;
 const MAX_BACKOFF_MS = 10_000;
+const SPEECH_MAX_BYTES = 50 * 1024 * 1024; // 50 MiB — generous for TTS output
 
 async function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -203,6 +204,7 @@ export class OpenRouterAPIClient {
   async generateSpeech(
     body: Record<string, unknown>,
     headers?: Record<string, string>,
+    maxBytes = SPEECH_MAX_BYTES,
   ): Promise<{ buffer: Buffer; contentType: string }> {
     const res = await fetchWithRetry(
       `${BASE_URL}/audio/speech`,
@@ -220,8 +222,41 @@ export class OpenRouterAPIClient {
       );
     }
     const contentType = res.headers.get('content-type') || 'audio/mpeg';
-    const buf = Buffer.from(await res.arrayBuffer());
-    return { buffer: buf, contentType };
+    const declared = res.headers.get('content-length');
+    if (declared) {
+      const n = parseInt(declared, 10);
+      if (Number.isFinite(n) && n > maxBytes) {
+        try {
+          await res.body?.cancel();
+        } catch {
+          /* ignore */
+        }
+        throw new Error(`Speech response too large: ${n} bytes > ${maxBytes}`);
+      }
+    }
+    const reader = res.body?.getReader();
+    if (!reader) {
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length > maxBytes) throw new Error('Speech response too large');
+      return { buffer: buf, contentType };
+    }
+    const chunks: Buffer[] = [];
+    let total = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        try {
+          await reader.cancel();
+        } catch {
+          /* ignore */
+        }
+        throw new Error('Speech response too large');
+      }
+      chunks.push(Buffer.from(value));
+    }
+    return { buffer: Buffer.concat(chunks), contentType };
   }
 
   /** POST /audio/transcriptions. */
