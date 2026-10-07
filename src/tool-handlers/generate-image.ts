@@ -1,7 +1,7 @@
 import { extname } from 'node:path';
 import OpenAI from 'openai';
 import type { ChatCompletion } from 'openai/resources/chat/completions.js';
-import { IMAGE_ASPECT_RATIOS } from '../tool-definitions.js';
+import { IMAGE_ASPECT_RATIOS, IMAGE_SIZES } from '../tool-definitions.js';
 import { resolveOptionalOutputPath, isToolErrorResult } from './path-safety.js';
 import { parseBase64DataUrl } from './fetch-utils.js';
 import { extensionForImageMime } from './image-utils.js';
@@ -36,7 +36,7 @@ const DEFAULT_MODEL = 'google/gemini-2.5-flash-image';
 
 const VALID_ASPECT_RATIOS = new Set<string>(IMAGE_ASPECT_RATIOS);
 
-const VALID_IMAGE_SIZES = new Set(['0.5K', '1K', '2K', '4K']);
+const VALID_IMAGE_SIZES = new Set<string>(IMAGE_SIZES);
 
 export async function handleGenerateImage(
   request: { params: { arguments: GenerateImageToolRequest } },
