@@ -92,7 +92,7 @@ export function extractCompletionText(completion: ChatCompletion): ExtractedText
     const usage = completion.usage ?? undefined;
 
     if (!msg) {
-      return emptyExtracted(finishReason, nativeFinishReason ?? undefined, usage);
+      return emptyExtracted(finishReason, nativeFinishReason, usage);
     }
 
     const reasoning = extractReasoning(msg);
@@ -102,7 +102,7 @@ export function extractCompletionText(completion: ChatCompletion): ExtractedText
         text: msg.refusal,
         reasonedOnly: false,
         finishReason,
-        nativeFinishReason: nativeFinishReason ?? undefined,
+        nativeFinishReason,
         reasoning,
         usage,
       };
@@ -114,7 +114,7 @@ export function extractCompletionText(completion: ChatCompletion): ExtractedText
         text: contentText,
         reasonedOnly: false,
         finishReason,
-        nativeFinishReason: nativeFinishReason ?? undefined,
+        nativeFinishReason,
         reasoning,
         usage,
       };
@@ -125,13 +125,13 @@ export function extractCompletionText(completion: ChatCompletion): ExtractedText
         text: reasoning,
         reasonedOnly: true,
         finishReason,
-        nativeFinishReason: nativeFinishReason ?? undefined,
+        nativeFinishReason,
         reasoning,
         usage,
       };
     }
 
-    return emptyExtracted(finishReason, nativeFinishReason ?? undefined, usage);
+    return emptyExtracted(finishReason, nativeFinishReason, usage);
   } catch {
     return emptyExtracted(undefined, undefined, undefined);
   }
