@@ -165,14 +165,21 @@ export async function handleGenerateImage(
 
   const base64 = extractBase64(message as unknown as Record<string, unknown>);
   if (!base64) {
+    // Model refusals set `message.refusal` while leaving `content` null —
+    // surface the refusal text so the caller knows *why* the image was not
+    // generated instead of seeing "Text response: null".
+    const refusal = message.refusal;
     const messageContent = message.content;
-    const text =
-      typeof messageContent === 'string' ? messageContent : JSON.stringify(messageContent);
+    const text = refusal
+      ? refusal
+      : typeof messageContent === 'string'
+        ? messageContent
+        : JSON.stringify(messageContent);
     return toolError(
       ErrorCode.UPSTREAM_REFUSED,
-      `Model returned no image. Text response: ${text.slice(0, 300)}`,
+      `Model returned no image. ${refusal ? 'Refusal' : 'Text response'}: ${text.slice(0, 300)}`,
       {
-        reason: 'no_image_in_response',
+        reason: refusal ? 'refusal' : 'no_image_in_response',
         finish_reason: completion.choices[0]?.finish_reason,
       },
     );
