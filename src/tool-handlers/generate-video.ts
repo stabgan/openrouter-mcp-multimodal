@@ -372,6 +372,13 @@ export async function handleGenerateVideo(
     return toolError(ErrorCode.INVALID_INPUT, 'model must be a string.');
   }
 
+  if (args.resolution !== undefined && typeof args.resolution !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'resolution must be a string.');
+  }
+  if (args.aspect_ratio !== undefined && typeof args.aspect_ratio !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'aspect_ratio must be a string.');
+  }
+
   if (
     args.duration !== undefined &&
     (typeof args.duration !== 'number' ||

@@ -80,6 +80,10 @@ export async function handleSpeechToText(
     return toolError(ErrorCode.INVALID_INPUT, 'temperature must be a number between 0 and 1.');
   }
 
+  if (language !== undefined && typeof language !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'language must be a string.');
+  }
+
   const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });
   if (cacheError) return cacheError;
 

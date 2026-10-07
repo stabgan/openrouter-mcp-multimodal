@@ -86,6 +86,10 @@ export async function handleTextToSpeech(
     );
   }
 
+  if (instructions !== undefined && typeof instructions !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'instructions must be a string.');
+  }
+
   const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });
   if (cacheError) return cacheError;
 
