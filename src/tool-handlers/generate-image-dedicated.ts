@@ -19,6 +19,7 @@ import { buildBinaryToolResult } from './tool-result-payload.js';
 import { fetchHttpResource, readEnvInt } from './fetch-utils.js';
 import { type CacheOptions, buildCacheHeaders, validateCacheOptions } from './cache.js';
 import { writeOutputFile } from './path-utils.js';
+import { sniffImageMime } from './image-utils.js';
 import {
   readProviderDefaults,
   mergeProviderOptions,
@@ -186,7 +187,18 @@ export async function handleGenerateImageDedicated(
   }
 
   const firstImage = images[0]!;
-  const mimeType = MIME_BY_FORMAT[output_format ?? ''] ?? 'image/png';
+
+  // Decode the image buffer first so we can sniff the actual format.
+  const decoded = decodeImageBuffer(firstImage.b64_json);
+
+  // When the user explicitly requested an output_format, trust that mapping.
+  // Otherwise sniff the actual image magic bytes so we don't blindly label
+  // a JPEG or WebP response as image/png (BUG-013: wrong MIME in _meta and
+  // inline media blocks when output_format is omitted).
+  const mimeType =
+    MIME_BY_FORMAT[output_format ?? ''] ??
+    (decoded ? sniffImageMime(decoded) : null) ??
+    'image/png';
 
   const baseMeta: Record<string, unknown> = {
     server_version: SERVER_VERSION,
@@ -199,8 +211,6 @@ export async function handleGenerateImageDedicated(
   }
   if (response.usage) baseMeta.usage = response.usage;
   if (firstImage.revised_prompt) baseMeta.revised_prompt = firstImage.revised_prompt;
-
-  const decoded = decodeImageBuffer(firstImage.b64_json);
 
   if (safeSavePath) {
     if (decoded) {
