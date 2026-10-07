@@ -285,6 +285,20 @@ export async function handleGenerateImageDedicated(
           },
         );
       } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        if (errMsg.toLowerCase().includes('too large')) {
+          return toolErrorFrom(
+            ErrorCode.RESOURCE_TOO_LARGE,
+            err,
+            'Download image URL for save_path',
+            {
+              suggestions: [
+                'Raise OPENROUTER_IMAGE_MAX_DOWNLOAD_BYTES to allow larger downloads',
+                'Reduce image resolution or use a different output_format',
+              ],
+            },
+          );
+        }
         return toolErrorFrom(ErrorCode.UPSTREAM_HTTP, err, 'Download image URL for save_path');
       }
     }

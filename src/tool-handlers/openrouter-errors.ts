@@ -470,7 +470,7 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
     );
   }
 
-  if (status === 413 || lower.includes('payload too large') || lower.includes('body too large')) {
+  if (status === 413 || lower.includes('too large')) {
     return toolError(
       ErrorCode.RESOURCE_TOO_LARGE,
       fullMsg,
@@ -479,6 +479,7 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
         suggestions: [
           'Reduce the size of input images, audio, or video',
           'Use save_path to reference local files instead of inlining large payloads',
+          'Raise the relevant size-limit env var (OPENROUTER_VIDEO_GEN_MAX_BYTES, OPENROUTER_IMAGE_MAX_DOWNLOAD_BYTES, etc.)',
         ],
       },
     );

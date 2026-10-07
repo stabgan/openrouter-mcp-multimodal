@@ -498,6 +498,15 @@ export async function handleGenerateVideo(
     if (err instanceof UnsafePathError) {
       return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
     }
+    const errMsg = err instanceof Error ? err.message : String(err);
+    if (errMsg.toLowerCase().includes('too large')) {
+      return toolErrorFrom(ErrorCode.RESOURCE_TOO_LARGE, err, 'Download', {
+        suggestions: [
+          'Raise OPENROUTER_VIDEO_GEN_MAX_BYTES to allow larger downloads',
+          'Reduce video resolution or duration',
+        ],
+      });
+    }
     return toolErrorFrom(ErrorCode.UPSTREAM_HTTP, err, 'Download', {
       suggestions: ['Retry after a brief delay', 'Check https://status.openrouter.ai for outages'],
     });
@@ -539,6 +548,15 @@ export async function handleGetVideoStatus(
       return { content, _meta };
     } catch (err) {
       if (err instanceof UnsafePathError) return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (errMsg.toLowerCase().includes('too large')) {
+        return toolErrorFrom(ErrorCode.RESOURCE_TOO_LARGE, err, 'Download', {
+          suggestions: [
+            'Raise OPENROUTER_VIDEO_GEN_MAX_BYTES to allow larger downloads',
+            'Reduce video resolution or duration',
+          ],
+        });
+      }
       return toolErrorFrom(ErrorCode.UPSTREAM_HTTP, err, 'Download', {
         suggestions: [
           'Retry after a brief delay',
