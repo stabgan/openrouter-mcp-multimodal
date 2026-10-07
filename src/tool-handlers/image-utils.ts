@@ -105,7 +105,7 @@ export function getMimeType(filePath: string): string {
  */
 async function fetchHttpImageValidated(
   urlString: string,
-): Promise<{ buffer: Buffer; contentType: string | undefined }> {
+): Promise<{ buffer: Buffer; contentType: string | null }> {
   const { buffer, contentType } = await fetchHttpResource(urlString, {
     timeoutMs: getFetchTimeoutMs(),
     maxBytes: getMaxDownloadBytes(),
