@@ -118,10 +118,14 @@ export function detectAudioFormat(data: Buffer): { ext: string; mimeType: string
     return { ext: 'aac', mimeType: 'audio/aac' };
   }
   if (data.length >= 12) {
-    const riff = data.subarray(0, 4).toString('ascii');
-    const wave = data.subarray(8, 12).toString('ascii');
-    if (riff === 'RIFF' && wave === 'WAVE') {
+    const fourCC = data.subarray(0, 4).toString('ascii');
+    const formType = data.subarray(8, 12).toString('ascii');
+    if (fourCC === 'RIFF' && formType === 'WAVE') {
       return { ext: 'wav', mimeType: 'audio/wav' };
+    }
+    // AIFF / AIFF-C: IFF container with FORM header and AIFF or AIFC type.
+    if (fourCC === 'FORM' && (formType === 'AIFF' || formType === 'AIFC')) {
+      return { ext: 'aiff', mimeType: 'audio/aiff' };
     }
   }
   if (data.length >= 4) {
@@ -191,6 +195,18 @@ export interface AudioData {
   format: AudioFormat;
 }
 
+/**
+ * Map `detectAudioFormat` ext to an `AudioFormat`. Returns `undefined` for
+ * the 'pcm' fallback (ambiguous for remote resources) so callers fall through
+ * to extension / Content-Type detection.
+ */
+function detectedExtToAudioFormat(ext: string): AudioFormat | undefined {
+  if (ext === 'pcm') return undefined;
+  return (FILE_AUDIO_FORMATS as readonly string[]).includes(ext)
+    ? (ext as FileAudioFormat)
+    : undefined;
+}
+
 export async function prepareAudioData(source: string): Promise<AudioData> {
   if (source.startsWith('data:')) {
     const parsed = parseBase64DataUrl(source);
@@ -214,7 +230,11 @@ export async function prepareAudioData(source: string): Promise<AudioData> {
       maxRedirects: getMaxRedirects(),
     });
     const urlPath = new URL(source).pathname;
-    const format = getAudioFormat(urlPath) ?? formatFromContentType(contentType);
+    // Magic bytes first, then extension, then Content-Type — matches prepareVideoData.
+    const format =
+      detectedExtToAudioFormat(detectAudioFormat(buffer).ext) ??
+      getAudioFormat(urlPath) ??
+      formatFromContentType(contentType);
     if (!format) {
       throw new Error(
         `Could not determine audio format from URL: ${source}. Supported: ${SUPPORTED_AUDIO_FORMATS.join(', ')}`,
