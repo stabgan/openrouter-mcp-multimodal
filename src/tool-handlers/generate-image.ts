@@ -16,6 +16,12 @@ import { logger } from '../logger.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
 import { buildBinaryToolResult } from './tool-result-payload.js';
 import { replaceExtension, writeOutputFile } from './path-utils.js';
+import {
+  readProviderDefaults,
+  mergeProviderOptions,
+  buildProviderBody,
+  type ProviderRoutingOptions,
+} from './provider-routing.js';
 
 export interface GenerateImageToolRequest {
   prompt: string;
@@ -26,6 +32,7 @@ export interface GenerateImageToolRequest {
   max_tokens?: number;
   input_images?: string[];
   modalities?: string[];
+  provider?: Record<string, unknown>;
 }
 
 const DEFAULT_MODEL = 'google/gemini-2.5-flash-image';
@@ -58,6 +65,7 @@ export async function handleGenerateImage(
     max_tokens,
     input_images,
     modalities,
+    provider,
   } = request.params.arguments ?? { prompt: '' };
 
   if (!prompt?.trim()) {
@@ -131,6 +139,13 @@ export async function handleGenerateImage(
   };
   if (Object.keys(imageConfig).length > 0) body.image_config = imageConfig;
   if (typeof max_tokens === 'number') body.max_tokens = max_tokens;
+
+  // Merge user-supplied provider options with OPENROUTER_PROVIDER_* env defaults.
+  // Previously generate_image bypassed env defaults — only chat tools applied them.
+  const mergedProvider = buildProviderBody(
+    mergeProviderOptions(readProviderDefaults(), provider as ProviderRoutingOptions),
+  );
+  if (mergedProvider) body.provider = mergedProvider;
 
   let completion: ChatCompletion;
   try {

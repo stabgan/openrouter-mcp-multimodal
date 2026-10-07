@@ -536,6 +536,10 @@ export const TOOL_DEFINITIONS = [
           items: { type: 'string' },
           description: 'Response modalities (default: `["image","text"]`).',
         },
+        provider: {
+          type: 'object',
+          description: 'Provider routing overrides (order, sort, allow_fallbacks, etc.).',
+        },
       },
       required: ['prompt'],
     },
