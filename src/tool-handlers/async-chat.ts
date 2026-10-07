@@ -219,6 +219,7 @@ export async function handleStartChatCompletion(
     fusion,
     subagent,
     response_healing,
+    response_format: args.response_format,
     cache,
     cache_ttl,
     cache_clear,
