@@ -81,7 +81,15 @@ export function validateChatMessages(
     return toolError(ErrorCode.INVALID_INPUT, 'Messages array cannot be empty.');
   }
   for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i]!;
+    const msg = messages[i];
+    // Null, undefined, or primitive entries crash on property access — reject
+    // them cleanly instead of letting an unhandled TypeError bubble up.
+    if (msg == null || typeof msg !== 'object' || Array.isArray(msg)) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `Message at index ${i} must be an object with at least a "role" field.`,
+      );
+    }
     const role = (msg as { role?: string }).role;
     if (typeof role !== 'string' || role.trim().length === 0) {
       return toolError(
