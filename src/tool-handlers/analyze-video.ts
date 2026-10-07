@@ -1,8 +1,5 @@
 import OpenAI from 'openai';
-import type {
-  ChatCompletion,
-  ChatCompletionMessageParam,
-} from 'openai/resources/chat/completions.js';
+import type { ChatCompletion } from 'openai/resources/chat/completions.js';
 import { prepareVideoData } from './video-utils.js';
 import { UnsafeOutputPathError } from './path-safety.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
@@ -22,6 +19,13 @@ import {
   validateCacheOptions,
 } from './cache.js';
 import { awaitCompletionWithHeaders } from './openai-withresponse.js';
+import { asOpenAIChatBody } from './chat-request.js';
+import {
+  readProviderDefaults,
+  mergeProviderOptions,
+  buildProviderBody,
+  type ProviderRoutingOptions,
+} from './provider-routing.js';
 
 const FALLBACK_DEFAULT_MODEL = 'google/gemini-2.5-flash';
 
@@ -30,6 +34,7 @@ export interface AnalyzeVideoToolRequest extends CacheOptions {
   question?: string;
   model?: string;
   cache_input?: boolean;
+  provider?: Record<string, unknown>;
 }
 
 export async function handleAnalyzeVideo(
@@ -38,7 +43,8 @@ export async function handleAnalyzeVideo(
   defaultModel?: string,
 ) {
   const args = request.params.arguments ?? ({ video_path: '' } as AnalyzeVideoToolRequest);
-  const { video_path, question, model, cache_input, cache, cache_ttl, cache_clear } = args;
+  const { video_path, question, model, cache_input, provider, cache, cache_ttl, cache_clear } =
+    args;
 
   if (!video_path?.trim()) {
     return toolError(ErrorCode.INVALID_INPUT, 'video_path is required.');
@@ -80,6 +86,28 @@ export async function handleAnalyzeVideo(
   const headers = buildCacheHeaders({ cache, cache_ttl, cache_clear });
   const requestOpts = Object.keys(headers).length > 0 ? { headers } : undefined;
 
+  const body: Record<string, unknown> = {
+    model: pickedModel,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: question || 'Describe what happens in this video, step by step.',
+          },
+          videoBlock,
+        ],
+      },
+    ],
+  };
+
+  // Merge user-supplied provider options with OPENROUTER_PROVIDER_* env defaults.
+  const mergedProvider = buildProviderBody(
+    mergeProviderOptions(readProviderDefaults(), provider as ProviderRoutingOptions),
+  );
+  if (mergedProvider) body.provider = mergedProvider;
+
   let completion: ChatCompletion;
   let responseHeaders: Headers | undefined;
   try {
@@ -88,24 +116,7 @@ export async function handleAnalyzeVideo(
       format: videoData.format,
       size_bytes: videoData.sizeBytes,
     });
-    const call = openai.chat.completions.create(
-      {
-        model: pickedModel,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: question || 'Describe what happens in this video, step by step.',
-              },
-              videoBlock,
-            ],
-          },
-        ] as unknown as ChatCompletionMessageParam[],
-      },
-      requestOpts,
-    );
+    const call = openai.chat.completions.create(asOpenAIChatBody(body), requestOpts);
     const { data, response } = await awaitCompletionWithHeaders(call);
     completion = data;
     responseHeaders = response?.headers;

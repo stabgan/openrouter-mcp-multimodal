@@ -1,8 +1,5 @@
 import OpenAI from 'openai';
-import type {
-  ChatCompletion,
-  ChatCompletionMessageParam,
-} from 'openai/resources/chat/completions.js';
+import type { ChatCompletion } from 'openai/resources/chat/completions.js';
 import { prepareImageUrl } from './image-utils.js';
 import { UnsafeOutputPathError } from './path-safety.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
@@ -21,6 +18,13 @@ import {
   validateCacheOptions,
 } from './cache.js';
 import { awaitCompletionWithHeaders } from './openai-withresponse.js';
+import { asOpenAIChatBody } from './chat-request.js';
+import {
+  readProviderDefaults,
+  mergeProviderOptions,
+  buildProviderBody,
+  type ProviderRoutingOptions,
+} from './provider-routing.js';
 
 const DEFAULT_MODEL = 'google/gemma-4-26b-a4b-it:free';
 
@@ -29,6 +33,7 @@ export interface AnalyzeImageToolRequest extends CacheOptions {
   question?: string;
   model?: string;
   cache_input?: boolean;
+  provider?: Record<string, unknown>;
 }
 
 export async function handleAnalyzeImage(
@@ -37,7 +42,8 @@ export async function handleAnalyzeImage(
   defaultModel?: string,
 ) {
   const args = request.params.arguments ?? ({ image_path: '' } as AnalyzeImageToolRequest);
-  const { image_path, question, model, cache_input, cache, cache_ttl, cache_clear } = args;
+  const { image_path, question, model, cache_input, provider, cache, cache_ttl, cache_clear } =
+    args;
 
   if (!image_path?.trim()) {
     return toolError(ErrorCode.INVALID_INPUT, 'image_path is required.');
@@ -73,21 +79,26 @@ export async function handleAnalyzeImage(
   const headers = buildCacheHeaders({ cache, cache_ttl, cache_clear });
   const requestOpts = Object.keys(headers).length > 0 ? { headers } : undefined;
 
+  const body: Record<string, unknown> = {
+    model: model || defaultModel || DEFAULT_MODEL,
+    messages: [
+      {
+        role: 'user',
+        content: [{ type: 'text', text: question || "What's in this image?" }, imageBlock],
+      },
+    ],
+  };
+
+  // Merge user-supplied provider options with OPENROUTER_PROVIDER_* env defaults.
+  const mergedProvider = buildProviderBody(
+    mergeProviderOptions(readProviderDefaults(), provider as ProviderRoutingOptions),
+  );
+  if (mergedProvider) body.provider = mergedProvider;
+
   let completion: ChatCompletion;
   let responseHeaders: Headers | undefined;
   try {
-    const call = openai.chat.completions.create(
-      {
-        model: model || defaultModel || DEFAULT_MODEL,
-        messages: [
-          {
-            role: 'user',
-            content: [{ type: 'text', text: question || "What's in this image?" }, imageBlock],
-          },
-        ] as unknown as ChatCompletionMessageParam[],
-      },
-      requestOpts,
-    );
+    const call = openai.chat.completions.create(asOpenAIChatBody(body), requestOpts);
     const { data, response } = await awaitCompletionWithHeaders(call);
     completion = data;
     responseHeaders = response?.headers;

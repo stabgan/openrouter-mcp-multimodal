@@ -317,6 +317,10 @@ export const TOOL_DEFINITIONS = [
           description:
             'Attach `cache_control: ephemeral` to the image block for Anthropic / Gemini prompt caching.',
         },
+        provider: {
+          type: 'object',
+          description: 'Provider routing overrides (order, sort, allow_fallbacks, etc.).',
+        },
         ...CACHE_PROPERTIES,
       },
       required: ['image_path'],
@@ -350,6 +354,10 @@ export const TOOL_DEFINITIONS = [
           description: 'Multimodal model ID (default: google/gemini-2.5-flash).',
         },
         cache_input: { type: 'boolean' },
+        provider: {
+          type: 'object',
+          description: 'Provider routing overrides (order, sort, allow_fallbacks, etc.).',
+        },
         ...CACHE_PROPERTIES,
       },
       required: ['audio_path'],
@@ -383,6 +391,10 @@ export const TOOL_DEFINITIONS = [
           description: 'Video-capable model ID (default: google/gemini-2.5-flash).',
         },
         cache_input: { type: 'boolean' },
+        provider: {
+          type: 'object',
+          description: 'Provider routing overrides (order, sort, allow_fallbacks, etc.).',
+        },
         ...CACHE_PROPERTIES,
       },
       required: ['video_path'],
