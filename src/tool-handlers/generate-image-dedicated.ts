@@ -22,7 +22,7 @@ import {
   sniffImageMime,
 } from './image-utils.js';
 import { type CacheOptions, buildCacheHeaders, validateCacheOptions } from './cache.js';
-import { replaceExtension, writeOutputFile } from './path-utils.js';
+import { replaceExtension, writeOutputFile, isFileSystemError } from './path-utils.js';
 import {
   readProviderDefaults,
   mergeProviderOptions,
@@ -294,6 +294,14 @@ export async function handleGenerateImageDedicated(
         );
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
+        if (isFileSystemError(err)) {
+          return toolErrorFrom(ErrorCode.INTERNAL, err, 'Write', {
+            suggestions: [
+              'Check that OPENROUTER_OUTPUT_DIR is writable',
+              'Verify sufficient disk space',
+            ],
+          });
+        }
         if (errMsg.toLowerCase().includes('too large')) {
           return toolErrorFrom(
             ErrorCode.RESOURCE_TOO_LARGE,
