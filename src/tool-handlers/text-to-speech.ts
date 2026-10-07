@@ -16,6 +16,12 @@ import { buildBinaryToolResult } from './tool-result-payload.js';
 import { replaceExtension, writeOutputFile } from './path-utils.js';
 import { type CacheOptions, buildCacheHeaders, validateCacheOptions } from './cache.js';
 import { detectAudioFormat, wrapPcmInWav } from './audio-utils.js';
+import {
+  readProviderDefaults,
+  mergeProviderOptions,
+  buildProviderBody,
+  type ProviderRoutingOptions,
+} from './provider-routing.js';
 
 export interface TextToSpeechRequest extends CacheOptions {
   input: string;
@@ -25,6 +31,7 @@ export interface TextToSpeechRequest extends CacheOptions {
   speed?: number;
   instructions?: string;
   save_path?: string;
+  provider?: Record<string, unknown>;
 }
 
 const MIN_SPEED = 0.25;
@@ -45,6 +52,7 @@ export async function handleTextToSpeech(
     speed,
     instructions,
     save_path,
+    provider,
     cache,
     cache_ttl,
     cache_clear,
@@ -99,6 +107,12 @@ export async function handleTextToSpeech(
   if (effectiveVoice) body.voice = effectiveVoice;
   if (typeof speed === 'number') body.speed = speed;
   if (instructions) body.instructions = instructions;
+
+  // Merge user-supplied provider options with OPENROUTER_PROVIDER_* env defaults.
+  const mergedProvider = buildProviderBody(
+    mergeProviderOptions(readProviderDefaults(), provider as ProviderRoutingOptions),
+  );
+  if (mergedProvider) body.provider = mergedProvider;
 
   const headers = buildCacheHeaders({ cache, cache_ttl, cache_clear });
 

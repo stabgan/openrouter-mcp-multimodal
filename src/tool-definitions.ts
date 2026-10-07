@@ -679,6 +679,10 @@ export const TOOL_DEFINITIONS = [
             'Tone/style instructions (e.g. "speak in a warm, friendly tone"). OpenAI models only.',
         },
         save_path: SAVE_PATH_WITH_PREFIX('Save audio to this path.'),
+        provider: {
+          type: 'object',
+          description: 'Provider routing overrides (order, sort, allow_fallbacks, etc.).',
+        },
         ...CACHE_PROPERTIES,
       },
       required: ['input'],
@@ -721,6 +725,10 @@ export const TOOL_DEFINITIONS = [
           minimum: 0,
           maximum: 1,
           description: 'Sampling temperature for transcription (0–1).',
+        },
+        provider: {
+          type: 'object',
+          description: 'Provider routing overrides (order, sort, allow_fallbacks, etc.).',
         },
         ...CACHE_PROPERTIES,
       },

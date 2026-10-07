@@ -8,6 +8,12 @@ import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
 import { type CacheOptions, buildCacheHeaders, validateCacheOptions } from './cache.js';
+import {
+  readProviderDefaults,
+  mergeProviderOptions,
+  buildProviderBody,
+  type ProviderRoutingOptions,
+} from './provider-routing.js';
 
 export interface SpeechToTextRequest extends CacheOptions {
   audio_path: string;
@@ -15,6 +21,7 @@ export interface SpeechToTextRequest extends CacheOptions {
   language?: string;
   response_format?: string;
   temperature?: number;
+  provider?: Record<string, unknown>;
 }
 
 const DEFAULT_MODEL = 'openai/whisper-1';
@@ -42,6 +49,7 @@ export async function handleSpeechToText(
     language,
     response_format,
     temperature,
+    provider,
     cache,
     cache_ttl,
     cache_clear,
@@ -101,6 +109,12 @@ export async function handleSpeechToText(
   if (language) body.language = language;
   if (response_format) body.response_format = response_format;
   if (typeof temperature === 'number') body.temperature = temperature;
+
+  // Merge user-supplied provider options with OPENROUTER_PROVIDER_* env defaults.
+  const mergedProvider = buildProviderBody(
+    mergeProviderOptions(readProviderDefaults(), provider as ProviderRoutingOptions),
+  );
+  if (mergedProvider) body.provider = mergedProvider;
 
   const headers = buildCacheHeaders({ cache, cache_ttl, cache_clear });
 
