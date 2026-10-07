@@ -66,7 +66,7 @@ export function readIncludeReasoningDefault(): boolean {
 export function validateChatMessages(
   messages: ChatCompletionMessageParam[] | undefined,
 ): ToolErrorResult | null {
-  if (!messages?.length) {
+  if (!Array.isArray(messages) || messages.length === 0) {
     return toolError(ErrorCode.INVALID_INPUT, 'Messages array cannot be empty.');
   }
   for (let i = 0; i < messages.length; i++) {
