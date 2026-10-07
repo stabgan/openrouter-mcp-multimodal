@@ -30,6 +30,9 @@ import {
   validateResponseFormat,
   validateWebSearchOptions,
   validateReasoningEffort,
+  validateStop,
+  validateTopP,
+  validatePenalty,
 } from './chat-request.js';
 
 export type StartChatCompletionRequest = ChatToolRequest;
@@ -177,6 +180,10 @@ export async function handleStartChatCompletion(
     fusion,
     subagent,
     response_healing,
+    stop,
+    top_p,
+    frequency_penalty,
+    presence_penalty,
     cache,
     cache_ttl,
     cache_clear,
@@ -206,6 +213,18 @@ export async function handleStartChatCompletion(
 
   const reasoningEffortError = validateReasoningEffort(reasoning_effort);
   if (reasoningEffortError) return reasoningEffortError;
+
+  const stopError = validateStop(stop);
+  if (stopError) return stopError;
+
+  const topPError = validateTopP(top_p);
+  if (topPError) return topPError;
+
+  const freqPenaltyError = validatePenalty(frequency_penalty, 'frequency_penalty');
+  if (freqPenaltyError) return freqPenaltyError;
+
+  const presPenaltyError = validatePenalty(presence_penalty, 'presence_penalty');
+  if (presPenaltyError) return presPenaltyError;
 
   const effectiveModel = model?.trim() || defaultModel || DEFAULT_CHAT_MODEL;
   const jobId = generateJobId();
@@ -239,6 +258,10 @@ export async function handleStartChatCompletion(
     subagent,
     response_healing,
     response_format: args.response_format,
+    stop,
+    top_p,
+    frequency_penalty,
+    presence_penalty,
     cache,
     cache_ttl,
     cache_clear,
