@@ -151,40 +151,42 @@ export function getAudioFormat(filePath: string): FileAudioFormat | undefined {
     : undefined;
 }
 
+const AUDIO_MIME_MAP: Record<AudioFormat, string> = {
+  wav: 'audio/wav',
+  mp3: 'audio/mpeg',
+  aiff: 'audio/aiff',
+  aac: 'audio/aac',
+  ogg: 'audio/ogg',
+  flac: 'audio/flac',
+  m4a: 'audio/mp4',
+  pcm16: 'audio/pcm',
+  pcm24: 'audio/pcm',
+};
+
 export function getAudioMimeType(format: AudioFormat): string {
-  const map: Record<AudioFormat, string> = {
-    wav: 'audio/wav',
-    mp3: 'audio/mpeg',
-    aiff: 'audio/aiff',
-    aac: 'audio/aac',
-    ogg: 'audio/ogg',
-    flac: 'audio/flac',
-    m4a: 'audio/mp4',
-    pcm16: 'audio/pcm',
-    pcm24: 'audio/pcm',
-  };
-  return map[format] || 'audio/wav';
+  return AUDIO_MIME_MAP[format];
 }
 
+const MIME_SUBTYPE_TO_FORMAT: Record<string, AudioFormat> = {
+  mpeg: 'mp3',
+  wav: 'wav',
+  wave: 'wav',
+  mp3: 'mp3',
+  flac: 'flac',
+  ogg: 'ogg',
+  aac: 'aac',
+  'x-aac': 'aac',
+  m4a: 'm4a',
+  mp4: 'm4a',
+  aiff: 'aiff',
+  'x-aiff': 'aiff',
+  pcm: 'pcm16',
+};
+
 function mimeSubtypeToFormat(subtype: string): AudioFormat | undefined {
-  const aliasMap: Record<string, AudioFormat> = {
-    mpeg: 'mp3',
-    wav: 'wav',
-    wave: 'wav',
-    mp3: 'mp3',
-    flac: 'flac',
-    ogg: 'ogg',
-    aac: 'aac',
-    'x-aac': 'aac',
-    m4a: 'm4a',
-    mp4: 'm4a',
-    aiff: 'aiff',
-    'x-aiff': 'aiff',
-    pcm: 'pcm16',
-  };
   const lower = subtype.toLowerCase();
   return (
-    aliasMap[lower] ??
+    MIME_SUBTYPE_TO_FORMAT[lower] ??
     ((SUPPORTED_AUDIO_FORMATS as readonly string[]).includes(lower)
       ? (lower as AudioFormat)
       : undefined)
