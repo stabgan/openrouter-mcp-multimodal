@@ -127,6 +127,7 @@ describe('mock strata: handler INVALID_INPUT guards', () => {
 
   const missingImageCases = [
     { image: '', prompt: 'move' },
+    { image: '   ', prompt: 'move' },
     { image: 'a.png', prompt: '' },
     { image: 'a.png', prompt: '   ' },
   ];

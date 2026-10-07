@@ -518,7 +518,7 @@ export async function handleGenerateVideoFromImage(
   progress?: ProgressHook,
 ) {
   const args = request.params.arguments ?? ({} as GenerateVideoFromImageRequest);
-  if (!args.image) {
+  if (!args.image?.trim()) {
     return toolError(ErrorCode.INVALID_INPUT, 'image is required.');
   }
   if (!args.prompt || !args.prompt.trim()) {
