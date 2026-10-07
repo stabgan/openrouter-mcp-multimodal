@@ -237,6 +237,16 @@ export async function prepareAudioData(source: string): Promise<AudioData> {
       maxBytes: getMaxAudioInputBytes(),
       maxRedirects: getMaxRedirects(),
     });
+    // CDN / reverse-proxy error pages sometimes return 200 with text/html.
+    // Without this guard the HTML body would be processed as audio data,
+    // leading to corrupt output or confusing API errors downstream.
+    const ct = contentType?.split(';')[0]?.trim().toLowerCase();
+    if (ct === 'text/html' || ct === 'application/xhtml+xml') {
+      throw new Error(
+        `Audio URL returned ${ct} instead of an audio format — ` +
+          'likely a temporary CDN or upstream error. Retry after a brief delay.',
+      );
+    }
     const urlPath = new URL(source).pathname;
     // Magic bytes first, then extension, then Content-Type — matches prepareVideoData.
     const format =
@@ -356,6 +366,16 @@ export async function resolveSpeechToTextAudio(
       maxBytes: getMaxAudioInputBytes(),
       maxRedirects: getMaxRedirects(),
     });
+    // CDN / reverse-proxy error pages sometimes return 200 with text/html.
+    // Without this guard the HTML body would be sent to the transcription
+    // API as audio data, producing garbage results or confusing errors.
+    const ct = contentType?.split(';')[0]?.trim().toLowerCase();
+    if (ct === 'text/html' || ct === 'application/xhtml+xml') {
+      throw new Error(
+        `Audio URL returned ${ct} instead of an audio format — ` +
+          'likely a temporary CDN or upstream error. Retry after a brief delay.',
+      );
+    }
     assertWithinAudioInputLimit(buffer.length, 'Audio download');
     // Magic bytes first, then extension, then Content-Type — matches prepareAudioData.
     const detected = detectAudioFormat(buffer);

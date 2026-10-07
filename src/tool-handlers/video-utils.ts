@@ -155,6 +155,16 @@ export async function prepareVideoData(source: string): Promise<VideoData> {
       maxBytes: getMaxDownloadBytes(),
       maxRedirects: getMaxRedirects(),
     });
+    // CDN / reverse-proxy error pages sometimes return 200 with text/html.
+    // Without this guard the HTML body would be processed as video data,
+    // leading to corrupt output or confusing API errors downstream.
+    const ct = contentType?.split(';')[0]?.trim().toLowerCase();
+    if (ct === 'text/html' || ct === 'application/xhtml+xml') {
+      throw new Error(
+        `Video URL returned ${ct} instead of a video format — ` +
+          'likely a temporary CDN or upstream error. Retry after a brief delay.',
+      );
+    }
     const urlPath = new URL(source).pathname;
     const format =
       detectVideoFormat(buffer) ?? getVideoFormat(urlPath) ?? formatFromContentType(contentType);
