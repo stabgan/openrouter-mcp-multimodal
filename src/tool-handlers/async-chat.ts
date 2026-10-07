@@ -50,6 +50,10 @@ export interface AsyncJob {
   };
   error?: string;
   error_code?: ErrorCode;
+  /** Actionable suggestions from the classified error (e.g. "Retry", "Top up credits"). */
+  error_suggestions?: string[];
+  /** Seconds the caller should wait before retrying (from Retry-After header). */
+  retry_after_seconds?: number;
 }
 
 const jobs = new Map<string, AsyncJob>();
@@ -316,6 +320,10 @@ async function runCompletionInBackground(
       const classified = classifyUpstreamError(err);
       job.error = classified.content[0]?.text ?? 'Job failed.';
       job.error_code = classified._meta.code;
+      if (classified._meta.suggestions) job.error_suggestions = classified._meta.suggestions;
+      if (typeof classified._meta.retry_after_seconds === 'number') {
+        job.retry_after_seconds = classified._meta.retry_after_seconds;
+      }
       logger.warn('async_chat.failed', { job_id: job.id, error: job.error, code: job.error_code });
     }
   } catch (err) {
@@ -374,11 +382,19 @@ export async function handleGetChatCompletionStatus(request: {
   }
 
   if (job.status === 'failed') {
-    return toolError(job.error_code ?? ErrorCode.JOB_FAILED, job.error || 'Job failed.', {
-      job_id: jobId,
-      model: job.model,
-      created_at: job.createdAt,
-    });
+    return toolError(
+      job.error_code ?? ErrorCode.JOB_FAILED,
+      job.error || 'Job failed.',
+      {
+        job_id: jobId,
+        model: job.model,
+        created_at: job.createdAt,
+      },
+      {
+        suggestions: job.error_suggestions,
+        retry_after_seconds: job.retry_after_seconds,
+      },
+    );
   }
 
   return {
