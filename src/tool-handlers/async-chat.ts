@@ -154,6 +154,13 @@ async function resolveJob(jobId: string): Promise<AsyncJob | undefined> {
 
   const fromDisk = await loadJobFromDisk(jobId);
   if (fromDisk) {
+    // Re-check after the async disk read: a concurrent resolveJob call (or a
+    // background task completing) may have inserted this job while we were
+    // awaiting I/O.  Prefer the in-memory entry to avoid an unnecessary
+    // eviction inside rememberJob and a stale-disk overwrite.
+    const recheck = jobs.get(jobId);
+    if (recheck) return recheck;
+
     rememberJob(fromDisk);
     return fromDisk;
   }
