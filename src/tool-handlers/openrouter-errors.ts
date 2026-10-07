@@ -546,20 +546,47 @@ export function classifyResourceLoadError(err: unknown, prefix?: string): ToolEr
 
   // 'Blocked host' is thrown by the SSRF guard with exact casing.
   if (msg.includes('Blocked host')) {
-    return toolErrorFrom(ErrorCode.UPSTREAM_REFUSED, err, prefix);
+    return toolErrorFrom(ErrorCode.UPSTREAM_REFUSED, err, prefix, {
+      suggestions: [
+        'Use a publicly reachable URL (private/loopback IPs are blocked for security)',
+        'Use a local file path within OPENROUTER_INPUT_DIR instead',
+        'Use a base64 data URL to inline the content',
+      ],
+    });
   }
   if (lower.includes('too large')) {
-    return toolErrorFrom(ErrorCode.RESOURCE_TOO_LARGE, err, prefix);
+    return toolErrorFrom(ErrorCode.RESOURCE_TOO_LARGE, err, prefix, {
+      suggestions: [
+        'Reduce the file size or resolution before uploading',
+        'Raise the relevant limit env var (OPENROUTER_IMAGE_MAX_DOWNLOAD_BYTES, OPENROUTER_AUDIO_MAX_DOWNLOAD_BYTES, OPENROUTER_VIDEO_MAX_DOWNLOAD_BYTES)',
+      ],
+    });
   }
   if (lower.includes('timed out') || lower.includes('timeout')) {
-    return toolErrorFrom(ErrorCode.UPSTREAM_TIMEOUT, err, prefix);
+    return toolErrorFrom(ErrorCode.UPSTREAM_TIMEOUT, err, prefix, {
+      suggestions: [
+        'Retry — the resource server may be slow',
+        'Raise the fetch timeout env var (OPENROUTER_IMAGE_FETCH_TIMEOUT_MS, OPENROUTER_AUDIO_FETCH_TIMEOUT_MS, OPENROUTER_VIDEO_FETCH_TIMEOUT_MS)',
+        'Use a local file path or data URL instead of a remote URL',
+      ],
+    });
   }
   if (
     lower.includes('unsupported') ||
     lower.includes('not a video') ||
     lower.includes('invalid data url')
   ) {
-    return toolErrorFrom(ErrorCode.UNSUPPORTED_FORMAT, err, prefix);
+    return toolErrorFrom(ErrorCode.UNSUPPORTED_FORMAT, err, prefix, {
+      suggestions: [
+        'Check the file format — supported image formats: PNG, JPEG, WebP, GIF; audio: MP3, WAV, FLAC, OGG, AAC, M4A; video: MP4, WebM, MOV, MPEG',
+        'Ensure the data URL has a valid MIME type and base64 encoding',
+      ],
+    });
   }
-  return toolErrorFrom(ErrorCode.INVALID_INPUT, err, prefix);
+  return toolErrorFrom(ErrorCode.INVALID_INPUT, err, prefix, {
+    suggestions: [
+      'Verify the file path or URL is correct and accessible',
+      'For local files, ensure the path is within OPENROUTER_INPUT_DIR',
+    ],
+  });
 }
