@@ -1,4 +1,5 @@
 import { extname } from 'node:path';
+import { randomBytes } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 
 /** Strip existing extension (if any) and append a new one. */
@@ -10,7 +11,8 @@ export function replaceExtension(filePath: string, newExt: string): string {
 
 /** Write bytes atomically via a same-directory temp file and rename. */
 export async function writeOutputFile(target: string, data: Buffer): Promise<void> {
-  const tmp = `${target}.${process.pid}.${Date.now()}.tmp`;
+  const nonce = randomBytes(4).toString('hex');
+  const tmp = `${target}.${process.pid}.${Date.now()}.${nonce}.tmp`;
   try {
     await fs.writeFile(tmp, data);
     await fs.rename(tmp, target);
