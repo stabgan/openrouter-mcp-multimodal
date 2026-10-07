@@ -113,6 +113,9 @@ export async function fetchHttpImage(urlString: string): Promise<Buffer> {
         'likely a temporary CDN or upstream error. Retry after a brief delay.',
     );
   }
+  if (buffer.length === 0) {
+    throw new Error('Image URL returned empty response (0 bytes)');
+  }
   return buffer;
 }
 
@@ -122,7 +125,9 @@ export async function fetchImage(source: string): Promise<Buffer> {
     if (!parsed) throw new Error('Invalid data URL');
     const approxBytes = Math.ceil((parsed.base64.length * 3) / 4);
     if (approxBytes > getMaxDataUrlBytes()) throw new Error('Data URL too large');
-    return Buffer.from(parsed.base64, 'base64');
+    const buffer = Buffer.from(parsed.base64, 'base64');
+    if (buffer.length === 0) throw new Error('Image data URL has empty payload (0 bytes)');
+    return buffer;
   }
 
   if (source.startsWith('http://') || source.startsWith('https://')) {
@@ -130,7 +135,9 @@ export async function fetchImage(source: string): Promise<Buffer> {
   }
 
   const safe = await resolveSafeInputPath(source);
-  return fs.readFile(safe);
+  const buffer = await fs.readFile(safe);
+  if (buffer.length === 0) throw new Error('Image file is empty (0 bytes)');
+  return buffer;
 }
 
 /**
@@ -233,7 +240,9 @@ export async function fetchImageWithMime(
     if (!parsed) throw new Error('Invalid data URL');
     const approxBytes = Math.ceil((parsed.base64.length * 3) / 4);
     if (approxBytes > getMaxDataUrlBytes()) throw new Error('Data URL too large');
-    return { buffer: Buffer.from(parsed.base64, 'base64'), mime: parsed.mediaType };
+    const buffer = Buffer.from(parsed.base64, 'base64');
+    if (buffer.length === 0) throw new Error('Image data URL has empty payload (0 bytes)');
+    return { buffer, mime: parsed.mediaType };
   }
   if (source.startsWith('http://') || source.startsWith('https://')) {
     const { buffer, contentType } = await fetchHttpResource(source, {
@@ -251,6 +260,9 @@ export async function fetchImageWithMime(
           'likely a temporary CDN or upstream error. Retry after a brief delay.',
       );
     }
+    if (buffer.length === 0) {
+      throw new Error('Image URL returned empty response (0 bytes)');
+    }
     const mime = (
       contentType?.split(';')[0]?.trim() ||
       sniffImageMime(buffer) ||
@@ -260,6 +272,7 @@ export async function fetchImageWithMime(
   }
   const safe = await resolveSafeInputPath(source);
   const buffer = await fs.readFile(safe);
+  if (buffer.length === 0) throw new Error('Image file is empty (0 bytes)');
   return { buffer, mime: getMimeType(safe) };
 }
 

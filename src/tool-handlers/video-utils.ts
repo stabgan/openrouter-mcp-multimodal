@@ -141,6 +141,7 @@ export async function prepareVideoData(source: string): Promise<VideoData> {
     }
     const approxBytes = Math.ceil((parsed.base64.length * 3) / 4);
     if (approxBytes > getMaxDataUrlBytes()) throw new Error('Video data URL too large');
+    if (approxBytes === 0) throw new Error('Video data URL has empty payload (0 bytes)');
     return {
       data: parsed.base64,
       format,
@@ -165,6 +166,9 @@ export async function prepareVideoData(source: string): Promise<VideoData> {
           'likely a temporary CDN or upstream error. Retry after a brief delay.',
       );
     }
+    if (buffer.length === 0) {
+      throw new Error('Video URL returned empty response (0 bytes)');
+    }
     const urlPath = new URL(source).pathname;
     const format =
       detectVideoFormat(buffer) ?? getVideoFormat(urlPath) ?? formatFromContentType(contentType);
@@ -184,6 +188,7 @@ export async function prepareVideoData(source: string): Promise<VideoData> {
   const safe = await resolveSafeInputPath(source);
   const maxBytes = getMaxDownloadBytes();
   const { size } = await fs.stat(safe);
+  if (size === 0) throw new Error('Video file is empty (0 bytes)');
   if (size > maxBytes) {
     throw new Error(`Video file too large (${size} bytes, max ${maxBytes})`);
   }

@@ -228,6 +228,7 @@ export async function prepareAudioData(source: string): Promise<AudioData> {
     }
     const approxBytes = Math.ceil((parsed.base64.length * 3) / 4);
     if (approxBytes > getMaxAudioInputBytes()) throw new Error('Data URL too large');
+    if (approxBytes === 0) throw new Error('Audio data URL has empty payload (0 bytes)');
     return { data: parsed.base64, format };
   }
 
@@ -246,6 +247,9 @@ export async function prepareAudioData(source: string): Promise<AudioData> {
         `Audio URL returned ${ct} instead of an audio format — ` +
           'likely a temporary CDN or upstream error. Retry after a brief delay.',
       );
+    }
+    if (buffer.length === 0) {
+      throw new Error('Audio URL returned empty response (0 bytes)');
     }
     const urlPath = new URL(source).pathname;
     // Magic bytes first, then extension, then Content-Type — matches prepareVideoData.
@@ -269,6 +273,7 @@ export async function prepareAudioData(source: string): Promise<AudioData> {
     );
   }
   const { size } = await fs.stat(safe);
+  if (size === 0) throw new Error('Audio file is empty (0 bytes)');
   assertWithinAudioInputLimit(size, 'Audio file');
   const buffer = await fs.readFile(safe);
   return { data: buffer.toString('base64'), format };
@@ -351,6 +356,7 @@ export async function resolveSpeechToTextAudio(
     }
     const approxBytes = Math.ceil((parsed.base64.length * 3) / 4);
     assertWithinAudioInputLimit(approxBytes, 'Data URL');
+    if (approxBytes === 0) throw new Error('Audio data URL has empty payload (0 bytes)');
     const format = sttFormatFromMimeSubtype(parsed.mediaType.split('/')[1] ?? '');
     if (!format) {
       throw new Error(
@@ -375,6 +381,9 @@ export async function resolveSpeechToTextAudio(
         `Audio URL returned ${ct} instead of an audio format — ` +
           'likely a temporary CDN or upstream error. Retry after a brief delay.',
       );
+    }
+    if (buffer.length === 0) {
+      throw new Error('Audio URL returned empty response (0 bytes)');
     }
     assertWithinAudioInputLimit(buffer.length, 'Audio download');
     // Magic bytes first, then extension, then Content-Type — matches prepareAudioData.
@@ -418,6 +427,7 @@ export async function resolveSpeechToTextAudio(
 
   const abs = await resolveSafeInputPath(trimmed);
   const { size } = await fs.stat(abs);
+  if (size === 0) throw new Error('Audio file is empty (0 bytes)');
   assertWithinAudioInputLimit(size, 'Audio file');
   const buf = await fs.readFile(abs);
   const format = sttFormatFromExtension(path.extname(abs));
