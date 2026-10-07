@@ -434,6 +434,21 @@ export async function handleGenerateVideo(
     return classifyUpstreamError(err, 'generate_video.submit');
   }
 
+  if (!envelope.id) {
+    return toolError(
+      ErrorCode.UPSTREAM_HTTP,
+      'Video generation API returned a response without a job id. ' +
+        'This may indicate an upstream API change or transient issue.',
+      { response_keys: Object.keys(envelope) },
+      {
+        suggestions: [
+          'Retry after a brief delay',
+          'Check https://status.openrouter.ai for outages',
+        ],
+      },
+    );
+  }
+
   const pollIntervalMs = Math.max(
     MIN_POLL_INTERVAL_MS,
     args.poll_interval_ms ?? getDefaultPollInterval(),
