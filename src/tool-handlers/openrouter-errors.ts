@@ -175,6 +175,21 @@ function looksLikeHtml(msg: string): boolean {
   return t.startsWith('<!doctype') || t.startsWith('<html');
 }
 
+/** Match context-window / token-limit errors from various OpenRouter providers. */
+function isContextLengthExceeded(lower: string): boolean {
+  return (
+    lower.includes('context_length_exceeded') ||
+    lower.includes('context length exceeded') ||
+    lower.includes('context window') ||
+    lower.includes('maximum context length') ||
+    lower.includes('token limit') ||
+    lower.includes('too many tokens') ||
+    lower.includes('input is too long') ||
+    lower.includes('exceeds the model') ||
+    lower.includes('prompt is too long')
+  );
+}
+
 /** Classify upstream errors into the closed `ErrorCode` set. */
 export function classifyUpstreamError(err: unknown, contextMessage?: string): ToolErrorResult {
   const rawMsg = extractMessage(err);
@@ -371,6 +386,24 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
         suggestions: [
           'Reduce the size of input images, audio, or video',
           'Use save_path to reference local files instead of inlining large payloads',
+        ],
+      },
+    );
+  }
+
+  // Context-window / token-limit exceeded — one of the most common user errors.
+  // Must precede the generic 4xx handler so the caller gets actionable suggestions
+  // instead of the catch-all "Verify request parameters against OpenRouter docs".
+  if (isContextLengthExceeded(lower)) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      fullMsg,
+      { status, reason: 'context_length' },
+      {
+        suggestions: [
+          'Reduce the number or size of messages in the conversation',
+          'Use a model with a larger context window (use get_model_info to check context_length)',
+          'Summarize earlier messages before appending new ones',
         ],
       },
     );

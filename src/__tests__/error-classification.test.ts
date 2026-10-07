@@ -179,6 +179,67 @@ describe('classifyUpstreamError — auth and status codes', () => {
   });
 });
 
+describe('classifyUpstreamError — context-length errors', () => {
+  it('maps "context_length_exceeded" to INVALID_INPUT with context_length reason', () => {
+    const err = Object.assign(new Error('context_length_exceeded'), { status: 400 });
+    const r = classifyUpstreamError(err, 'chat_completion');
+    expect(r._meta.code).toBe('INVALID_INPUT');
+    expect(r._meta.details).toEqual({ status: 400, reason: 'context_length' });
+    expect(r._meta.suggestions).toBeDefined();
+    expect(r._meta.suggestions!.some((s) => /context/i.test(s))).toBe(true);
+  });
+
+  it('maps "maximum context length" to INVALID_INPUT with context_length reason', () => {
+    const err = new Error(
+      'This model maximum context length is 128000 tokens. Your messages resulted in 200000 tokens.',
+    );
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('INVALID_INPUT');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'context_length' });
+    expect(r._meta.suggestions!.some((s) => /reduce/i.test(s))).toBe(true);
+  });
+
+  it('maps "too many tokens" to INVALID_INPUT with context_length reason', () => {
+    const err = Object.assign(new Error('Too many tokens in the request'), { status: 400 });
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('INVALID_INPUT');
+    expect(r._meta.details).toEqual({ status: 400, reason: 'context_length' });
+  });
+
+  it('maps "context window" to INVALID_INPUT with context_length reason', () => {
+    const err = new Error('This request exceeds the context window for this model');
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('INVALID_INPUT');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'context_length' });
+  });
+
+  it('maps "input is too long" to INVALID_INPUT with context_length reason', () => {
+    const err = new Error('input is too long for the selected model');
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('INVALID_INPUT');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'context_length' });
+  });
+
+  it('maps "prompt is too long" to INVALID_INPUT with context_length reason', () => {
+    const err = new Error('prompt is too long');
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('INVALID_INPUT');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'context_length' });
+  });
+
+  it('suggests using get_model_info to check context_length', () => {
+    const err = new Error('context_length_exceeded');
+    const r = classifyUpstreamError(err);
+    expect(r._meta.suggestions!.some((s) => /get_model_info/i.test(s))).toBe(true);
+  });
+
+  it('preserves context label on context-length errors', () => {
+    const err = new Error('maximum context length exceeded');
+    const r = classifyUpstreamError(err, 'start_chat_completion');
+    expect(r.content[0].text.startsWith('start_chat_completion:')).toBe(true);
+  });
+});
+
 describe('classifyUpstreamError — network-level errors', () => {
   it('maps ECONNREFUSED to UPSTREAM_REFUSED with network suggestions', () => {
     const err = Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:443'), {
