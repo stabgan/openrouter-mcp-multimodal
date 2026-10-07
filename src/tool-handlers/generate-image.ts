@@ -89,6 +89,21 @@ export async function handleGenerateImage(
     }
   }
 
+  if (modalities !== undefined) {
+    if (!Array.isArray(modalities)) {
+      return toolError(ErrorCode.INVALID_INPUT, 'modalities must be an array of strings.');
+    }
+    if (modalities.length === 0) {
+      return toolError(ErrorCode.INVALID_INPUT, 'modalities must not be empty when provided.');
+    }
+    if (modalities.some((m) => typeof m !== 'string' || !m.trim())) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        'every modalities entry must be a non-empty string.',
+      );
+    }
+  }
+
   if (input_images !== undefined) {
     if (!Array.isArray(input_images)) {
       return toolError(ErrorCode.INVALID_INPUT, 'input_images must be an array of strings.');
