@@ -102,6 +102,7 @@ export async function handleRerankDocuments(
       query,
       documents,
       top_n,
+      return_documents: return_documents === true ? true : undefined,
     });
   } catch (err) {
     return classifyUpstreamError(err, 'rerank');

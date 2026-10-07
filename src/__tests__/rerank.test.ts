@@ -99,6 +99,7 @@ describe('handleRerankDocuments', () => {
       },
       client,
     );
+    expect(client.rerank).toHaveBeenCalledWith(expect.objectContaining({ return_documents: true }));
     const sc = (r as { structuredContent: { results: Array<{ document?: string }> } })
       .structuredContent;
     expect(sc.results[0].document).toBe('hello world');

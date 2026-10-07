@@ -279,6 +279,7 @@ export class OpenRouterAPIClient {
     query: string;
     documents: string[];
     top_n?: number;
+    return_documents?: boolean;
   }): Promise<RerankResponse> {
     const body: Record<string, unknown> = {
       model: params.model,
@@ -286,6 +287,7 @@ export class OpenRouterAPIClient {
       documents: params.documents,
     };
     if (typeof params.top_n === 'number' && params.top_n > 0) body.top_n = params.top_n;
+    if (params.return_documents === true) body.return_documents = true;
     const res = await fetchWithRetry(
       `${BASE_URL}/rerank`,
       {
