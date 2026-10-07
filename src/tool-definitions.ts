@@ -654,7 +654,7 @@ export const TOOL_DEFINITIONS = [
     annotations: {
       title: 'Generate image',
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       idempotentHint: false,
       openWorldHint: true,
     },
@@ -706,7 +706,7 @@ export const TOOL_DEFINITIONS = [
     annotations: {
       title: 'Generate image (dedicated API)',
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       idempotentHint: false,
       openWorldHint: true,
     },
@@ -772,7 +772,7 @@ export const TOOL_DEFINITIONS = [
     annotations: {
       title: 'Generate audio',
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       idempotentHint: false,
       openWorldHint: true,
     },
@@ -809,7 +809,7 @@ export const TOOL_DEFINITIONS = [
     annotations: {
       title: 'Text to speech (dedicated API)',
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       idempotentHint: false,
       openWorldHint: true,
     },
@@ -909,7 +909,7 @@ export const TOOL_DEFINITIONS = [
     annotations: {
       title: 'Generate video',
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       idempotentHint: false,
       openWorldHint: true,
     },
@@ -975,7 +975,7 @@ export const TOOL_DEFINITIONS = [
     annotations: {
       title: 'Generate video from image',
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       idempotentHint: false,
       openWorldHint: true,
     },
@@ -1015,7 +1015,7 @@ export const TOOL_DEFINITIONS = [
     annotations: {
       title: 'Get video status',
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       idempotentHint: true,
       openWorldHint: true,
     },

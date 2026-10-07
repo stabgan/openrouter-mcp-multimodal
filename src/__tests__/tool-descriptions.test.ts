@@ -91,6 +91,13 @@ describe('tool catalog contract', () => {
       expect((getTool(name).annotations as { readOnlyHint: boolean }).readOnlyHint).toBe(true);
     }
   });
+
+  it('save_path tools are marked destructiveHint: true (can overwrite files)', () => {
+    for (const name of TOOLS_WITH_SAVE_PATH) {
+      const ann = getTool(name).annotations as { destructiveHint: boolean };
+      expect(ann.destructiveHint, `${name} accepts save_path and can overwrite files`).toBe(true);
+    }
+  });
 });
 
 describe('save_path schema contract', () => {
