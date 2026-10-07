@@ -138,11 +138,18 @@ export async function handleGenerateAudio(
 
     if (audioChunks.length === 0) {
       return toolError(
-        ErrorCode.INTERNAL,
+        ErrorCode.UPSTREAM_REFUSED,
         transcript
           ? `No audio returned (model emitted transcript only): ${transcript.slice(0, 300)}`
           : 'No audio returned.',
         { reason: 'no_audio_in_stream' },
+        {
+          suggestions: [
+            'Try a different model — not all models support audio generation',
+            'Try a different voice',
+            'Simplify or rephrase the prompt',
+          ],
+        },
       );
     }
 
