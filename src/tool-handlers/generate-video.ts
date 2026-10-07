@@ -275,6 +275,46 @@ function extractJobError(status: VideoJobStatus): string {
   return status.error.message ?? 'Upstream marked the job failed.';
 }
 
+/**
+ * Wrapper around `finalizeCompletedJob` that classifies download/save errors
+ * into the `ErrorCode` taxonomy. Both `handleGenerateVideo` and
+ * `handleGetVideoStatus` need this same error classification, so it lives
+ * here once instead of being duplicated in each handler.
+ */
+async function safeFinalizeCompletedJob(
+  apiClient: OpenRouterAPIClient,
+  status: VideoJobStatus,
+  savePath: string | null,
+) {
+  try {
+    return await finalizeCompletedJob(apiClient, status, savePath);
+  } catch (err) {
+    if (err instanceof UnsafePathError) {
+      return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
+    }
+    if (isFileSystemError(err)) {
+      return toolErrorFrom(ErrorCode.INTERNAL, err, 'Write', {
+        suggestions: [
+          'Check that OPENROUTER_OUTPUT_DIR is writable',
+          'Verify sufficient disk space',
+        ],
+      });
+    }
+    const errMsg = err instanceof Error ? err.message : String(err);
+    if (errMsg.toLowerCase().includes('too large')) {
+      return toolErrorFrom(ErrorCode.RESOURCE_TOO_LARGE, err, 'Download', {
+        suggestions: [
+          'Raise OPENROUTER_VIDEO_GEN_MAX_BYTES to allow larger downloads',
+          'Reduce video resolution or duration',
+        ],
+      });
+    }
+    return toolErrorFrom(ErrorCode.UPSTREAM_HTTP, err, 'Download', {
+      suggestions: ['Retry after a brief delay', 'Check https://status.openrouter.ai for outages'],
+    });
+  }
+}
+
 async function finalizeCompletedJob(
   apiClient: OpenRouterAPIClient,
   status: VideoJobStatus,
@@ -529,34 +569,7 @@ export async function handleGenerateVideo(
     };
   }
 
-  try {
-    const { content, _meta } = await finalizeCompletedJob(apiClient, outcome.status, safeSavePath);
-    return { content, _meta };
-  } catch (err) {
-    if (err instanceof UnsafePathError) {
-      return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
-    }
-    if (isFileSystemError(err)) {
-      return toolErrorFrom(ErrorCode.INTERNAL, err, 'Write', {
-        suggestions: [
-          'Check that OPENROUTER_OUTPUT_DIR is writable',
-          'Verify sufficient disk space',
-        ],
-      });
-    }
-    const errMsg = err instanceof Error ? err.message : String(err);
-    if (errMsg.toLowerCase().includes('too large')) {
-      return toolErrorFrom(ErrorCode.RESOURCE_TOO_LARGE, err, 'Download', {
-        suggestions: [
-          'Raise OPENROUTER_VIDEO_GEN_MAX_BYTES to allow larger downloads',
-          'Reduce video resolution or duration',
-        ],
-      });
-    }
-    return toolErrorFrom(ErrorCode.UPSTREAM_HTTP, err, 'Download', {
-      suggestions: ['Retry after a brief delay', 'Check https://status.openrouter.ai for outages'],
-    });
-  }
+  return safeFinalizeCompletedJob(apiClient, outcome.status, safeSavePath);
 }
 
 export async function handleGetVideoStatus(
