@@ -175,6 +175,25 @@ function isGuardrailOrPolicy(lower: string): boolean {
   );
 }
 
+/** Match Node.js TLS/OpenSSL error codes and common certificate keywords. */
+function isTlsCertificateError(lower: string): boolean {
+  return (
+    lower.includes('self_signed_cert') ||
+    lower.includes('self signed cert') ||
+    lower.includes('depth_zero_self_signed') ||
+    lower.includes('unable_to_verify_leaf_signature') ||
+    lower.includes('unable_to_get_issuer_cert') ||
+    lower.includes('cert_has_expired') ||
+    lower.includes('cert_not_yet_valid') ||
+    lower.includes('cert_signature_failure') ||
+    lower.includes('cert_rejected') ||
+    lower.includes('err_tls_cert_altname_invalid') ||
+    lower.includes('certificate has expired') ||
+    lower.includes('certificate is not yet valid') ||
+    lower.includes('unable to verify the first certificate')
+  );
+}
+
 function looksLikeHtml(msg: string): boolean {
   const t = msg.trimStart().toLowerCase();
   return t.startsWith('<!doctype') || t.startsWith('<html');
@@ -321,6 +340,24 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
       {
         suggestions: [
           'Retry — the connection was interrupted',
+          'Check https://status.openrouter.ai for outages',
+        ],
+      },
+    );
+  }
+
+  // TLS/SSL certificate errors — common behind corporate proxies or with
+  // misconfigured intermediate certs.  Must precede the guardrail/policy
+  // check so that cert-related "refused" messages are not misclassified.
+  if (isTlsCertificateError(lower)) {
+    return toolError(
+      ErrorCode.UPSTREAM_REFUSED,
+      fullMsg,
+      { status, reason: 'tls' },
+      {
+        suggestions: [
+          'If behind a corporate proxy, set NODE_EXTRA_CA_CERTS to the proxy CA bundle',
+          'Verify system clock is correct (certificate validity is time-sensitive)',
           'Check https://status.openrouter.ai for outages',
         ],
       },

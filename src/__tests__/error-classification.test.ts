@@ -243,3 +243,73 @@ describe('classifyUpstreamError — network-level errors', () => {
     expect(r.content[0].text.startsWith('rerank:')).toBe(true);
   });
 });
+
+describe('classifyUpstreamError — TLS/certificate errors', () => {
+  it('maps DEPTH_ZERO_SELF_SIGNED_CERT to UPSTREAM_REFUSED with tls reason', () => {
+    const err = new Error('DEPTH_ZERO_SELF_SIGNED_CERT');
+    const r = classifyUpstreamError(err, 'chat_completion');
+    expect(r._meta.code).toBe('UPSTREAM_REFUSED');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'tls' });
+    expect(r._meta.suggestions).toBeDefined();
+    expect(r._meta.suggestions!.some((s) => /NODE_EXTRA_CA_CERTS/i.test(s))).toBe(true);
+  });
+
+  it('maps SELF_SIGNED_CERT_IN_CHAIN to UPSTREAM_REFUSED with tls reason', () => {
+    const err = new Error(
+      'self signed certificate in certificate chain (SELF_SIGNED_CERT_IN_CHAIN)',
+    );
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_REFUSED');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'tls' });
+  });
+
+  it('maps UNABLE_TO_VERIFY_LEAF_SIGNATURE to UPSTREAM_REFUSED with tls reason', () => {
+    const err = new Error('UNABLE_TO_VERIFY_LEAF_SIGNATURE');
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_REFUSED');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'tls' });
+  });
+
+  it('maps CERT_HAS_EXPIRED to UPSTREAM_REFUSED with clock suggestion', () => {
+    const err = new Error('CERT_HAS_EXPIRED');
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_REFUSED');
+    expect(r._meta.suggestions!.some((s) => /clock/i.test(s))).toBe(true);
+  });
+
+  it('maps "certificate has expired" message to UPSTREAM_REFUSED', () => {
+    const err = new Error('certificate has expired');
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_REFUSED');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'tls' });
+  });
+
+  it('maps UNABLE_TO_GET_ISSUER_CERT_LOCALLY to UPSTREAM_REFUSED', () => {
+    const err = new Error('unable_to_get_issuer_cert_locally');
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_REFUSED');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'tls' });
+  });
+
+  it('maps ERR_TLS_CERT_ALTNAME_INVALID to UPSTREAM_REFUSED', () => {
+    const err = new Error(
+      'Hostname/IP does not match certificate altnames: ERR_TLS_CERT_ALTNAME_INVALID',
+    );
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_REFUSED');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'tls' });
+  });
+
+  it('maps "unable to verify the first certificate" to UPSTREAM_REFUSED', () => {
+    const err = new Error('unable to verify the first certificate');
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_REFUSED');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'tls' });
+  });
+
+  it('preserves context label on TLS errors', () => {
+    const err = new Error('DEPTH_ZERO_SELF_SIGNED_CERT');
+    const r = classifyUpstreamError(err, 'generate_video');
+    expect(r.content[0].text.startsWith('generate_video:')).toBe(true);
+  });
+});
