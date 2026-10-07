@@ -26,6 +26,7 @@ import {
   validateChatMessages,
   validateTemperature,
   validateMaxTokens,
+  validateResponseFormat,
   validateWebSearchOptions,
 } from './chat-request.js';
 
@@ -181,6 +182,9 @@ export async function handleStartChatCompletion(
 
   const maxTokensError = validateMaxTokens(max_tokens);
   if (maxTokensError) return maxTokensError;
+
+  const responseFormatError = validateResponseFormat(args.response_format);
+  if (responseFormatError) return responseFormatError;
 
   const webSearchError = validateWebSearchOptions(web_max_results, web_blocked_domains, online);
   if (webSearchError) return webSearchError;

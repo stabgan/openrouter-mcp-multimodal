@@ -41,6 +41,15 @@ export interface ChatToolRequest extends CacheOptions {
    * Reduces JSON defects by 80%+.
    */
   response_healing?: boolean;
+  /**
+   * Request structured output from the model.
+   *
+   * `{ type: "json_object" }` — forces valid JSON output.
+   * `{ type: "json_schema", json_schema: { name, schema, strict? } }` — structured output
+   * with schema enforcement (OpenAI-compatible).
+   * `{ type: "text" }` — plain text (default, equivalent to omitting).
+   */
+  response_format?: { type: string; [key: string]: unknown };
 }
 
 export function readIncludeReasoningDefault(): boolean {
@@ -94,6 +103,60 @@ export function validateMaxTokens(max_tokens: number | undefined): ToolErrorResu
     !Number.isInteger(max_tokens)
   ) {
     return toolError(ErrorCode.INVALID_INPUT, 'max_tokens must be a positive integer.');
+  }
+  return null;
+}
+
+const VALID_RESPONSE_FORMAT_TYPES = new Set(['text', 'json_object', 'json_schema']);
+
+export function validateResponseFormat(
+  responseFormat: { type: string; [key: string]: unknown } | undefined,
+): ToolErrorResult | null {
+  if (responseFormat === undefined) return null;
+  if (
+    typeof responseFormat !== 'object' ||
+    responseFormat === null ||
+    Array.isArray(responseFormat)
+  ) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      'response_format must be an object with a "type" field (e.g. { "type": "json_object" }).',
+    );
+  }
+  if (typeof responseFormat.type !== 'string' || !responseFormat.type.trim()) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `response_format.type is required. Valid values: ${[...VALID_RESPONSE_FORMAT_TYPES].join(', ')}.`,
+    );
+  }
+  if (!VALID_RESPONSE_FORMAT_TYPES.has(responseFormat.type)) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `response_format.type '${responseFormat.type}' is not supported. Valid values: ${[...VALID_RESPONSE_FORMAT_TYPES].join(', ')}.`,
+    );
+  }
+  if (responseFormat.type === 'json_schema') {
+    const schema = responseFormat.json_schema;
+    if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        'response_format.json_schema is required when type is "json_schema". ' +
+          'It must be an object with at least a "name" and "schema" field.',
+      );
+    }
+    const s = schema as { name?: unknown; schema?: unknown };
+    if (typeof s.name !== 'string' || !s.name.trim()) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        'response_format.json_schema.name must be a non-empty string.',
+      );
+    }
+    if (!s.schema || typeof s.schema !== 'object') {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        'response_format.json_schema.schema must be a JSON Schema object.',
+      );
+    }
   }
   return null;
 }
@@ -157,6 +220,9 @@ export function buildChatCompletionBody(
   if (typeof effectiveMaxTokens === 'number') body.max_tokens = effectiveMaxTokens;
   if (providerBody) body.provider = providerBody;
   if (wantsReasoning) body.include_reasoning = true;
+  if (input.response_format && input.response_format.type !== 'text') {
+    body.response_format = input.response_format;
+  }
   if (input.online) {
     const plugin: Record<string, unknown> = { id: 'web' };
     if (typeof input.web_max_results === 'number' && input.web_max_results > 0) {

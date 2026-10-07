@@ -208,6 +208,26 @@ export const TOOL_DEFINITIONS = [
             'Enable `openrouter:response_healing` — auto-fix malformed JSON (missing brackets, ' +
             'trailing commas, markdown wrappers). Reduces JSON defects by 80%+.',
         },
+        response_format: {
+          type: 'object',
+          description:
+            'Request structured output. `{ "type": "json_object" }` forces valid JSON. ' +
+            '`{ "type": "json_schema", "json_schema": { "name": "my_schema", "schema": {...} } }` ' +
+            'enforces a specific JSON Schema. `{ "type": "text" }` is the default (plain text).',
+          properties: {
+            type: {
+              type: 'string',
+              enum: ['text', 'json_object', 'json_schema'],
+              description: 'Output format type.',
+            },
+            json_schema: {
+              type: 'object',
+              description:
+                'Required when type is "json_schema". Must include "name" (string) and "schema" (JSON Schema object). Optional "strict" (boolean).',
+            },
+          },
+          required: ['type'],
+        },
         ...CACHE_PROPERTIES,
       },
       required: ['messages'],
@@ -258,6 +278,20 @@ export const TOOL_DEFINITIONS = [
         response_healing: {
           type: 'boolean',
           description: 'Enable `openrouter:response_healing` — auto-fix malformed JSON.',
+        },
+        response_format: {
+          type: 'object',
+          description:
+            'Request structured output (same as chat_completion). ' +
+            '`{ "type": "json_object" }` or `{ "type": "json_schema", "json_schema": {...} }`.',
+          properties: {
+            type: {
+              type: 'string',
+              enum: ['text', 'json_object', 'json_schema'],
+            },
+            json_schema: { type: 'object' },
+          },
+          required: ['type'],
         },
         ...CACHE_PROPERTIES,
       },

@@ -73,14 +73,16 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
     summary:
       'Send messages to an OpenRouter chat model and get a text reply. Supports provider routing, ' +
       'model suffixes (`:nitro` fastest, `:floor` cheapest, `:free` zero-cost, `:online` web search, ' +
-      '`:exacto` tool accuracy), reasoning tokens, web search (`online: true`), response caching, ' +
-      'multi-model fusion (`fusion: true`), subagent delegation (`subagent: true`), and JSON response healing.',
+      '`:exacto` tool accuracy), reasoning tokens, web search (`online: true`), structured output ' +
+      '(`response_format`), response caching, multi-model fusion (`fusion: true`), subagent delegation ' +
+      '(`subagent: true`), and JSON response healing.',
     useWhen: [
       'You need text generation, Q&A, summarization, or multi-turn dialogue',
       'You want web-grounded answers (`online: true`)',
       'You want multi-model consensus (`fusion: true`) for critical decisions',
       'You want the model to delegate busywork to a cheaper model (`subagent: true`)',
-      'You need reliable JSON output (`response_healing: true`)',
+      'You need reliable JSON output (`response_healing: true` or `response_format: { "type": "json_object" }`)',
+      'You need structured output conforming to a JSON Schema (`response_format: { "type": "json_schema", ... }`)',
       'You already know the model id (or rely on the server default)',
     ],
     notWhen: [
@@ -92,11 +94,13 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
       '`{ "messages": [{ "role": "user", "content": "Explain recursion in one paragraph." }] }`',
       '`{ "model": "openai/gpt-4o:nitro", "messages": [...], "online": true }` for web search',
       '`{ "messages": [...], "include_reasoning": true }` for chain-of-thought models',
+      '`{ "messages": [...], "response_format": { "type": "json_object" } }` for JSON mode',
     ],
     badExamples: [
       '`{ "messages": [] }` → INVALID_INPUT (empty array)',
       '`{ "image_path": "photo.jpg" }` → wrong tool; use analyze_image',
       'Putting file paths inside message content without a vision model configured',
+      '`{ "messages": [...], "response_format": { "type": "json_schema" } }` → INVALID_INPUT (json_schema requires json_schema field)',
     ],
     failsWhen: [
       'INVALID_INPUT: messages array is empty',
