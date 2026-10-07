@@ -1,3 +1,4 @@
+import { extname } from 'node:path';
 import {
   IMAGE_ASPECT_RATIOS,
   IMAGE_DEDICATED_QUALITIES,
@@ -18,7 +19,7 @@ import { classifyUpstreamError } from './openrouter-errors.js';
 import { buildBinaryToolResult } from './tool-result-payload.js';
 import { fetchHttpResource, readEnvInt } from './fetch-utils.js';
 import { type CacheOptions, buildCacheHeaders, validateCacheOptions } from './cache.js';
-import { writeOutputFile } from './path-utils.js';
+import { replaceExtension, writeOutputFile } from './path-utils.js';
 import { sniffImageMime } from './image-utils.js';
 import {
   readProviderDefaults,
@@ -54,6 +55,15 @@ const MIME_BY_FORMAT: Record<string, string> = {
   svg: 'image/svg+xml',
   jpeg: 'image/jpeg',
 };
+
+/** Map a resolved MIME type to a file extension for save_path correction. */
+function extensionForImageMime(mime: string): string {
+  if (mime.includes('svg')) return 'svg';
+  if (mime.includes('webp')) return 'webp';
+  if (mime.includes('jpeg') || mime.includes('jpg')) return 'jpg';
+  // Default to png for image/png and any unknown image type.
+  return 'png';
+}
 
 export async function handleGenerateImageDedicated(
   request: { params: { arguments: GenerateImageDedicatedRequest } },
@@ -213,17 +223,26 @@ export async function handleGenerateImageDedicated(
   if (firstImage.revised_prompt) baseMeta.revised_prompt = firstImage.revised_prompt;
 
   if (safeSavePath) {
+    // Correct the file extension to match the actual image format — mirrors
+    // the pattern used by generate_video, generate_audio, and text_to_speech.
+    // Without this, a user requesting save_path: "out.jpg" would get a PNG
+    // saved with a .jpg extension when the API returns PNG.
+    const expectedExt = extensionForImageMime(mimeType);
+    const currentExt = extname(safeSavePath).toLowerCase().slice(1);
+    const correctedPath =
+      currentExt === expectedExt ? safeSavePath : replaceExtension(safeSavePath, expectedExt);
+
     if (decoded) {
       try {
-        await writeOutputFile(safeSavePath, decoded);
+        await writeOutputFile(correctedPath, decoded);
       } catch (err) {
         return toolErrorFrom(ErrorCode.INTERNAL, err, 'Write');
       }
       return buildBinaryToolResult(
         { kind: 'image', buffer: decoded, mimeType },
         {
-          savedPath: safeSavePath,
-          summaryText: `Image saved to: ${safeSavePath}`,
+          savedPath: correctedPath,
+          summaryText: `Image saved to: ${correctedPath}`,
           meta: baseMeta,
         },
       );
@@ -241,12 +260,15 @@ export async function handleGenerateImageDedicated(
           return toolError(ErrorCode.UPSTREAM_REFUSED, 'Downloaded image URL returned empty body.');
         }
         const resolvedMime = contentType?.split(';')[0]?.trim() || mimeType;
-        await writeOutputFile(safeSavePath, fetched);
+        // Re-derive extension from actual download MIME for accuracy.
+        const dlExt = extensionForImageMime(resolvedMime);
+        const dlPath = currentExt === dlExt ? safeSavePath : replaceExtension(safeSavePath, dlExt);
+        await writeOutputFile(dlPath, fetched);
         return buildBinaryToolResult(
           { kind: 'image', buffer: fetched, mimeType: resolvedMime },
           {
-            savedPath: safeSavePath,
-            summaryText: `Image saved to: ${safeSavePath}`,
+            savedPath: dlPath,
+            summaryText: `Image saved to: ${dlPath}`,
             meta: { ...baseMeta, mime: resolvedMime, image_url: firstImage.url },
           },
         );
