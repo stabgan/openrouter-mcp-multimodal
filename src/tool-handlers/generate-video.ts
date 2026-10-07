@@ -368,14 +368,14 @@ export async function handleGenerateVideo(
     return toolError(ErrorCode.INVALID_INPUT, 'prompt is required.');
   }
 
-  if (
-    typeof args.duration === 'number' &&
-    (!Number.isFinite(args.duration) || args.duration <= 0)
-  ) {
-    return toolError(ErrorCode.INVALID_INPUT, 'duration must be a positive finite number.');
+  if (typeof args.duration === 'number' && (!Number.isFinite(args.duration) || args.duration < 1)) {
+    return toolError(ErrorCode.INVALID_INPUT, 'duration must be a finite number >= 1 (seconds).');
   }
-  if (typeof args.seed === 'number' && !Number.isFinite(args.seed)) {
-    return toolError(ErrorCode.INVALID_INPUT, 'seed must be a finite number.');
+  if (
+    typeof args.seed === 'number' &&
+    (!Number.isFinite(args.seed) || !Number.isInteger(args.seed))
+  ) {
+    return toolError(ErrorCode.INVALID_INPUT, 'seed must be an integer.');
   }
   if (
     args.poll_interval_ms !== undefined &&
