@@ -127,6 +127,8 @@ export function mergeProviderOptions(
   const out: ProviderRoutingOptions = { ...defaults };
   for (const [key, value] of Object.entries(overrides)) {
     if (value === undefined) continue;
+    // Block prototype-pollution keys from untrusted MCP args.
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
     (out as Record<string, unknown>)[key] = value;
   }
   return out;

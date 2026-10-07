@@ -42,6 +42,8 @@ function sanitizeCtx(
   seen.add(ctx);
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(ctx)) {
+    // Guard against prototype pollution from untrusted JSON input.
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
     out[key] = sanitizeLogValue(key, value, seen);
   }
   return out;
