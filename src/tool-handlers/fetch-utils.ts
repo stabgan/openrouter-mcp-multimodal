@@ -48,10 +48,20 @@ export function readEnvInt(name: string, fallback: number, min = 1): number {
   return Number.isFinite(n) && n >= min ? n : fallback;
 }
 
-/** Normalize dotted / decimal / octal / shorthand IPv4 literals via the URL parser. */
+/**
+ * Normalize dotted / decimal / octal / shorthand IPv4 literals via the
+ * WHATWG URL parser.
+ *
+ * SECURITY: every input goes through `new URL()` so that octal (`012`),
+ * hex (`0x7f`), and single-integer (`2130706433`) representations are
+ * normalised to standard dotted-decimal before `ipv4ToUint` parses them.
+ * A previous fast-path regex returned octal-ambiguous inputs (e.g.
+ * `012.0.0.1`) as-is; `ipv4ToUint` then parsed each octet as decimal
+ * (`12`), while the WHATWG spec interprets it as octal (`10`).  Removing
+ * the fast-path closes this inconsistency.
+ */
 function normalizeIPv4Literal(host: string): string | null {
   const trimmed = host.trim().toLowerCase();
-  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(trimmed)) return trimmed;
   try {
     const parsed = new URL(`http://${trimmed}/`);
     const h = parsed.hostname;
