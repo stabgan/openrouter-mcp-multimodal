@@ -94,6 +94,8 @@ export class ModelCache {
   private inflight: Promise<OpenRouterModelRecord[]> | null = null;
   /** Lazily-computed sorted snapshot; invalidated on setModels/reset. */
   private sortedCache: OpenRouterModelRecord[] | null = null;
+  /** Lowercase model-id → model record for O(1) case-insensitive lookups. */
+  private lowerIdIndex: Map<string, OpenRouterModelRecord> = new Map();
 
   static getInstance(): ModelCache {
     return (ModelCache.instance ??= new ModelCache());
@@ -107,6 +109,12 @@ export class ModelCache {
   setModels(models: OpenRouterModelRecord[]): void {
     this.models = Object.fromEntries(models.map((m) => [m.id, m]));
     this.sortedCache = null;
+    // Rebuild O(1) case-insensitive index (keyed by lowercase id).
+    const idx = new Map<string, OpenRouterModelRecord>();
+    for (const m of models) {
+      idx.set(m.id.toLowerCase(), m);
+    }
+    this.lowerIdIndex = idx;
     this.fetchedAt = Date.now();
     this.populatedAt = this.fetchedAt;
   }
@@ -115,6 +123,7 @@ export class ModelCache {
   reset(): void {
     this.models = {};
     this.sortedCache = null;
+    this.lowerIdIndex = new Map();
     this.fetchedAt = 0;
     this.populatedAt = 0;
     this.inflight = null;
@@ -187,15 +196,14 @@ export class ModelCache {
       if (base) return base;
     }
 
+    // O(1) case-insensitive lookup via pre-built lowercase index.
     const lower = id.toLowerCase();
-    for (const model of Object.values(this.models)) {
-      if (model.id.toLowerCase() === lower) return model;
-    }
+    const byLower = this.lowerIdIndex.get(lower);
+    if (byLower) return byLower;
     if (stripped !== id) {
       const lowerStripped = stripped.toLowerCase();
-      for (const model of Object.values(this.models)) {
-        if (model.id.toLowerCase() === lowerStripped) return model;
-      }
+      const byLowerStripped = this.lowerIdIndex.get(lowerStripped);
+      if (byLowerStripped) return byLowerStripped;
     }
     return null;
   }
