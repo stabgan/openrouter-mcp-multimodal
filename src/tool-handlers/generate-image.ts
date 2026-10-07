@@ -1,3 +1,4 @@
+import { extname } from 'node:path';
 import OpenAI from 'openai';
 import type { ChatCompletion } from 'openai/resources/chat/completions.js';
 import { IMAGE_ASPECT_RATIOS } from '../tool-definitions.js';
@@ -14,7 +15,7 @@ import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
 import { buildBinaryToolResult } from './tool-result-payload.js';
-import { writeOutputFile } from './path-utils.js';
+import { replaceExtension, writeOutputFile } from './path-utils.js';
 
 export interface GenerateImageToolRequest {
   prompt: string;
@@ -32,6 +33,17 @@ const DEFAULT_MODEL = 'google/gemini-2.5-flash-image';
 const VALID_ASPECT_RATIOS = new Set<string>(IMAGE_ASPECT_RATIOS);
 
 const VALID_IMAGE_SIZES = new Set(['0.5K', '1K', '2K', '4K']);
+
+/** Map a resolved MIME type to a file extension for save_path correction. */
+function extensionForImageMime(mime: string): string {
+  if (mime.includes('svg')) return 'svg';
+  if (mime.includes('webp')) return 'webp';
+  if (mime.includes('jpeg') || mime.includes('jpg')) return 'jpg';
+  if (mime.includes('gif')) return 'gif';
+  if (mime.includes('bmp')) return 'bmp';
+  // Default to png for image/png and any unknown image type.
+  return 'png';
+}
 
 export async function handleGenerateImage(
   request: { params: { arguments: GenerateImageToolRequest } },
@@ -153,11 +165,24 @@ export async function handleGenerateImage(
   }
 
   if (safePathResolved) {
+    // Correct the file extension to match the actual image format — mirrors
+    // the pattern in generate_image_dedicated (BUG-013). Without this, a
+    // user requesting save_path: "out.jpg" would get a PNG saved with a .jpg
+    // extension when the API returns PNG data.
+    const expectedExt = extensionForImageMime(base64.mime);
+    const currentExt = extname(safePathResolved).toLowerCase().slice(1);
+    const actualSavePath =
+      currentExt === expectedExt
+        ? safePathResolved
+        : replaceExtension(safePathResolved, expectedExt);
+
     try {
-      await writeOutputFile(safePathResolved, buffer);
+      await writeOutputFile(actualSavePath, buffer);
     } catch (err) {
       return toolErrorFrom(ErrorCode.INTERNAL, err, 'Write');
     }
+
+    return buildImageSuccessResult(base64, buffer, completion.usage, actualSavePath);
   }
 
   return buildImageSuccessResult(base64, buffer, completion.usage, safePathResolved ?? undefined);
