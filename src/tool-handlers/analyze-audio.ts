@@ -1,10 +1,9 @@
 import OpenAI from 'openai';
 import type { ChatCompletion } from 'openai/resources/chat/completions.js';
 import { prepareAudioData } from './audio-utils.js';
-import { UnsafePathError } from './path-safety.js';
-import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
+import { ErrorCode, toolError } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
-import { classifyUpstreamError } from './openrouter-errors.js';
+import { classifyUpstreamError, classifyResourceLoadError } from './openrouter-errors.js';
 import {
   extractCompletionText,
   detectReasoningCutoff,
@@ -56,22 +55,7 @@ export async function handleAnalyzeAudio(
   try {
     audioData = await prepareAudioData(audio_path);
   } catch (err) {
-    if (err instanceof UnsafePathError) {
-      return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
-    }
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('Blocked host')) return toolErrorFrom(ErrorCode.UPSTREAM_REFUSED, err);
-    const lower = msg.toLowerCase();
-    if (lower.includes('too large')) {
-      return toolErrorFrom(ErrorCode.RESOURCE_TOO_LARGE, err);
-    }
-    if (lower.includes('timed out') || lower.includes('timeout')) {
-      return toolErrorFrom(ErrorCode.UPSTREAM_TIMEOUT, err);
-    }
-    if (lower.includes('unsupported')) {
-      return toolErrorFrom(ErrorCode.UNSUPPORTED_FORMAT, err);
-    }
-    return toolErrorFrom(ErrorCode.INVALID_INPUT, err);
+    return classifyResourceLoadError(err);
   }
 
   const audioBlock: Record<string, unknown> = {

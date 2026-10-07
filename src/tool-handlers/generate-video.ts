@@ -6,7 +6,7 @@ import { logger } from '../logger.js';
 import { resolveOptionalOutputPath, isToolErrorResult, UnsafePathError } from './path-safety.js';
 import { resolveImageBase64 } from './image-source.js';
 import { readEnvInt } from './fetch-utils.js';
-import { classifyUpstreamError } from './openrouter-errors.js';
+import { classifyUpstreamError, classifyResourceLoadError } from './openrouter-errors.js';
 import { buildBinaryToolResult } from './tool-result-payload.js';
 import { replaceExtension, writeOutputFile } from './path-utils.js';
 import {
@@ -402,24 +402,7 @@ export async function handleGenerateVideo(
   try {
     await attachFrameImages(args, body);
   } catch (err) {
-    if (err instanceof UnsafePathError) {
-      return toolErrorFrom(ErrorCode.UNSAFE_PATH, err, 'Reference/frame image');
-    }
-    const msg = err instanceof Error ? err.message : String(err);
-    const lower = msg.toLowerCase();
-    if (msg.includes('Blocked host')) {
-      return toolErrorFrom(ErrorCode.UPSTREAM_REFUSED, err, 'Reference/frame image');
-    }
-    if (lower.includes('too large')) {
-      return toolErrorFrom(ErrorCode.RESOURCE_TOO_LARGE, err, 'Reference/frame image');
-    }
-    if (lower.includes('timed out') || lower.includes('timeout')) {
-      return toolErrorFrom(ErrorCode.UPSTREAM_TIMEOUT, err, 'Reference/frame image');
-    }
-    if (lower.includes('unsupported') || lower.includes('invalid data url')) {
-      return toolErrorFrom(ErrorCode.UNSUPPORTED_FORMAT, err, 'Reference/frame image');
-    }
-    return toolErrorFrom(ErrorCode.INVALID_INPUT, err, 'Reference/frame image');
+    return classifyResourceLoadError(err, 'Reference/frame image');
   }
 
   let envelope: VideoJobEnvelope;

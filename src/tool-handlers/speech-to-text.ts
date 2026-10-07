@@ -1,12 +1,11 @@
 /** Dedicated POST /api/v1/audio/transcriptions — Whisper, GPT-4o Transcribe, Voxtral. */
 import type { OpenRouterAPIClient, TranscriptionResponse } from '../openrouter-api.js';
 import { STT_RESPONSE_FORMATS } from '../tool-definitions.js';
-import { UnsafePathError } from './path-safety.js';
 import { resolveSpeechToTextAudio } from './audio-utils.js';
-import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
+import { ErrorCode, toolError } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
-import { classifyUpstreamError } from './openrouter-errors.js';
+import { classifyUpstreamError, classifyResourceLoadError } from './openrouter-errors.js';
 import { type CacheOptions, buildCacheHeaders, validateCacheOptions } from './cache.js';
 import {
   readProviderDefaults,
@@ -87,20 +86,7 @@ export async function handleSpeechToText(
   try {
     audioInput = await resolveSpeechToTextAudio(audio_path);
   } catch (err) {
-    if (err instanceof UnsafePathError) return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('Blocked host')) return toolErrorFrom(ErrorCode.UPSTREAM_REFUSED, err);
-    const lower = msg.toLowerCase();
-    if (lower.includes('too large')) {
-      return toolErrorFrom(ErrorCode.RESOURCE_TOO_LARGE, err);
-    }
-    if (lower.includes('timed out') || lower.includes('timeout')) {
-      return toolErrorFrom(ErrorCode.UPSTREAM_TIMEOUT, err);
-    }
-    if (lower.includes('unsupported')) {
-      return toolErrorFrom(ErrorCode.UNSUPPORTED_FORMAT, err);
-    }
-    return toolErrorFrom(ErrorCode.INVALID_INPUT, err);
+    return classifyResourceLoadError(err);
   }
 
   const body: Record<string, unknown> = {

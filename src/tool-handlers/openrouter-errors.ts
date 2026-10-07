@@ -1,7 +1,14 @@
 /**
  * Map OpenRouter / OpenAI SDK errors to our closed `ErrorCode` enum.
  */
-import { ErrorCode, sanitizeErrorMessage, toolError, type ToolErrorResult } from '../errors.js';
+import {
+  ErrorCode,
+  sanitizeErrorMessage,
+  toolError,
+  toolErrorFrom,
+  type ToolErrorResult,
+} from '../errors.js';
+import { UnsafePathError } from './path-safety.js';
 
 interface SdkLikeError {
   status?: number;
@@ -517,4 +524,42 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
   }
 
   return toolError(ErrorCode.UPSTREAM_HTTP, fullMsg);
+}
+
+/**
+ * Classify errors from resource-loading operations (image, audio, video reads).
+ *
+ * Multiple tool handlers need to load user-supplied file references — local
+ * paths, HTTP(S) URLs, and data URLs — and translate fetch / sandbox errors
+ * into the closed `ErrorCode` taxonomy. This centralises the heuristic so
+ * every handler classifies the same root cause the same way.
+ *
+ * Handles: path-sandbox violations, SSRF blocks, oversized resources,
+ * timeouts, unsupported formats, and generic input errors.
+ */
+export function classifyResourceLoadError(err: unknown, prefix?: string): ToolErrorResult {
+  if (err instanceof UnsafePathError) {
+    return toolErrorFrom(ErrorCode.UNSAFE_PATH, err, prefix);
+  }
+  const msg = err instanceof Error ? err.message : String(err);
+  const lower = msg.toLowerCase();
+
+  // 'Blocked host' is thrown by the SSRF guard with exact casing.
+  if (msg.includes('Blocked host')) {
+    return toolErrorFrom(ErrorCode.UPSTREAM_REFUSED, err, prefix);
+  }
+  if (lower.includes('too large')) {
+    return toolErrorFrom(ErrorCode.RESOURCE_TOO_LARGE, err, prefix);
+  }
+  if (lower.includes('timed out') || lower.includes('timeout')) {
+    return toolErrorFrom(ErrorCode.UPSTREAM_TIMEOUT, err, prefix);
+  }
+  if (
+    lower.includes('unsupported') ||
+    lower.includes('not a video') ||
+    lower.includes('invalid data url')
+  ) {
+    return toolErrorFrom(ErrorCode.UNSUPPORTED_FORMAT, err, prefix);
+  }
+  return toolErrorFrom(ErrorCode.INVALID_INPUT, err, prefix);
 }

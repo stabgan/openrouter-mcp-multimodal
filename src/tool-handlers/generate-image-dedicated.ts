@@ -6,12 +6,12 @@ import {
   IMAGE_OUTPUT_FORMATS,
 } from '../tool-definitions.js';
 import type { OpenRouterAPIClient, ImageGenerationResponse } from '../openrouter-api.js';
-import { resolveOptionalOutputPath, isToolErrorResult, UnsafePathError } from './path-safety.js';
+import { resolveOptionalOutputPath, isToolErrorResult } from './path-safety.js';
 import { toOpenRouterImageReference } from './image-source.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
-import { classifyUpstreamError } from './openrouter-errors.js';
+import { classifyUpstreamError, classifyResourceLoadError } from './openrouter-errors.js';
 import { buildBinaryToolResult } from './tool-result-payload.js';
 import { fetchHttpResource } from './fetch-utils.js';
 import {
@@ -171,22 +171,7 @@ export async function handleGenerateImageDedicated(
       const refs = await Promise.all(input_references.map(toOpenRouterImageReference));
       body.input_references = refs;
     } catch (err) {
-      if (err instanceof UnsafePathError) return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
-      const msg = err instanceof Error ? err.message : String(err);
-      const lower = msg.toLowerCase();
-      if (msg.includes('Blocked host')) {
-        return toolErrorFrom(ErrorCode.UPSTREAM_REFUSED, err, 'input_references');
-      }
-      if (lower.includes('too large')) {
-        return toolErrorFrom(ErrorCode.RESOURCE_TOO_LARGE, err, 'input_references');
-      }
-      if (lower.includes('timed out') || lower.includes('timeout')) {
-        return toolErrorFrom(ErrorCode.UPSTREAM_TIMEOUT, err, 'input_references');
-      }
-      if (lower.includes('unsupported') || lower.includes('invalid data url')) {
-        return toolErrorFrom(ErrorCode.UNSUPPORTED_FORMAT, err, 'input_references');
-      }
-      return toolErrorFrom(ErrorCode.INVALID_INPUT, err, 'input_references');
+      return classifyResourceLoadError(err, 'input_references');
     }
   }
 

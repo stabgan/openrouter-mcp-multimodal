@@ -1,10 +1,9 @@
 import OpenAI from 'openai';
 import type { ChatCompletion } from 'openai/resources/chat/completions.js';
 import { prepareImageUrl } from './image-utils.js';
-import { UnsafePathError } from './path-safety.js';
-import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
+import { ErrorCode, toolError } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
-import { classifyUpstreamError } from './openrouter-errors.js';
+import { classifyUpstreamError, classifyResourceLoadError } from './openrouter-errors.js';
 import {
   extractCompletionText,
   detectReasoningCutoff,
@@ -56,22 +55,7 @@ export async function handleAnalyzeImage(
   try {
     imageUrl = await prepareImageUrl(image_path);
   } catch (err) {
-    if (err instanceof UnsafePathError) {
-      return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
-    }
-    const msg = err instanceof Error ? err.message : String(err);
-    const detail = `image_path "${image_path}": ${msg}`;
-    if (msg.includes('Blocked host')) {
-      return toolError(ErrorCode.UPSTREAM_REFUSED, detail);
-    }
-    const lower = msg.toLowerCase();
-    if (lower.includes('too large')) {
-      return toolError(ErrorCode.RESOURCE_TOO_LARGE, detail);
-    }
-    if (lower.includes('timed out') || lower.includes('timeout')) {
-      return toolError(ErrorCode.UPSTREAM_TIMEOUT, detail);
-    }
-    return toolError(ErrorCode.INVALID_INPUT, detail);
+    return classifyResourceLoadError(err, `image_path "${image_path}"`);
   }
 
   const imageBlock: Record<string, unknown> = {

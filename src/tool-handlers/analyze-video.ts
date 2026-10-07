@@ -1,11 +1,10 @@
 import OpenAI from 'openai';
 import type { ChatCompletion } from 'openai/resources/chat/completions.js';
 import { prepareVideoData } from './video-utils.js';
-import { UnsafePathError } from './path-safety.js';
-import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
+import { ErrorCode, toolError } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
-import { classifyUpstreamError } from './openrouter-errors.js';
+import { classifyUpstreamError, classifyResourceLoadError } from './openrouter-errors.js';
 import {
   extractCompletionText,
   detectReasoningCutoff,
@@ -63,25 +62,7 @@ export async function handleAnalyzeVideo(
   try {
     videoData = await prepareVideoData(video_path);
   } catch (err) {
-    if (err instanceof UnsafePathError) {
-      return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
-    }
-    const msg = err instanceof Error ? err.message : String(err);
-    const detail = `video_path "${video_path}": ${msg}`;
-    if (msg.includes('Blocked host')) {
-      return toolError(ErrorCode.UPSTREAM_REFUSED, detail);
-    }
-    const lower = msg.toLowerCase();
-    if (lower.includes('too large')) {
-      return toolError(ErrorCode.RESOURCE_TOO_LARGE, detail);
-    }
-    if (lower.includes('timed out') || lower.includes('timeout')) {
-      return toolError(ErrorCode.UPSTREAM_TIMEOUT, detail);
-    }
-    if (lower.includes('unsupported') || lower.includes('not a video')) {
-      return toolError(ErrorCode.UNSUPPORTED_FORMAT, detail);
-    }
-    return toolError(ErrorCode.INVALID_INPUT, detail);
+    return classifyResourceLoadError(err, `video_path "${video_path}"`);
   }
 
   const videoBlock: Record<string, unknown> = {
