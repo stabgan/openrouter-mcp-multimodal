@@ -159,7 +159,7 @@ export async function handleGenerateImage(
     return classifyUpstreamError(err, 'generate_image');
   }
 
-  const message = completion.choices[0]?.message;
+  const message = completion.choices?.[0]?.message;
   if (!message) {
     return toolError(ErrorCode.INTERNAL, 'No response from model.');
   }
@@ -181,7 +181,7 @@ export async function handleGenerateImage(
       `Model returned no image. ${refusal ? 'Refusal' : 'Text response'}: ${text.slice(0, 300)}`,
       {
         reason: refusal ? 'refusal' : 'no_image_in_response',
-        finish_reason: completion.choices[0]?.finish_reason,
+        finish_reason: completion.choices?.[0]?.finish_reason,
       },
     );
   }
