@@ -390,7 +390,7 @@ export const TOOL_DEFINITIONS = [
       title: 'Analyze image',
       readOnlyHint: true,
       destructiveHint: false,
-      idempotentHint: false,
+      idempotentHint: true,
       openWorldHint: true,
     },
     inputSchema: {
@@ -431,7 +431,7 @@ export const TOOL_DEFINITIONS = [
       title: 'Analyze audio',
       readOnlyHint: true,
       destructiveHint: false,
-      idempotentHint: false,
+      idempotentHint: true,
       openWorldHint: true,
     },
     inputSchema: {
@@ -468,7 +468,7 @@ export const TOOL_DEFINITIONS = [
       title: 'Analyze video',
       readOnlyHint: true,
       destructiveHint: false,
-      idempotentHint: false,
+      idempotentHint: true,
       openWorldHint: true,
     },
     inputSchema: {
@@ -813,7 +813,7 @@ export const TOOL_DEFINITIONS = [
       title: 'Speech to text (dedicated API)',
       readOnlyHint: true,
       destructiveHint: false,
-      idempotentHint: false,
+      idempotentHint: true,
       openWorldHint: true,
     },
     inputSchema: {
