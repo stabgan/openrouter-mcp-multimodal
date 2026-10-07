@@ -54,16 +54,14 @@ function isValidVideoId(id: string): boolean {
   return true;
 }
 
-/** Models deprecated by OpenAI — removal date: 2026-09-24. */
-const SORA_DEPRECATED_MODELS = new Set([
+/** Sora models removed by OpenAI on 2026-09-24. Requests are hard-blocked with alternatives. */
+const SORA_REMOVED_MODELS = new Set([
   'openai/sora-2',
   'openai/sora-2-pro',
   'openai/sora-2-2025-10-06',
   'openai/sora-2-2025-12-08',
   'openai/sora-2-pro-2025-10-06',
 ]);
-
-const SORA_REMOVAL_DATE = new Date('2026-09-24T00:00:00Z');
 
 const SORA_ALTERNATIVES = [
   'google/veo-3.1 (recommended — fast, audio support)',
@@ -76,26 +74,19 @@ const SORA_ALTERNATIVES = [
   'alibaba/wan-2.7 (good for artistic styles)',
 ];
 
-/** Return a deprecation warning for Sora models, or null. */
-function checkSoraDeprecation(model: string): string | null {
+/**
+ * If the model is a removed Sora variant, return an error message listing alternatives.
+ * Returns null for non-Sora models.
+ */
+function checkSoraRemoved(model: string): string | null {
   const normalized = model.toLowerCase().trim();
-  if (!SORA_DEPRECATED_MODELS.has(normalized) && !normalized.startsWith('openai/sora')) {
+  if (!SORA_REMOVED_MODELS.has(normalized) && !normalized.startsWith('openai/sora')) {
     return null;
   }
-  const isPastDeadline = Date.now() >= SORA_REMOVAL_DATE.getTime();
   const alternatives = SORA_ALTERNATIVES.map((a) => `  • ${a}`).join('\n');
-  if (isPastDeadline) {
-    return (
-      `⚠️ REMOVED: ${model} was deprecated by OpenAI with a removal date of September 24, 2026, ` +
-      `which has now passed. This model may no longer be available. ` +
-      `Your request will still be attempted but is likely to fail. Recommended alternatives:\n` +
-      alternatives
-    );
-  }
   return (
-    `⚠️ DEPRECATION WARNING: ${model} is deprecated by OpenAI and will be removed from the API on September 24, 2026. ` +
-    `Your request will still be attempted, but may fail. Recommended alternatives:\n` +
-    alternatives
+    `${model} was removed by OpenAI on September 24, 2026 and is no longer available on OpenRouter. ` +
+    `Use one of these alternatives instead:\n${alternatives}`
   );
 }
 
@@ -439,7 +430,11 @@ export async function handleGenerateVideo(
   const model =
     args.model?.trim() || process.env.OPENROUTER_DEFAULT_VIDEO_GEN_MODEL || FALLBACK_MODEL;
 
-  const deprecationWarning = checkSoraDeprecation(model);
+  // Hard-block removed Sora models — they will always fail upstream.
+  const soraRemovedMsg = checkSoraRemoved(model);
+  if (soraRemovedMsg) {
+    return toolError(ErrorCode.INVALID_INPUT, soraRemovedMsg);
+  }
 
   logger.audit('generate_video.start', {
     model,
@@ -513,24 +508,16 @@ export async function handleGenerateVideo(
   if (outcome.kind === 'failed') {
     const errorMsg = extractJobError(outcome.status);
     const details: Record<string, unknown> = { video_id: outcome.status.id };
-    if (deprecationWarning) details.deprecated_model = true;
-    return toolError(
-      ErrorCode.JOB_FAILED,
-      deprecationWarning ? `${deprecationWarning}\n\n${errorMsg}` : errorMsg,
-      details,
-    );
+    return toolError(ErrorCode.JOB_FAILED, errorMsg, details);
   }
   if (outcome.kind === 'timeout') {
-    const timeoutContent: Array<{ type: string; text: string }> = [];
-    if (deprecationWarning) {
-      timeoutContent.push({ type: 'text' as const, text: deprecationWarning });
-    }
-    timeoutContent.push({
-      type: 'text' as const,
-      text: `Video still generating after ${maxWaitMs}ms. Use get_video_status with video_id=${envelope.id} to resume.`,
-    });
     return {
-      content: timeoutContent,
+      content: [
+        {
+          type: 'text' as const,
+          text: `Video still generating after ${maxWaitMs}ms. Use get_video_status with video_id=${envelope.id} to resume.`,
+        },
+      ],
       isError: false as const,
       _meta: {
         server_version: SERVER_VERSION,
@@ -544,10 +531,6 @@ export async function handleGenerateVideo(
 
   try {
     const { content, _meta } = await finalizeCompletedJob(apiClient, outcome.status, safeSavePath);
-    if (deprecationWarning) {
-      content.unshift({ type: 'text', text: deprecationWarning });
-      (_meta as Record<string, unknown>).deprecated_model = true;
-    }
     return { content, _meta };
   } catch (err) {
     if (err instanceof UnsafePathError) {
