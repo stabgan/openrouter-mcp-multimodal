@@ -10,6 +10,48 @@ async function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/**
+ * Read a Response body with a byte-count ceiling, streaming when available.
+ * Checks Content-Length before reading and enforces the limit chunk-by-chunk.
+ */
+async function readResponseBody(res: Response, maxBytes: number, label: string): Promise<Buffer> {
+  const declared = res.headers.get('content-length');
+  if (declared) {
+    const n = parseInt(declared, 10);
+    if (Number.isFinite(n) && n > maxBytes) {
+      try {
+        await res.body?.cancel();
+      } catch {
+        /* ignore */
+      }
+      throw new Error(`${label} too large: ${n} bytes > ${maxBytes}`);
+    }
+  }
+  const reader = res.body?.getReader();
+  if (!reader) {
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length > maxBytes) throw new Error(`${label} too large`);
+    return buf;
+  }
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      try {
+        await reader.cancel();
+      } catch {
+        /* ignore */
+      }
+      throw new Error(`${label} too large`);
+    }
+    chunks.push(Buffer.from(value));
+  }
+  return Buffer.concat(chunks);
+}
+
 function parseRetryAfter(headerValue: string | null): number | null {
   if (!headerValue) return null;
   const asInt = parseInt(headerValue, 10);
@@ -142,41 +184,8 @@ export class OpenRouterAPIClient {
         `GET /videos/${id}/content failed: HTTP ${res.status}${detail ? ` — ${detail}` : ''}`,
       );
     }
-    const declared = res.headers.get('content-length');
-    if (declared) {
-      const n = parseInt(declared, 10);
-      if (Number.isFinite(n) && n > maxBytes) {
-        try {
-          await res.body?.cancel();
-        } catch {
-          /* ignore */
-        }
-        throw new Error(`Generated video too large: ${n} bytes > ${maxBytes}`);
-      }
-    }
-    const reader = res.body?.getReader();
-    if (!reader) {
-      const buf = Buffer.from(await res.arrayBuffer());
-      if (buf.length > maxBytes) throw new Error('Generated video too large');
-      return { buffer: buf, contentType: res.headers.get('content-type') };
-    }
-    const chunks: Buffer[] = [];
-    let total = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      total += value.byteLength;
-      if (total > maxBytes) {
-        try {
-          await reader.cancel();
-        } catch {
-          /* ignore */
-        }
-        throw new Error('Generated video too large');
-      }
-      chunks.push(Buffer.from(value));
-    }
-    return { buffer: Buffer.concat(chunks), contentType: res.headers.get('content-type') };
+    const buffer = await readResponseBody(res, maxBytes, 'Generated video');
+    return { buffer, contentType: res.headers.get('content-type') };
   }
 
   /** POST /images. */
@@ -222,41 +231,8 @@ export class OpenRouterAPIClient {
       );
     }
     const contentType = res.headers.get('content-type') || 'audio/mpeg';
-    const declared = res.headers.get('content-length');
-    if (declared) {
-      const n = parseInt(declared, 10);
-      if (Number.isFinite(n) && n > maxBytes) {
-        try {
-          await res.body?.cancel();
-        } catch {
-          /* ignore */
-        }
-        throw new Error(`Speech response too large: ${n} bytes > ${maxBytes}`);
-      }
-    }
-    const reader = res.body?.getReader();
-    if (!reader) {
-      const buf = Buffer.from(await res.arrayBuffer());
-      if (buf.length > maxBytes) throw new Error('Speech response too large');
-      return { buffer: buf, contentType };
-    }
-    const chunks: Buffer[] = [];
-    let total = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      total += value.byteLength;
-      if (total > maxBytes) {
-        try {
-          await reader.cancel();
-        } catch {
-          /* ignore */
-        }
-        throw new Error('Speech response too large');
-      }
-      chunks.push(Buffer.from(value));
-    }
-    return { buffer: Buffer.concat(chunks), contentType };
+    const buffer = await readResponseBody(res, maxBytes, 'Speech response');
+    return { buffer, contentType };
   }
 
   /** POST /audio/transcriptions. */
