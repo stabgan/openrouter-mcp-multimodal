@@ -444,7 +444,11 @@ async function readJsonOrThrow<T>(
   }
   if (!opts?.skipEmbeddedErrorCheck) {
     const embedded = extractEmbeddedError(data);
-    if (embedded) throw new Error(`${context}: ${embedded}`);
+    // Sanitize: upstream error bodies may reflect API key material or
+    // large payloads.  Intermediate catch blocks log err.message before
+    // classifyUpstreamError runs, so scrub at the source — same pattern
+    // the non-JSON branch already follows with sanitizeErrorMessage().
+    if (embedded) throw new Error(`${context}: ${sanitizeErrorMessage(embedded)}`);
   }
   return data as T;
 }
