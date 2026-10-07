@@ -1,6 +1,6 @@
-import { ModelCache, clampLimit, clampOffset } from '../model-cache.js';
+import { ModelCache, clampLimit, clampOffset, MAX_SEARCH_LIMIT } from '../model-cache.js';
 import { OpenRouterAPIClient } from '../openrouter-api.js';
-import { ErrorCode, toolErrorFrom } from '../errors.js';
+import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
 import { buildStructuredResult } from './structured-output.js';
 
@@ -19,13 +19,34 @@ export async function handleSearchModels(
   apiClient: OpenRouterAPIClient,
   modelCache: ModelCache,
 ) {
+  const args = request.params.arguments ?? {};
+
+  // Validate numeric params — MCP clients that ignore the JSON schema can
+  // send strings, booleans, or other types. Without this guard the handler
+  // silently falls back to defaults, which is confusing (e.g. `limit: "50"`
+  // returns only 20 results with no error). Matches the explicit typeof
+  // checks used by every other handler (chat_completion, generate_video,
+  // rerank, etc.). Range clamping is handled by clampLimit/clampOffset.
+  if (args.limit !== undefined) {
+    if (typeof args.limit !== 'number' || !Number.isFinite(args.limit)) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `limit must be a number (integer 1–${MAX_SEARCH_LIMIT}).`,
+      );
+    }
+  }
+  if (args.offset !== undefined) {
+    if (typeof args.offset !== 'number' || !Number.isFinite(args.offset)) {
+      return toolError(ErrorCode.INVALID_INPUT, 'offset must be a non-negative integer.');
+    }
+  }
+
   try {
     await modelCache.ensureFresh(() => apiClient.getModels());
   } catch (error: unknown) {
     return classifyUpstreamError(error, 'search_models');
   }
   try {
-    const args = request.params.arguments ?? {};
     const limit = clampLimit(args.limit ?? DEFAULT_LIMIT, DEFAULT_LIMIT);
     const offset = clampOffset(args.offset ?? 0);
 
