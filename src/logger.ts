@@ -12,6 +12,7 @@ const LEVEL_ORDER: Record<LogLevel, number> = {
 
 const SENSITIVE_KEY = /^(authorization|api[_-]?key|bearer|token|secret|password)$/i;
 const SK_OR_KEY = /sk-or-v\d+-[\w-]+/gi;
+const SK_GENERIC_KEY = /sk-[\w-]{20,}/gi;
 const BEARER = /Bearer\s+\S+/gi;
 const DATA_URL = /^data:[^;]+;base64,/i;
 
@@ -27,7 +28,10 @@ function redactString(value: string, key?: string): string {
   if (value.length > 256 && /^[A-Za-z0-9+/=_-]+$/.test(value)) {
     return `[REDACTED base64 ${value.length} chars]`;
   }
-  return value.replace(BEARER, 'Bearer [REDACTED]').replace(SK_OR_KEY, '[REDACTED]');
+  return value
+    .replace(BEARER, 'Bearer [REDACTED]')
+    .replace(SK_OR_KEY, '[REDACTED]')
+    .replace(SK_GENERIC_KEY, '[REDACTED]');
 }
 
 function sanitizeCtx(

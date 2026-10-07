@@ -17,12 +17,28 @@ const AUTH_SUGGESTIONS = [
   'Ensure the key has not been revoked or expired',
 ] as const;
 
-/** Strip bearer tokens and OpenRouter key material from user-visible messages. */
+/**
+ * Hard cap on sanitized error message length. Upstream errors can be
+ * arbitrarily large (e.g. HTML error pages that slip past the HTML check,
+ * or verbose JSON bodies); this prevents oversized MCP tool results.
+ */
+const MAX_SANITIZED_ERROR_LENGTH = 2048;
+
+/** Strip bearer tokens, API key material, and overly long messages from user-visible output. */
 export function sanitizeErrorMessage(msg: string): string {
-  return msg
+  let sanitized = msg
     .replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]')
     .replace(/sk-or-v\d+-[\w-]+/gi, '[REDACTED]')
+    .replace(/sk-[\w-]{20,}/gi, '[REDACTED]')
     .replace(/Authorization:\s*\S+/gi, 'Authorization: [REDACTED]');
+
+  if (sanitized.length > MAX_SANITIZED_ERROR_LENGTH) {
+    sanitized =
+      sanitized.slice(0, MAX_SANITIZED_ERROR_LENGTH) +
+      `… [truncated — ${sanitized.length - MAX_SANITIZED_ERROR_LENGTH} chars omitted]`;
+  }
+
+  return sanitized;
 }
 
 function extractRetryAfterSeconds(err: unknown): number | undefined {
