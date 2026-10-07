@@ -49,10 +49,6 @@ export function clampLimit(limit: number, fallback = 10): number {
   return Math.min(Math.max(1, Math.floor(limit)), MAX_SEARCH_LIMIT);
 }
 
-function sortedModels(models: Record<string, OpenRouterModelRecord>): OpenRouterModelRecord[] {
-  return Object.values(models).sort((a, b) => a.id.localeCompare(b.id));
-}
-
 function buildMatcher(params: ModelSearchParams): (m: OpenRouterModelRecord) => boolean {
   // Trim whitespace so `query: "  openai/gpt-4o  "` matches correctly.
   const rawQuery = params.query?.trim().toLowerCase() || undefined;
@@ -96,6 +92,8 @@ export class ModelCache {
   private fetchedAt = 0;
   private populatedAt = 0;
   private inflight: Promise<OpenRouterModelRecord[]> | null = null;
+  /** Lazily-computed sorted snapshot; invalidated on setModels/reset. */
+  private sortedCache: OpenRouterModelRecord[] | null = null;
 
   static getInstance(): ModelCache {
     return (ModelCache.instance ??= new ModelCache());
@@ -108,6 +106,7 @@ export class ModelCache {
 
   setModels(models: OpenRouterModelRecord[]): void {
     this.models = Object.fromEntries(models.map((m) => [m.id, m]));
+    this.sortedCache = null;
     this.fetchedAt = Date.now();
     this.populatedAt = this.fetchedAt;
   }
@@ -115,9 +114,22 @@ export class ModelCache {
   /** Reset cache state (tests). */
   reset(): void {
     this.models = {};
+    this.sortedCache = null;
     this.fetchedAt = 0;
     this.populatedAt = 0;
     this.inflight = null;
+  }
+
+  /**
+   * Return models sorted by id. The sorted array is computed once after each
+   * setModels/reset and reused until the next mutation — avoids O(n log n)
+   * re-sorting on every search call.
+   */
+  private getSortedModels(): OpenRouterModelRecord[] {
+    if (!this.sortedCache) {
+      this.sortedCache = Object.values(this.models).sort((a, b) => a.id.localeCompare(b.id));
+    }
+    return this.sortedCache;
   }
 
   async ensureFresh(fetcher: () => Promise<OpenRouterModelRecord[]>): Promise<void> {
@@ -203,7 +215,7 @@ export class ModelCache {
     const page: OpenRouterModelRecord[] = [];
     let matchIndex = 0;
 
-    for (const model of sortedModels(this.models)) {
+    for (const model of this.getSortedModels()) {
       if (!matches(model)) continue;
       if (matchIndex >= safeOffset && page.length < safeLimit) {
         page.push(model);
@@ -217,7 +229,7 @@ export class ModelCache {
     if (params.all) {
       const matches = buildMatcher(params);
       const results: OpenRouterModelRecord[] = [];
-      for (const model of sortedModels(this.models)) {
+      for (const model of this.getSortedModels()) {
         if (matches(model)) results.push(model);
       }
       return results;
