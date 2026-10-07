@@ -265,6 +265,17 @@ async function finalizeCompletedJob(
     throw new Error('Completed job returned empty video content.');
   }
   const mime = (contentType?.split(';')[0]?.trim() || 'video/mp4').toLowerCase();
+
+  // CDN / reverse-proxy error pages sometimes return 200 with text/html.
+  // Without this guard the HTML body would be saved as a .mp4 file that
+  // cannot be played — silently corrupt output with no actionable error.
+  if (mime === 'text/html' || mime === 'application/xhtml+xml') {
+    throw new Error(
+      `Video download returned ${mime} instead of a video format — ` +
+        'likely a temporary CDN or upstream error. Retry after a brief delay.',
+    );
+  }
+
   const ext = mime.includes('webm')
     ? 'webm'
     : mime.includes('quicktime') || mime.includes('mov')
