@@ -245,6 +245,20 @@ export const TOOL_DEFINITIONS = [
             'Penalize new tokens based on whether they appear in the text so far. ' +
             'Between -2.0 and 2.0. Positive values encourage new topics.',
         },
+        logprobs: {
+          type: 'boolean',
+          description:
+            'Return log probabilities of output tokens. When true, each token includes its log ' +
+            'probability in `_meta.logprobs`.',
+        },
+        top_logprobs: {
+          type: 'integer',
+          minimum: 0,
+          maximum: 20,
+          description:
+            'Number of most likely tokens to return at each position, with their log probabilities. ' +
+            'Requires `logprobs: true`. Between 0 and 20.',
+        },
         response_format: {
           type: 'object',
           description:
@@ -342,6 +356,17 @@ export const TOOL_DEFINITIONS = [
           minimum: -2,
           maximum: 2,
           description: 'Penalize tokens by whether they appeared already. Between -2 and 2.',
+        },
+        logprobs: {
+          type: 'boolean',
+          description: 'Return log probabilities of output tokens (same as chat_completion).',
+        },
+        top_logprobs: {
+          type: 'integer',
+          minimum: 0,
+          maximum: 20,
+          description:
+            'Number of most likely tokens at each position (0–20). Requires `logprobs: true`.',
         },
         response_format: {
           type: 'object',
@@ -500,6 +525,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'search_models',
+    title: 'Search models',
     description: TOOL_DESCRIPTIONS.search_models,
     annotations: {
       title: 'Search models',
@@ -548,6 +574,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'get_model_info',
+    title: 'Get model info',
     description: TOOL_DESCRIPTIONS.get_model_info,
     annotations: {
       title: 'Get model info',
@@ -579,6 +606,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'validate_model',
+    title: 'Validate model',
     description: TOOL_DESCRIPTIONS.validate_model,
     annotations: {
       title: 'Validate model',
@@ -605,6 +633,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'generate_image',
+    title: 'Generate image',
     description: TOOL_DESCRIPTIONS.generate_image,
     annotations: {
       title: 'Generate image',
@@ -656,6 +685,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'generate_image_dedicated',
+    title: 'Generate image (dedicated API)',
     description: TOOL_DESCRIPTIONS.generate_image_dedicated,
     annotations: {
       title: 'Generate image (dedicated API)',
@@ -721,6 +751,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'generate_audio',
+    title: 'Generate audio',
     description: TOOL_DESCRIPTIONS.generate_audio,
     annotations: {
       title: 'Generate audio',
@@ -757,6 +788,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'text_to_speech',
+    title: 'Text to speech (dedicated API)',
     description: TOOL_DESCRIPTIONS.text_to_speech,
     annotations: {
       title: 'Text to speech (dedicated API)',
@@ -808,6 +840,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'speech_to_text',
+    title: 'Speech to text (dedicated API)',
     description: TOOL_DESCRIPTIONS.speech_to_text,
     annotations: {
       title: 'Speech to text (dedicated API)',
@@ -855,6 +888,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'generate_video',
+    title: 'Generate video',
     description: TOOL_DESCRIPTIONS.generate_video,
     annotations: {
       title: 'Generate video',
@@ -920,6 +954,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'generate_video_from_image',
+    title: 'Generate video from image',
     description: TOOL_DESCRIPTIONS.generate_video_from_image,
     annotations: {
       title: 'Generate video from image',
@@ -959,6 +994,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'get_video_status',
+    title: 'Get video status',
     description: TOOL_DESCRIPTIONS.get_video_status,
     annotations: {
       title: 'Get video status',
@@ -981,6 +1017,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'rerank_documents',
+    title: 'Rerank documents',
     description: TOOL_DESCRIPTIONS.rerank_documents,
     annotations: {
       title: 'Rerank documents',
@@ -1028,6 +1065,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'health_check',
+    title: 'Health check',
     description: TOOL_DESCRIPTIONS.health_check,
     annotations: {
       title: 'Health check',
