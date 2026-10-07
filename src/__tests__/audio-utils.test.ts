@@ -28,6 +28,30 @@ describe('detectAudioFormat', () => {
     buf.write('WAVE', 8);
     expect(detectAudioFormat(buf)).toEqual({ ext: 'wav', mimeType: 'audio/wav' });
   });
+
+  it('detects M4A (Apple Audio brand)', () => {
+    const buf = Buffer.alloc(16);
+    buf.writeUInt32BE(16, 0);
+    buf.write('ftyp', 4);
+    buf.write('M4A ', 8);
+    expect(detectAudioFormat(buf)).toEqual({ ext: 'm4a', mimeType: 'audio/mp4' });
+  });
+
+  it('detects M4B (Apple Audiobook brand)', () => {
+    const buf = Buffer.alloc(16);
+    buf.writeUInt32BE(16, 0);
+    buf.write('ftyp', 4);
+    buf.write('M4B ', 8);
+    expect(detectAudioFormat(buf)).toEqual({ ext: 'm4a', mimeType: 'audio/mp4' });
+  });
+
+  it('does not misidentify generic ftyp (isom) as M4A', () => {
+    const buf = Buffer.alloc(16);
+    buf.writeUInt32BE(16, 0);
+    buf.write('ftyp', 4);
+    buf.write('isom', 8);
+    expect(detectAudioFormat(buf).ext).toBe('pcm');
+  });
 });
 
 describe('getMaxAudioInputBytes', () => {

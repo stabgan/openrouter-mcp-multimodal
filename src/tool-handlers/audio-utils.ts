@@ -127,6 +127,14 @@ export function detectAudioFormat(data: Buffer): { ext: string; mimeType: string
     if (fourCC === 'FORM' && (formType === 'AIFF' || formType === 'AIFC')) {
       return { ext: 'aiff', mimeType: 'audio/aiff' };
     }
+    // M4A / AAC-in-MP4 container (ISOBMFF). The ftyp box type sits at bytes
+    // 4-7 and the major brand at bytes 8-11. Only match audio-specific brands
+    // ('M4A ' = Apple Audio, 'M4B ' = Audiobook) to avoid misidentifying
+    // MP4 video files whose ftyp box uses generic brands like 'isom'.
+    const boxType = data.subarray(4, 8).toString('ascii');
+    if (boxType === 'ftyp' && (formType === 'M4A ' || formType === 'M4B ')) {
+      return { ext: 'm4a', mimeType: 'audio/mp4' };
+    }
   }
   if (data.length >= 4) {
     const magic = data.subarray(0, 4).toString('ascii');

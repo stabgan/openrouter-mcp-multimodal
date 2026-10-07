@@ -107,6 +107,53 @@ describe('detectAudioFormat', () => {
     expect(detectAudioFormat(buf)).toEqual({ ext: 'ogg', mimeType: 'audio/ogg' });
   });
 
+  it('detects AIFF', () => {
+    const buf = Buffer.alloc(12);
+    buf.write('FORM', 0);
+    buf.writeUInt32BE(100, 4);
+    buf.write('AIFF', 8);
+    expect(detectAudioFormat(buf)).toEqual({ ext: 'aiff', mimeType: 'audio/aiff' });
+  });
+
+  it('detects AIFF-C', () => {
+    const buf = Buffer.alloc(12);
+    buf.write('FORM', 0);
+    buf.writeUInt32BE(100, 4);
+    buf.write('AIFC', 8);
+    expect(detectAudioFormat(buf)).toEqual({ ext: 'aiff', mimeType: 'audio/aiff' });
+  });
+
+  it('detects AAC ADTS sync word', () => {
+    // 0xFF 0xF1 = ADTS sync (MPEG-4 AAC, Layer=00, CRC absent)
+    const buf = Buffer.from([0xff, 0xf1, 0x50, 0x80]);
+    expect(detectAudioFormat(buf)).toEqual({ ext: 'aac', mimeType: 'audio/aac' });
+  });
+
+  it('detects M4A (Apple Audio brand)', () => {
+    const buf = Buffer.alloc(16);
+    buf.writeUInt32BE(16, 0); // box size
+    buf.write('ftyp', 4); // box type
+    buf.write('M4A ', 8); // major brand
+    expect(detectAudioFormat(buf)).toEqual({ ext: 'm4a', mimeType: 'audio/mp4' });
+  });
+
+  it('detects M4B (Apple Audiobook brand)', () => {
+    const buf = Buffer.alloc(16);
+    buf.writeUInt32BE(16, 0);
+    buf.write('ftyp', 4);
+    buf.write('M4B ', 8);
+    expect(detectAudioFormat(buf)).toEqual({ ext: 'm4a', mimeType: 'audio/mp4' });
+  });
+
+  it('does not misidentify generic ftyp (isom) as M4A', () => {
+    const buf = Buffer.alloc(16);
+    buf.writeUInt32BE(16, 0);
+    buf.write('ftyp', 4);
+    buf.write('isom', 8);
+    // Generic ISOBMFF could be video — should fall through to pcm
+    expect(detectAudioFormat(buf).ext).toBe('pcm');
+  });
+
   it('defaults to pcm for unknown data', () => {
     const buf = Buffer.from([0x00, 0x01, 0x02, 0x03]);
     expect(detectAudioFormat(buf)).toEqual({ ext: 'pcm', mimeType: 'audio/pcm' });
