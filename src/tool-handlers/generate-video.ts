@@ -22,6 +22,15 @@ const DEFAULT_MAX_WAIT_MS = 10 * 60_000;
 const MIN_POLL_INTERVAL_MS = 50; // just to avoid a 0ms busy-loop if a caller omits
 
 /**
+ * Give up polling after this many *consecutive* poll failures. Each
+ * `pollVideoJob` call already retries internally (see `fetchWithRetry` in
+ * `openrouter-api.ts`), so 5 consecutive failures ≈ 15 wasted HTTP
+ * attempts. Without a cap the loop blindly retries until the deadline,
+ * sending dozens of doomed requests during an API outage.
+ */
+const MAX_CONSECUTIVE_POLL_FAILURES = 5;
+
+/**
  * Max length for user-supplied video_id values. OpenRouter IDs are short
  * opaque strings; this ceiling prevents callers from constructing absurdly
  * large URLs via the polling / download endpoints. Mirrors the defensive
@@ -211,6 +220,7 @@ async function pollUntilTerminal(
 > {
   let attempt = 0;
   let last: VideoJobStatus | null = null;
+  let consecutiveFailures = 0;
   const initialStatus = (envelope.status ?? 'pending') as string;
   await invokeProgressHook(opts.onProgress, {
     status: initialStatus,
@@ -223,11 +233,22 @@ async function pollUntilTerminal(
     await sleep(Math.min(opts.pollIntervalMs, Math.max(0, opts.deadlineAt - Date.now())));
     try {
       last = await apiClient.pollVideoJob(envelope.id);
+      consecutiveFailures = 0;
     } catch (err) {
+      consecutiveFailures += 1;
       logger.warn('generate_video.poll_error', {
         id: envelope.id,
         err: err instanceof Error ? err.message : String(err),
+        consecutive_failures: consecutiveFailures,
       });
+      if (consecutiveFailures >= MAX_CONSECUTIVE_POLL_FAILURES) {
+        logger.warn('generate_video.poll_abandoned', {
+          id: envelope.id,
+          consecutive_failures: consecutiveFailures,
+          reason: 'too many consecutive poll failures — upstream may be down',
+        });
+        return { kind: 'timeout', last };
+      }
       continue;
     }
     await invokeProgressHook(opts.onProgress, {
@@ -641,4 +662,5 @@ export const _internals = {
   isTerminalFailureStatus,
   invokeProgressHook,
   isValidVideoId,
+  MAX_CONSECUTIVE_POLL_FAILURES,
 };
