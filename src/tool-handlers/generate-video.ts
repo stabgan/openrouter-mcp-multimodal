@@ -21,6 +21,20 @@ const DEFAULT_POLL_INTERVAL_MS = 15_000;
 const DEFAULT_MAX_WAIT_MS = 10 * 60_000;
 const MIN_POLL_INTERVAL_MS = 50; // just to avoid a 0ms busy-loop if a caller omits
 
+/**
+ * Max length for user-supplied video_id values. OpenRouter IDs are short
+ * opaque strings; this ceiling prevents callers from constructing absurdly
+ * large URLs via the polling / download endpoints. Mirrors the defensive
+ * pattern used by `isValidJobId` for async-chat job identifiers.
+ */
+const MAX_VIDEO_ID_LENGTH = 256;
+
+function isValidVideoId(id: string): boolean {
+  if (id.length > MAX_VIDEO_ID_LENGTH) return false;
+  if (id.includes('\0')) return false;
+  return true;
+}
+
 /** Models deprecated by OpenAI — removal date: 2026-09-24. */
 const SORA_DEPRECATED_MODELS = new Set([
   'openai/sora-2',
@@ -498,6 +512,13 @@ export async function handleGetVideoStatus(
   const id = args.video_id?.trim();
   if (!id) return toolError(ErrorCode.INVALID_INPUT, 'video_id is required.');
 
+  if (!isValidVideoId(id)) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `Invalid video_id — must be ≤ ${MAX_VIDEO_ID_LENGTH} characters and must not contain null bytes.`,
+    );
+  }
+
   const savePathResult = await resolveOptionalOutputPath(args.save_path);
   if (isToolErrorResult(savePathResult)) return savePathResult;
   const safeSavePath = savePathResult.path;
@@ -601,4 +622,5 @@ export const _internals = {
   extractJobError,
   isTerminalFailureStatus,
   invokeProgressHook,
+  isValidVideoId,
 };
