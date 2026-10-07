@@ -21,7 +21,19 @@ export function readCacheDefault(): boolean {
   return raw === '1' || raw === 'true' || raw === 'yes';
 }
 
-export function resolveCacheTtl(cacheTtl: string): string | ToolErrorResult {
+export function resolveCacheTtl(cacheTtl: string | number): string | ToolErrorResult {
+  // Coerce numeric values to strings — callers may pass `cache_ttl: 300`
+  // (integer seconds) instead of `"300"`. Without this, `.trim()` throws
+  // TypeError on non-string inputs, crashing the handler.
+  if (typeof cacheTtl === 'number') {
+    if (!Number.isFinite(cacheTtl) || cacheTtl !== Math.floor(cacheTtl)) {
+      return toolError(ErrorCode.INVALID_INPUT, CACHE_TTL_INVALID_MSG);
+    }
+    cacheTtl = String(cacheTtl);
+  }
+  if (typeof cacheTtl !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, CACHE_TTL_INVALID_MSG);
+  }
   const trimmed = cacheTtl.trim();
   if (!trimmed) {
     return toolError(ErrorCode.INVALID_INPUT, CACHE_TTL_INVALID_MSG);
@@ -63,8 +75,15 @@ export function resolveCacheTtl(cacheTtl: string): string | ToolErrorResult {
 }
 
 export function validateCacheOptions(opts: CacheOptions | undefined): ToolErrorResult | null {
-  if (!opts?.cache_ttl) return null;
-  const resolved = resolveCacheTtl(opts.cache_ttl);
+  if (!opts) return null;
+  // Guard against non-string cache_ttl (e.g. `cache_ttl: 300` from a
+  // MCP client that ignores the JSON schema). `resolveCacheTtl` handles
+  // coercion/rejection, but the original `!opts?.cache_ttl` falsy check
+  // skips validation for `cache_ttl: 0` (a number that is falsy) even
+  // though it's the wrong type. Cast through unknown to inspect runtime.
+  const rawTtl: unknown = opts.cache_ttl;
+  if (rawTtl === undefined || rawTtl === null || rawTtl === '') return null;
+  const resolved = resolveCacheTtl(rawTtl as string | number);
   return typeof resolved === 'string' ? null : resolved;
 }
 
@@ -73,10 +92,13 @@ export function buildCacheHeaders(opts: CacheOptions | undefined): Record<string
   const defaultOn = readCacheDefault();
   // When cache_ttl is provided, the caller clearly intends caching — auto-enable
   // it rather than silently sending the TTL header without the enable flag.
-  const enabled = opts?.cache ?? (opts?.cache_ttl ? true : defaultOn);
+  // Cast through unknown to safely handle runtime non-string values.
+  const rawTtl: unknown = opts?.cache_ttl;
+  const hasTtl = rawTtl !== undefined && rawTtl !== null && rawTtl !== '';
+  const enabled = opts?.cache ?? (hasTtl ? true : defaultOn);
   if (enabled) headers['X-OpenRouter-Cache'] = 'true';
-  if (opts?.cache_ttl) {
-    const resolved = resolveCacheTtl(opts.cache_ttl);
+  if (hasTtl) {
+    const resolved = resolveCacheTtl(rawTtl as string | number);
     if (typeof resolved === 'string') headers['X-OpenRouter-Cache-TTL'] = resolved;
   }
   if (opts?.cache_clear) headers['X-OpenRouter-Cache-Clear'] = 'true';
