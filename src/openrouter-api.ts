@@ -1,4 +1,5 @@
 import type { OpenRouterModelRecord } from './model-cache.js';
+import { sanitizeErrorMessage } from './errors.js';
 
 const BASE_URL = 'https://openrouter.ai/api/v1';
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -371,7 +372,12 @@ async function safeReadText(res: Response): Promise<string> {
   try {
     const buffer = await readResponseBody(res, SAFE_READ_TEXT_MAX_BYTES, 'error detail');
     const t = buffer.toString('utf8');
-    return t.length > 500 ? t.slice(0, 500) + '…' : t;
+    const trimmed = t.length > 500 ? t.slice(0, 500) + '…' : t;
+    // Sanitize early: upstream error bodies may reflect the Authorization
+    // header or API key material.  Downstream classifyUpstreamError also
+    // sanitizes, but intermediate Error objects are logged by handlers
+    // before reaching the classifier — scrub at the source.
+    return sanitizeErrorMessage(trimmed);
   } catch {
     return '';
   }
@@ -432,7 +438,8 @@ async function readJsonOrThrow<T>(
   try {
     data = JSON.parse(raw);
   } catch {
-    const detail = raw.length > 500 ? raw.slice(0, 500) + '…' : raw;
+    const snippet = raw.length > 500 ? raw.slice(0, 500) + '…' : raw;
+    const detail = sanitizeErrorMessage(snippet);
     throw new Error(`${context}: non-JSON response${detail ? ` — ${detail}` : ''}`);
   }
   if (!opts?.skipEmbeddedErrorCheck) {
