@@ -54,7 +54,8 @@ function sortedModels(models: Record<string, OpenRouterModelRecord>): OpenRouter
 }
 
 function buildMatcher(params: ModelSearchParams): (m: OpenRouterModelRecord) => boolean {
-  const rawQuery = params.query?.toLowerCase();
+  // Trim whitespace so `query: "  openai/gpt-4o  "` matches correctly.
+  const rawQuery = params.query?.trim().toLowerCase() || undefined;
   // Strip routing suffixes so `search_models(query: "openai/gpt-4o:nitro")` finds
   // `openai/gpt-4o` — catalog IDs never contain routing suffixes. Match either the
   // original query or the stripped form to stay backward-compatible.
@@ -65,7 +66,9 @@ function buildMatcher(params: ModelSearchParams): (m: OpenRouterModelRecord) => 
       : rawQuery
         ? [rawQuery]
         : [];
-  const providerPrefix = params.provider?.toLowerCase();
+  // Trim whitespace and strip trailing slashes so `provider: "openai/"` doesn't
+  // construct a `"openai//"` prefix check that never matches model IDs.
+  const providerPrefix = params.provider?.trim().toLowerCase().replace(/\/+$/, '') || undefined;
   const needVision = params.capabilities?.vision === true;
   const needAudio = params.capabilities?.audio === true;
   const needVideo = params.capabilities?.video === true;
