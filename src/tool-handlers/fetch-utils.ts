@@ -644,19 +644,33 @@ function headerValue(headers: IncomingMessage['headers'], name: string): string 
  * parameters (`data:audio/wav;charset=binary;base64,...`) and the bare
  * `data:;base64,...` form. Returns `null` for anything that is not a
  * base64-encoded data URL.
+ *
+ * The payload is stripped of RFC 2045 whitespace (line breaks, spaces, tabs)
+ * that some encoders embed. Payloads that are empty or consist only of
+ * padding characters after stripping are rejected \u2014 they decode to zero
+ * bytes but would otherwise survive the `Math.ceil(length * 3 / 4)` size
+ * checks in media handlers.
  */
 export function parseBase64DataUrl(source: string): { mediaType: string; base64: string } | null {
   if (!source.startsWith('data:')) return null;
   const comma = source.indexOf(',');
   if (comma < 0) return null;
   const prefix = source.slice(5, comma); // between "data:" and ","
-  const payload = source.slice(comma + 1);
+  const rawPayload = source.slice(comma + 1);
   const parts = prefix.split(';').map((p) => p.trim());
   const hasBase64 = parts[parts.length - 1]?.toLowerCase() === 'base64';
   if (!hasBase64) return null;
   const mediaType = (
     parts[0] && parts[0].includes('/') ? parts[0] : 'application/octet-stream'
   ).toLowerCase();
+
+  // Strip RFC 2045 whitespace \u2014 multi-line base64 is common in copy-pasted data URLs.
+  const payload = rawPayload.replace(/\s/g, '');
+
+  // Reject empty or padding-only payloads \u2014 they decode to zero bytes but
+  // pass consumers' Math.ceil(length * 3 / 4) size estimation.
+  if (!payload || /^=+$/.test(payload)) return null;
+
   return { mediaType, base64: payload };
 }
 
