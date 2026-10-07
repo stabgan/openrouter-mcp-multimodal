@@ -394,6 +394,13 @@ export async function handleGenerateVideo(
     if (err instanceof UnsafeOutputPathError) {
       return toolErrorFrom(ErrorCode.UNSAFE_PATH, err, 'Reference/frame image');
     }
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('Blocked host')) {
+      return toolErrorFrom(ErrorCode.UPSTREAM_REFUSED, err, 'Reference/frame image');
+    }
+    if (msg.toLowerCase().includes('too large')) {
+      return toolErrorFrom(ErrorCode.RESOURCE_TOO_LARGE, err, 'Reference/frame image');
+    }
     return toolErrorFrom(ErrorCode.UNSUPPORTED_FORMAT, err, 'Reference/frame image');
   }
 
