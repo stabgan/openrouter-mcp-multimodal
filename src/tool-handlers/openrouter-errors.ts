@@ -320,7 +320,9 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
       nodeCode !== 'ECONNABORTED') ||
     (err instanceof Error && (err as { name?: string }).name === 'AbortError') ||
     nodeCode === 'ETIMEDOUT' ||
-    nodeCode === 'UND_ERR_CONNECT_TIMEOUT'
+    nodeCode === 'UND_ERR_CONNECT_TIMEOUT' ||
+    nodeCode === 'UND_ERR_HEADERS_TIMEOUT' ||
+    nodeCode === 'UND_ERR_BODY_TIMEOUT'
   ) {
     return toolError(
       ErrorCode.UPSTREAM_TIMEOUT,

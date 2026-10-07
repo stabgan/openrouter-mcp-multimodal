@@ -492,6 +492,22 @@ describe('classifyUpstreamError — code-property classification', () => {
     expect(r._meta.code).toBe('UPSTREAM_TIMEOUT');
   });
 
+  it('classifies UND_ERR_HEADERS_TIMEOUT (undici) as UPSTREAM_TIMEOUT', () => {
+    const err = Object.assign(new Error('Headers timed out'), {
+      code: 'UND_ERR_HEADERS_TIMEOUT',
+    });
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_TIMEOUT');
+  });
+
+  it('classifies UND_ERR_BODY_TIMEOUT (undici) as UPSTREAM_TIMEOUT', () => {
+    const err = Object.assign(new Error('Body timed out'), {
+      code: 'UND_ERR_BODY_TIMEOUT',
+    });
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_TIMEOUT');
+  });
+
   it('extracts code from cause chain (SDK wrapper pattern)', () => {
     const inner = Object.assign(new Error('connect refused'), { code: 'ECONNREFUSED' });
     const outer = Object.assign(new Error('API connection error'), { cause: inner });
