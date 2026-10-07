@@ -6,6 +6,16 @@ const VIDEO_TIMEOUT_MS = 60_000;
 const MAX_BACKOFF_MS = 10_000;
 const SPEECH_MAX_BYTES = 50 * 1024 * 1024; // 50 MiB — generous for TTS output
 
+/**
+ * Ceiling for JSON and plain-text API responses. Binary downloads (video,
+ * speech) already go through `readResponseBody` with their own limits;
+ * this closes the gap for JSON endpoints (`/models`, `/videos`, `/images`,
+ * `/audio/transcriptions`, `/rerank`) that previously read the full body
+ * without a size guard, which could cause memory exhaustion from an
+ * oversized upstream payload.
+ */
+const MAX_JSON_RESPONSE_BYTES = 50 * 1024 * 1024; // 50 MiB
+
 async function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -384,14 +394,15 @@ async function readTranscriptionResponse(
     contentType.startsWith('text/') && format !== 'json' && format !== 'verbose_json';
 
   if (plainByFormat || plainByContentType) {
-    const text = await res.text();
-    return { text };
+    const buffer = await readResponseBody(res, MAX_JSON_RESPONSE_BYTES, `${context} text response`);
+    return { text: buffer.toString('utf8') };
   }
   return readJsonOrThrow<TranscriptionResponse>(res, context);
 }
 
 async function readJsonOrThrow<T>(res: Response, context: string): Promise<T> {
-  const raw = await res.text();
+  const buffer = await readResponseBody(res, MAX_JSON_RESPONSE_BYTES, `${context} response`);
+  const raw = buffer.toString('utf8');
   let data: unknown;
   try {
     data = JSON.parse(raw);
