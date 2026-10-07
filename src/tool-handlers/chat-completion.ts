@@ -28,6 +28,8 @@ import {
   validateStop,
   validateTopP,
   validatePenalty,
+  validateLogprobs,
+  validateSeed,
 } from './chat-request.js';
 
 export type ChatCompletionToolRequest = ChatToolRequest;
@@ -56,6 +58,9 @@ export async function handleChatCompletion(
     top_p,
     frequency_penalty,
     presence_penalty,
+    logprobs,
+    top_logprobs,
+    seed,
     cache,
     cache_ttl,
     cache_clear,
@@ -98,6 +103,12 @@ export async function handleChatCompletion(
   const presPenaltyError = validatePenalty(presence_penalty, 'presence_penalty');
   if (presPenaltyError) return presPenaltyError;
 
+  const logprobsError = validateLogprobs(logprobs, top_logprobs);
+  if (logprobsError) return logprobsError;
+
+  const seedError = validateSeed(seed);
+  if (seedError) return seedError;
+
   const wantsReasoning = include_reasoning ?? readIncludeReasoningDefault();
 
   const body = buildChatCompletionBody({
@@ -119,6 +130,9 @@ export async function handleChatCompletion(
     top_p,
     frequency_penalty,
     presence_penalty,
+    logprobs,
+    top_logprobs,
+    seed,
   });
   const requestOpts = buildChatCompletionRequestOpts({ cache, cache_ttl, cache_clear });
 
@@ -147,6 +161,8 @@ export async function handleChatCompletion(
   // Web search injects untrusted web content into the model's context —
   // flag the output so downstream agents treat it with appropriate caution.
   if (online) extra.content_is_untrusted = true;
+  const choiceLogprobs = completion.choices?.[0]?.logprobs;
+  if (logprobs && choiceLogprobs) extra.logprobs = choiceLogprobs;
 
   const capped = capResultText(extracted.text);
   if (capped.truncated) extra.result_truncated = true;

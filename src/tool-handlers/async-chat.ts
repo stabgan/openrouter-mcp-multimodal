@@ -33,6 +33,8 @@ import {
   validateStop,
   validateTopP,
   validatePenalty,
+  validateLogprobs,
+  validateSeed,
 } from './chat-request.js';
 
 export type StartChatCompletionRequest = ChatToolRequest;
@@ -91,9 +93,21 @@ function evictTerminalJobsIfNeeded(makeRoomForNew = false): void {
   }
 }
 
-function rememberJob(job: AsyncJob): void {
+/**
+ * Attempt to insert a job into the in-memory store. Returns `true` on
+ * success, `false` if the store is at capacity and no terminal jobs could
+ * be evicted (i.e. all slots are occupied by running jobs). Without this
+ * guard, concurrent `start_chat_completion` calls could grow the Map
+ * unboundedly when requests arrive faster than background tasks complete.
+ */
+function rememberJob(job: AsyncJob): boolean {
   evictTerminalJobsIfNeeded(true);
+  const max = readAsyncJobsMemoryMax();
+  if (max > 0 && jobs.size >= max) {
+    return false;
+  }
   jobs.set(job.id, job);
+  return true;
 }
 
 /** Test-only reset for module-level job state. */
@@ -191,6 +205,9 @@ export async function handleStartChatCompletion(
     top_p,
     frequency_penalty,
     presence_penalty,
+    logprobs,
+    top_logprobs,
+    seed,
     cache,
     cache_ttl,
     cache_clear,
@@ -233,6 +250,12 @@ export async function handleStartChatCompletion(
   const presPenaltyError = validatePenalty(presence_penalty, 'presence_penalty');
   if (presPenaltyError) return presPenaltyError;
 
+  const logprobsError = validateLogprobs(logprobs, top_logprobs);
+  if (logprobsError) return logprobsError;
+
+  const seedError = validateSeed(seed);
+  if (seedError) return seedError;
+
   const effectiveModel = model?.trim() || defaultModel || DEFAULT_CHAT_MODEL;
   const jobId = generateJobId();
 
@@ -269,6 +292,9 @@ export async function handleStartChatCompletion(
     top_p,
     frequency_penalty,
     presence_penalty,
+    logprobs,
+    top_logprobs,
+    seed,
     cache,
     cache_ttl,
     cache_clear,

@@ -280,6 +280,12 @@ export const TOOL_DEFINITIONS = [
           },
           required: ['type'],
         },
+        seed: {
+          type: 'integer',
+          description:
+            'Deterministic sampling seed for reproducible outputs. ' +
+            'Repeated requests with the same seed and parameters should return the same result.',
+        },
         ...CACHE_PROPERTIES,
       },
       required: ['messages'],
@@ -383,6 +389,10 @@ export const TOOL_DEFINITIONS = [
             json_schema: { type: 'object' },
           },
           required: ['type'],
+        },
+        seed: {
+          type: 'integer',
+          description: 'Deterministic sampling seed (same as chat_completion).',
         },
         ...CACHE_PROPERTIES,
       },

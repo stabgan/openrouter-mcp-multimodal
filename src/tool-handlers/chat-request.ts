@@ -67,6 +67,9 @@ export interface ChatToolRequest extends CacheOptions {
   frequency_penalty?: number;
   /** Penalize new tokens based on whether they appear in the text so far. Between -2 and 2. */
   presence_penalty?: number;
+  logprobs?: boolean;
+  top_logprobs?: number;
+  seed?: number;
 }
 
 export function readIncludeReasoningDefault(): boolean {
@@ -192,6 +195,43 @@ export function validatePenalty(value: number | undefined, name: string): ToolEr
   return null;
 }
 
+const MAX_TOP_LOGPROBS = 20;
+
+export function validateLogprobs(
+  logprobs: boolean | undefined,
+  topLogprobs: number | undefined,
+): ToolErrorResult | null {
+  if (logprobs !== undefined && typeof logprobs !== 'boolean') {
+    return toolError(ErrorCode.INVALID_INPUT, 'logprobs must be a boolean.');
+  }
+  if (topLogprobs !== undefined) {
+    if (
+      typeof topLogprobs !== 'number' ||
+      !Number.isFinite(topLogprobs) ||
+      !Number.isInteger(topLogprobs) ||
+      topLogprobs < 0 ||
+      topLogprobs > MAX_TOP_LOGPROBS
+    ) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `top_logprobs must be an integer between 0 and ${MAX_TOP_LOGPROBS}.`,
+      );
+    }
+    if (!logprobs) {
+      return toolError(ErrorCode.INVALID_INPUT, 'top_logprobs requires logprobs: true to be set.');
+    }
+  }
+  return null;
+}
+
+export function validateSeed(seed: number | undefined): ToolErrorResult | null {
+  if (seed === undefined) return null;
+  if (typeof seed !== 'number' || !Number.isFinite(seed) || !Number.isInteger(seed)) {
+    return toolError(ErrorCode.INVALID_INPUT, 'seed must be an integer.');
+  }
+  return null;
+}
+
 export function validateResponseFormat(
   responseFormat: { type: string; [key: string]: unknown } | undefined,
 ): ToolErrorResult | null {
@@ -305,6 +345,9 @@ export function buildChatCompletionBody(
   if (input.top_p !== undefined) body.top_p = input.top_p;
   if (input.frequency_penalty !== undefined) body.frequency_penalty = input.frequency_penalty;
   if (input.presence_penalty !== undefined) body.presence_penalty = input.presence_penalty;
+  if (input.logprobs === true) body.logprobs = true;
+  if (typeof input.top_logprobs === 'number') body.top_logprobs = input.top_logprobs;
+  if (typeof input.seed === 'number') body.seed = input.seed;
   if (providerBody) body.provider = providerBody;
   if (wantsReasoning) body.include_reasoning = true;
   if (input.reasoning_effort?.trim()) body.reasoning_effort = input.reasoning_effort.trim();
