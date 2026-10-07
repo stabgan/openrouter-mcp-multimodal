@@ -206,6 +206,8 @@ export async function fetchImageWithMime(
   if (source.startsWith('data:')) {
     const parsed = parseBase64DataUrl(source);
     if (!parsed) throw new Error('Invalid data URL');
+    const approxBytes = Math.ceil((parsed.base64.length * 3) / 4);
+    if (approxBytes > getMaxDataUrlBytes()) throw new Error('Data URL too large');
     return { buffer: Buffer.from(parsed.base64, 'base64'), mime: parsed.mediaType };
   }
   if (source.startsWith('http://') || source.startsWith('https://')) {
