@@ -320,7 +320,7 @@ export async function handleGenerateImageDedicated(
   if (decoded) {
     return buildBinaryToolResult(
       { kind: 'image', buffer: decoded, mimeType },
-      { inlineOnly: true, meta: baseMeta },
+      { inlineOnly: true, meta: baseMeta, preEncodedBase64: firstImage.b64_json ?? undefined },
     );
   }
 

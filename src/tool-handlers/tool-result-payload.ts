@@ -26,6 +26,13 @@ export interface BuildBinaryToolResultOptions {
   remoteUrl?: string;
   meta?: Record<string, unknown>;
   maxInlineBytes?: number;
+  /**
+   * When the caller already holds the base64 encoding of `buffer`, pass it
+   * here to skip the redundant `buffer.toString('base64')` call.  Avoids a
+   * full decode-then-re-encode round-trip for payloads that arrived as base64
+   * from an upstream API (e.g. image generation responses).
+   */
+  preEncodedBase64?: string;
 }
 
 const DEFAULT_INLINE_MAX_BYTES = 1024 * 1024;
@@ -117,7 +124,7 @@ export function buildBinaryToolResult(
   }
 
   if (buffer.length <= maxInline) {
-    const data = buffer.toString('base64');
+    const data = opts.preEncodedBase64 ?? buffer.toString('base64');
     if (opts.inlineOnly) {
       return {
         content: [buildInlineBlock(kind, mimeType, data, opts.remoteUrl)],

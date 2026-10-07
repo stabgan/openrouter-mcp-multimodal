@@ -245,6 +245,7 @@ function buildImageSuccessResult(
       inlineOnly: !savePath,
       summaryText: savePath ? `Image saved to: ${savePath}` : undefined,
       meta: { server_version: SERVER_VERSION, ...usageMeta },
+      preEncodedBase64: base64.data,
     },
   );
 }
