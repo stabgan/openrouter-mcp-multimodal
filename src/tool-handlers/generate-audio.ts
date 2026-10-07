@@ -3,7 +3,7 @@ import OpenAI from 'openai';
 import { GENERATE_AUDIO_FORMATS } from '../tool-definitions.js';
 import { resolveOptionalOutputPath, isToolErrorResult } from './path-safety.js';
 import { asOpenAIChatBody } from './chat-request.js';
-import { ErrorCode, toolError } from '../errors.js';
+import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
@@ -160,7 +160,11 @@ export async function handleGenerateAudio(
       const actualSavePath =
         fileExt === detected.ext ? safeBase : replaceExtension(safeBase, detected.ext);
 
-      await writeOutputFile(actualSavePath, audioBuffer);
+      try {
+        await writeOutputFile(actualSavePath, audioBuffer);
+      } catch (err) {
+        return toolErrorFrom(ErrorCode.INTERNAL, err, 'Write');
+      }
 
       const formatNote =
         actualSavePath !== safeBase
