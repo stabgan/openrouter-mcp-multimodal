@@ -60,16 +60,22 @@ function isInsideRoot(resolved: string, rootReal: string): boolean {
   return resolved === rootReal || resolved.startsWith(withSep);
 }
 
-export class UnsafeOutputPathError extends Error {
+export class UnsafePathError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'UnsafeOutputPathError';
+    this.name = 'UnsafePathError';
   }
 }
 
 /**
+ * @deprecated Use `UnsafePathError` instead. Kept as a re-export alias so
+ * any external consumers that referenced the old name continue to work.
+ */
+export { UnsafePathError as UnsafeOutputPathError };
+
+/**
  * Resolve and validate a caller-supplied output path.
- * Throws `UnsafeOutputPathError` on traversal attempts.
+ * Throws `UnsafePathError` on traversal attempts.
  */
 export async function resolveSafeOutputPath(savePath: string): Promise<string> {
   if (isUnsafeMode()) {
@@ -79,7 +85,7 @@ export async function resolveSafeOutputPath(savePath: string): Promise<string> {
   }
 
   if (pathHasNullByte(savePath)) {
-    throw new UnsafeOutputPathError('save_path contains a null byte');
+    throw new UnsafePathError('save_path contains a null byte');
   }
 
   const root = getOutputRoot();
@@ -94,7 +100,7 @@ export async function resolveSafeOutputPath(savePath: string): Promise<string> {
   const ancestorReal = await fs.realpath(existingAncestor);
 
   if (!isInsideRoot(ancestorReal, rootReal)) {
-    throw new UnsafeOutputPathError(
+    throw new UnsafePathError(
       `save_path resolves outside OPENROUTER_OUTPUT_DIR. ` +
         `Set OPENROUTER_OUTPUT_DIR to a wider root or OPENROUTER_ALLOW_UNSAFE_PATHS=1 to disable this check.`,
     );
@@ -104,7 +110,7 @@ export async function resolveSafeOutputPath(savePath: string): Promise<string> {
 
   const parentReal = await fs.realpath(candidateDir);
   if (!isInsideRoot(parentReal, rootReal)) {
-    throw new UnsafeOutputPathError(
+    throw new UnsafePathError(
       'save_path escapes OPENROUTER_OUTPUT_DIR via symlink. ' +
         'Set OPENROUTER_OUTPUT_DIR to a wider root or OPENROUTER_ALLOW_UNSAFE_PATHS=1 to disable this check.',
     );
@@ -155,7 +161,7 @@ export async function resolveSafeInputPath(inputPath: string): Promise<string> {
   }
 
   if (pathHasNullByte(inputPath)) {
-    throw new UnsafeOutputPathError('input path contains a null byte');
+    throw new UnsafePathError('input path contains a null byte');
   }
 
   const root = getInputRoot();
@@ -168,7 +174,7 @@ export async function resolveSafeInputPath(inputPath: string): Promise<string> {
   const existingAncestor = await findExistingAncestor(abs);
   const ancestorReal = await fs.realpath(existingAncestor);
   if (!isInsideRoot(ancestorReal, rootReal)) {
-    throw new UnsafeOutputPathError(
+    throw new UnsafePathError(
       `input path resolves outside OPENROUTER_INPUT_DIR: ${inputPath}. ` +
         'Set OPENROUTER_INPUT_DIR to a wider root or OPENROUTER_ALLOW_UNSAFE_PATHS=1 to disable this check.',
     );
@@ -177,16 +183,16 @@ export async function resolveSafeInputPath(inputPath: string): Promise<string> {
   try {
     const canonical = await fs.realpath(abs);
     if (!isInsideRoot(canonical, rootReal)) {
-      throw new UnsafeOutputPathError(
+      throw new UnsafePathError(
         `input path resolves outside OPENROUTER_INPUT_DIR: ${inputPath}. ` +
           'Set OPENROUTER_INPUT_DIR to a wider root or OPENROUTER_ALLOW_UNSAFE_PATHS=1 to disable this check.',
       );
     }
     return canonical;
   } catch (err) {
-    if (err instanceof UnsafeOutputPathError) throw err;
+    if (err instanceof UnsafePathError) throw err;
     if (!isInsideRoot(abs, rootReal)) {
-      throw new UnsafeOutputPathError(
+      throw new UnsafePathError(
         `input path resolves outside OPENROUTER_INPUT_DIR: ${inputPath}. ` +
           'Set OPENROUTER_INPUT_DIR to a wider root or OPENROUTER_ALLOW_UNSAFE_PATHS=1 to disable this check.',
       );
@@ -211,7 +217,7 @@ export async function resolveOptionalOutputPath(
   try {
     return { path: await resolveSafeOutputPath(savePath) };
   } catch (err) {
-    if (err instanceof UnsafeOutputPathError) return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
+    if (err instanceof UnsafePathError) return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
     return toolErrorFrom(ErrorCode.INTERNAL, err);
   }
 }

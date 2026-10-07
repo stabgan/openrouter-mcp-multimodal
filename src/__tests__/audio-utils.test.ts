@@ -10,7 +10,7 @@ import {
   assertUrlSafeForFetch,
   SUPPORTED_AUDIO_FORMATS,
 } from '../tool-handlers/audio-utils.js';
-import { UnsafeOutputPathError } from '../tool-handlers/path-safety.js';
+import { UnsafePathError } from '../tool-handlers/path-safety.js';
 import { withInputSandbox } from './helpers/input-sandbox.js';
 import path from 'path';
 import { writeFileSync } from 'fs';
@@ -191,7 +191,7 @@ describe('prepareAudioData', () => {
 
   it('rejects paths outside the sandbox', async () => {
     await withInputSandbox('mcp-audio-', async () => {
-      await expect(prepareAudioData('/etc/passwd')).rejects.toBeInstanceOf(UnsafeOutputPathError);
+      await expect(prepareAudioData('/etc/passwd')).rejects.toBeInstanceOf(UnsafePathError);
     });
   });
 

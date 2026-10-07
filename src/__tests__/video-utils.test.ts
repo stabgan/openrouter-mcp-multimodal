@@ -8,7 +8,7 @@ import {
   prepareVideoData,
   SUPPORTED_VIDEO_FORMATS,
 } from '../tool-handlers/video-utils.js';
-import { UnsafeOutputPathError } from '../tool-handlers/path-safety.js';
+import { UnsafePathError } from '../tool-handlers/path-safety.js';
 import { withInputSandbox } from './helpers/input-sandbox.js';
 
 describe('SUPPORTED_VIDEO_FORMATS', () => {
@@ -147,7 +147,7 @@ describe('prepareVideoData', () => {
 
   it('rejects paths outside the sandbox', async () => {
     await withInputSandbox('mcp-vid-', async () => {
-      await expect(prepareVideoData('/etc/passwd')).rejects.toBeInstanceOf(UnsafeOutputPathError);
+      await expect(prepareVideoData('/etc/passwd')).rejects.toBeInstanceOf(UnsafePathError);
     });
   });
 });

@@ -6,11 +6,7 @@ import {
   IMAGE_OUTPUT_FORMATS,
 } from '../tool-definitions.js';
 import type { OpenRouterAPIClient, ImageGenerationResponse } from '../openrouter-api.js';
-import {
-  resolveOptionalOutputPath,
-  isToolErrorResult,
-  UnsafeOutputPathError,
-} from './path-safety.js';
+import { resolveOptionalOutputPath, isToolErrorResult, UnsafePathError } from './path-safety.js';
 import { toOpenRouterImageReference } from './image-source.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
@@ -175,7 +171,7 @@ export async function handleGenerateImageDedicated(
       const refs = await Promise.all(input_references.map(toOpenRouterImageReference));
       body.input_references = refs;
     } catch (err) {
-      if (err instanceof UnsafeOutputPathError) return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
+      if (err instanceof UnsafePathError) return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
       const msg = err instanceof Error ? err.message : String(err);
       const lower = msg.toLowerCase();
       if (msg.includes('Blocked host')) {

@@ -10,7 +10,7 @@ import {
   assertUrlSafeForFetch,
   sniffImageMime,
 } from '../tool-handlers/image-utils.js';
-import { UnsafeOutputPathError } from '../tool-handlers/path-safety.js';
+import { UnsafePathError } from '../tool-handlers/path-safety.js';
 import { withInputSandbox } from './helpers/input-sandbox.js';
 import path from 'node:path';
 import { writeFileSync } from 'node:fs';
@@ -71,8 +71,8 @@ describe('fetchImage', () => {
 
   it('should reject paths outside the input sandbox', async () => {
     await withInputSandbox('mcp-fetch-img-', async () => {
-      await expect(fetchImage('/etc/passwd')).rejects.toBeInstanceOf(UnsafeOutputPathError);
-      await expect(fetchImage('../escape.png')).rejects.toBeInstanceOf(UnsafeOutputPathError);
+      await expect(fetchImage('/etc/passwd')).rejects.toBeInstanceOf(UnsafePathError);
+      await expect(fetchImage('../escape.png')).rejects.toBeInstanceOf(UnsafePathError);
     });
   });
 
@@ -118,7 +118,7 @@ describe('fetchImageWithMime', () => {
 
   it('rejects sandbox escapes like fetchImage', async () => {
     await withInputSandbox('mcp-fetch-mime-', async () => {
-      await expect(fetchImageWithMime('/etc/passwd')).rejects.toBeInstanceOf(UnsafeOutputPathError);
+      await expect(fetchImageWithMime('/etc/passwd')).rejects.toBeInstanceOf(UnsafePathError);
     });
   });
 });

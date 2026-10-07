@@ -3,11 +3,7 @@ import type { OpenRouterAPIClient, VideoJobEnvelope, VideoJobStatus } from '../o
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
-import {
-  resolveOptionalOutputPath,
-  isToolErrorResult,
-  UnsafeOutputPathError,
-} from './path-safety.js';
+import { resolveOptionalOutputPath, isToolErrorResult, UnsafePathError } from './path-safety.js';
 import { resolveImageBase64 } from './image-source.js';
 import { readEnvInt } from './fetch-utils.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
@@ -406,7 +402,7 @@ export async function handleGenerateVideo(
   try {
     await attachFrameImages(args, body);
   } catch (err) {
-    if (err instanceof UnsafeOutputPathError) {
+    if (err instanceof UnsafePathError) {
       return toolErrorFrom(ErrorCode.UNSAFE_PATH, err, 'Reference/frame image');
     }
     const msg = err instanceof Error ? err.message : String(err);
@@ -502,7 +498,7 @@ export async function handleGenerateVideo(
     }
     return { content, _meta };
   } catch (err) {
-    if (err instanceof UnsafeOutputPathError) {
+    if (err instanceof UnsafePathError) {
       return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
     }
     return toolErrorFrom(ErrorCode.UPSTREAM_HTTP, err, 'Download', {
@@ -538,7 +534,7 @@ export async function handleGetVideoStatus(
       const { content, _meta } = await finalizeCompletedJob(apiClient, status, safeSavePath);
       return { content, _meta };
     } catch (err) {
-      if (err instanceof UnsafeOutputPathError) return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
+      if (err instanceof UnsafePathError) return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
       return toolErrorFrom(ErrorCode.UPSTREAM_HTTP, err, 'Download', {
         suggestions: [
           'Retry after a brief delay',

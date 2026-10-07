@@ -45,7 +45,7 @@ Route every local-file branch through `resolveSafeInputPath` **before** `fs.read
 - `src/tool-handlers/audio-utils.ts` — `prepareAudioData` (sandbox before format check so `/etc/passwd` fails as traversal, not unsupported format)
 - `src/tool-handlers/video-utils.ts` — `prepareVideoData`
 
-Map `UnsafeOutputPathError` to `ErrorCode.UNSAFE_PATH` in `analyze-image.ts`, `analyze-audio.ts`, `analyze-video.ts`.
+Map `UnsafePathError` to `ErrorCode.UNSAFE_PATH` in `analyze-image.ts`, `analyze-audio.ts`, `analyze-video.ts`.
 
 Update MCP `inputSchema` descriptions for `image_path` / `audio_path` / `video_path` to document sandbox semantics.
 

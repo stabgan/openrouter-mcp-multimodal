@@ -7,7 +7,7 @@ import {
   resolveSafeInputPath,
   resolveOptionalOutputPath,
   isToolErrorResult,
-  UnsafeOutputPathError,
+  UnsafePathError,
 } from '../tool-handlers/path-safety.js';
 import { ErrorCode, toolError } from '../errors.js';
 
@@ -44,11 +44,9 @@ describe('resolveSafeOutputPath', () => {
   });
 
   it('rejects traversal attempts (..) that escape the root', async () => {
-    await expect(resolveSafeOutputPath('../escape.png')).rejects.toBeInstanceOf(
-      UnsafeOutputPathError,
-    );
+    await expect(resolveSafeOutputPath('../escape.png')).rejects.toBeInstanceOf(UnsafePathError);
     await expect(resolveSafeOutputPath('../../../etc/passwd')).rejects.toBeInstanceOf(
-      UnsafeOutputPathError,
+      UnsafePathError,
     );
   });
 
@@ -62,14 +60,12 @@ describe('resolveSafeOutputPath', () => {
 
   it('rejects save_path containing null bytes', async () => {
     await expect(resolveSafeOutputPath('out.png\0../../etc/passwd')).rejects.toBeInstanceOf(
-      UnsafeOutputPathError,
+      UnsafePathError,
     );
   });
 
   it('rejects absolute paths outside the root', async () => {
-    await expect(resolveSafeOutputPath('/etc/outside.png')).rejects.toBeInstanceOf(
-      UnsafeOutputPathError,
-    );
+    await expect(resolveSafeOutputPath('/etc/outside.png')).rejects.toBeInstanceOf(UnsafePathError);
   });
 
   it('bypasses the sandbox when OPENROUTER_ALLOW_UNSAFE_PATHS=1', async () => {
@@ -110,9 +106,7 @@ describe('resolveSafeInputPath', () => {
   });
 
   it('rejects traversal (../escape)', async () => {
-    await expect(resolveSafeInputPath('../escape.png')).rejects.toBeInstanceOf(
-      UnsafeOutputPathError,
-    );
+    await expect(resolveSafeInputPath('../escape.png')).rejects.toBeInstanceOf(UnsafePathError);
   });
 
   it('does not embed the resolved input root in error messages', async () => {
@@ -125,7 +119,7 @@ describe('resolveSafeInputPath', () => {
   });
 
   it('rejects absolute paths outside the root (/etc/passwd)', async () => {
-    await expect(resolveSafeInputPath('/etc/passwd')).rejects.toBeInstanceOf(UnsafeOutputPathError);
+    await expect(resolveSafeInputPath('/etc/passwd')).rejects.toBeInstanceOf(UnsafePathError);
   });
 
   it('falls back to OPENROUTER_OUTPUT_DIR when OPENROUTER_INPUT_DIR is unset', async () => {
@@ -144,7 +138,7 @@ describe('resolveSafeInputPath', () => {
 
   it('rejects paths containing null bytes', async () => {
     await expect(resolveSafeInputPath('frame.png\0/etc/passwd')).rejects.toBeInstanceOf(
-      UnsafeOutputPathError,
+      UnsafePathError,
     );
   });
 
@@ -152,9 +146,7 @@ describe('resolveSafeInputPath', () => {
     const outside = await fs.mkdtemp(path.join(tmpdir(), 'mcp-input-outside-'));
     try {
       await fs.symlink(outside, path.join(root, 'escape'));
-      await expect(resolveSafeInputPath('escape/any.txt')).rejects.toBeInstanceOf(
-        UnsafeOutputPathError,
-      );
+      await expect(resolveSafeInputPath('escape/any.txt')).rejects.toBeInstanceOf(UnsafePathError);
     } finally {
       await fs.rm(outside, { recursive: true, force: true });
     }
@@ -165,9 +157,7 @@ describe('resolveSafeInputPath', () => {
     try {
       await fs.writeFile(path.join(outside, 'secret.txt'), 'SECRET');
       await fs.symlink(outside, path.join(root, 'link'));
-      await expect(resolveSafeInputPath('link/secret.txt')).rejects.toBeInstanceOf(
-        UnsafeOutputPathError,
-      );
+      await expect(resolveSafeInputPath('link/secret.txt')).rejects.toBeInstanceOf(UnsafePathError);
     } finally {
       await fs.rm(outside, { recursive: true, force: true });
     }

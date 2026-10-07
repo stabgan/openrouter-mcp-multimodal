@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import type { ChatCompletion } from 'openai/resources/chat/completions.js';
 import { prepareVideoData } from './video-utils.js';
-import { UnsafeOutputPathError } from './path-safety.js';
+import { UnsafePathError } from './path-safety.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
@@ -63,7 +63,7 @@ export async function handleAnalyzeVideo(
   try {
     videoData = await prepareVideoData(video_path);
   } catch (err) {
-    if (err instanceof UnsafeOutputPathError) {
+    if (err instanceof UnsafePathError) {
       return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
     }
     const msg = err instanceof Error ? err.message : String(err);

@@ -3,7 +3,7 @@ import path from 'node:path';
 import { promises as fs } from 'node:fs';
 import { buildUserContent } from '../tool-handlers/generate-image-input.js';
 import { resolveImageUrl } from '../tool-handlers/image-source.js';
-import { UnsafeOutputPathError } from '../tool-handlers/path-safety.js';
+import { UnsafePathError } from '../tool-handlers/path-safety.js';
 import { withInputSandbox } from './helpers/input-sandbox.js';
 
 describe('resolveImageUrl', () => {
@@ -58,7 +58,7 @@ describe('resolveImageUrl', () => {
 
   it('propagates sandbox traversal errors from resolveSafeInputPath', async () => {
     await withInputSandbox('mcp-input-image-', async () => {
-      await expect(resolveImageUrl('../escape.png')).rejects.toBeInstanceOf(UnsafeOutputPathError);
+      await expect(resolveImageUrl('../escape.png')).rejects.toBeInstanceOf(UnsafePathError);
     });
   });
 

@@ -1,7 +1,7 @@
 /** Dedicated POST /api/v1/audio/transcriptions — Whisper, GPT-4o Transcribe, Voxtral. */
 import type { OpenRouterAPIClient, TranscriptionResponse } from '../openrouter-api.js';
 import { STT_RESPONSE_FORMATS } from '../tool-definitions.js';
-import { UnsafeOutputPathError } from './path-safety.js';
+import { UnsafePathError } from './path-safety.js';
 import { resolveSpeechToTextAudio } from './audio-utils.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
@@ -87,7 +87,7 @@ export async function handleSpeechToText(
   try {
     audioInput = await resolveSpeechToTextAudio(audio_path);
   } catch (err) {
-    if (err instanceof UnsafeOutputPathError) return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
+    if (err instanceof UnsafePathError) return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('Blocked host')) return toolErrorFrom(ErrorCode.UPSTREAM_REFUSED, err);
     const lower = msg.toLowerCase();
