@@ -170,6 +170,20 @@ export async function handleGenerateImageDedicated(
       body.input_references = refs;
     } catch (err) {
       if (err instanceof UnsafeOutputPathError) return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
+      const msg = err instanceof Error ? err.message : String(err);
+      const lower = msg.toLowerCase();
+      if (msg.includes('Blocked host')) {
+        return toolErrorFrom(ErrorCode.UPSTREAM_REFUSED, err, 'input_references');
+      }
+      if (lower.includes('too large')) {
+        return toolErrorFrom(ErrorCode.RESOURCE_TOO_LARGE, err, 'input_references');
+      }
+      if (lower.includes('timed out') || lower.includes('timeout')) {
+        return toolErrorFrom(ErrorCode.UPSTREAM_TIMEOUT, err, 'input_references');
+      }
+      if (lower.includes('unsupported') || lower.includes('invalid data url')) {
+        return toolErrorFrom(ErrorCode.UNSUPPORTED_FORMAT, err, 'input_references');
+      }
       return toolErrorFrom(ErrorCode.INVALID_INPUT, err, 'input_references');
     }
   }
