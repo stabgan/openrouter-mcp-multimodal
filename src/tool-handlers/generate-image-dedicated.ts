@@ -121,11 +121,19 @@ export async function handleGenerateImageDedicated(
     return toolError(ErrorCode.INVALID_INPUT, `n must be between 1 and ${MAX_IMAGES} (inclusive).`);
   }
 
-  if (input_references && input_references.length > 20) {
-    return toolError(
-      ErrorCode.INVALID_INPUT,
-      `input_references has ${input_references.length} entries — max 20.`,
-    );
+  if (input_references) {
+    if (input_references.some((r) => typeof r !== 'string' || !r.trim())) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        'every input_references entry must be a non-empty string.',
+      );
+    }
+    if (input_references.length > 20) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `input_references has ${input_references.length} entries — max 20.`,
+      );
+    }
   }
 
   const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });

@@ -79,11 +79,19 @@ export async function handleGenerateImage(
     }
   }
 
-  if (input_images && input_images.length > 20) {
-    return toolError(
-      ErrorCode.INVALID_INPUT,
-      `input_images has ${input_images.length} entries — max 20.`,
-    );
+  if (input_images) {
+    if (input_images.some((r) => typeof r !== 'string' || !r.trim())) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        'every input_images entry must be a non-empty string.',
+      );
+    }
+    if (input_images.length > 20) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `input_images has ${input_images.length} entries — max 20.`,
+      );
+    }
   }
 
   const savePathResult = await resolveOptionalOutputPath(save_path);

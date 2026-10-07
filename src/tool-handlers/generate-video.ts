@@ -342,11 +342,19 @@ export async function handleGenerateVideo(
     return toolError(ErrorCode.INVALID_INPUT, 'max_wait_ms must be a positive finite number.');
   }
 
-  if (args.reference_images && args.reference_images.length > 50) {
-    return toolError(
-      ErrorCode.INVALID_INPUT,
-      `reference_images has ${args.reference_images.length} entries — max 50.`,
-    );
+  if (args.reference_images) {
+    if (args.reference_images.some((r) => typeof r !== 'string' || !r.trim())) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        'every reference_images entry must be a non-empty string.',
+      );
+    }
+    if (args.reference_images.length > 50) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `reference_images has ${args.reference_images.length} entries — max 50.`,
+      );
+    }
   }
 
   const model = args.model || process.env.OPENROUTER_DEFAULT_VIDEO_GEN_MODEL || FALLBACK_MODEL;
