@@ -123,7 +123,10 @@ export async function handleGenerateImageDedicated(
     return toolError(ErrorCode.INVALID_INPUT, `n must be between 1 and ${MAX_IMAGES} (inclusive).`);
   }
 
-  if (input_references) {
+  if (input_references !== undefined) {
+    if (!Array.isArray(input_references)) {
+      return toolError(ErrorCode.INVALID_INPUT, 'input_references must be an array of strings.');
+    }
     if (input_references.some((r) => typeof r !== 'string' || !r.trim())) {
       return toolError(
         ErrorCode.INVALID_INPUT,

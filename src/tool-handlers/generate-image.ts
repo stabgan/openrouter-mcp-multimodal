@@ -89,7 +89,10 @@ export async function handleGenerateImage(
     }
   }
 
-  if (input_images) {
+  if (input_images !== undefined) {
+    if (!Array.isArray(input_images)) {
+      return toolError(ErrorCode.INVALID_INPUT, 'input_images must be an array of strings.');
+    }
     if (input_images.some((r) => typeof r !== 'string' || !r.trim())) {
       return toolError(
         ErrorCode.INVALID_INPUT,

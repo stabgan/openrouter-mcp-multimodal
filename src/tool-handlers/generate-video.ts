@@ -342,7 +342,10 @@ export async function handleGenerateVideo(
     return toolError(ErrorCode.INVALID_INPUT, 'max_wait_ms must be a positive finite number.');
   }
 
-  if (args.reference_images) {
+  if (args.reference_images !== undefined) {
+    if (!Array.isArray(args.reference_images)) {
+      return toolError(ErrorCode.INVALID_INPUT, 'reference_images must be an array of strings.');
+    }
     if (args.reference_images.some((r) => typeof r !== 'string' || !r.trim())) {
       return toolError(
         ErrorCode.INVALID_INPUT,
