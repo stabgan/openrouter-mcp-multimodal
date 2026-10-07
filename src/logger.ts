@@ -14,7 +14,7 @@ const SENSITIVE_KEY = /^(authorization|api[_-]?key|bearer|token|secret|password)
 const SK_OR_KEY = /sk-or-v\d+-[\w-]+/gi;
 const SK_GENERIC_KEY = /sk-[\w-]{20,}/gi;
 const BEARER = /Bearer\s+\S+/gi;
-const DATA_URL = /^data:[^;]+;base64,/i;
+const DATA_URL = /^data:[^;]+(?:;[^;]+)*;base64,/i;
 
 function currentLevel(): LogLevel {
   const raw = (process.env.OPENROUTER_LOG_LEVEL ?? '').toLowerCase();
