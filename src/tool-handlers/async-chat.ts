@@ -70,7 +70,7 @@ function readAsyncJobsMemoryMax(): number {
   return Number.isFinite(n) && n > 0 ? n : DEFAULT_ASYNC_JOBS_MEMORY_MAX;
 }
 
-function evictTerminalJobsIfNeeded(): void {
+function evictTerminalJobsIfNeeded(makeRoomForNew = false): void {
   const max = readAsyncJobsMemoryMax();
   if (max <= 0 || jobs.size < max) return;
 
@@ -78,14 +78,18 @@ function evictTerminalJobsIfNeeded(): void {
     .filter(([, job]) => job.status === 'completed' || job.status === 'failed')
     .sort((a, b) => a[1].createdAt.localeCompare(b[1].createdAt));
 
-  while (jobs.size > max && terminal.length > 0) {
+  // When called from rememberJob (makeRoomForNew=true), we need to free one
+  // slot so the incoming entry does not push the map past max.  Background
+  // cleanup (makeRoomForNew=false) only trims entries that already exceed max.
+  const threshold = makeRoomForNew ? max : max + 1;
+  while (jobs.size >= threshold && terminal.length > 0) {
     const [id] = terminal.shift()!;
     jobs.delete(id);
   }
 }
 
 function rememberJob(job: AsyncJob): void {
-  evictTerminalJobsIfNeeded();
+  evictTerminalJobsIfNeeded(true);
   jobs.set(job.id, job);
 }
 
@@ -399,6 +403,21 @@ export async function handleGetChatCompletionStatus(request: {
       {
         suggestions: job.error_suggestions,
         retry_after_seconds: job.retry_after_seconds,
+      },
+    );
+  }
+
+  // Guard: completed but result data is missing (corrupted persisted job file
+  // or unexpected code path). Without this the function would fall through to
+  // the "still running" branch, confusingly saying "Job X is still completed."
+  if (job.status === 'completed') {
+    return toolError(
+      ErrorCode.INTERNAL,
+      `Job ${jobId} completed but result data is missing. The job may need to be re-run.`,
+      {
+        job_id: jobId,
+        model: job.model,
+        created_at: job.createdAt,
       },
     );
   }
