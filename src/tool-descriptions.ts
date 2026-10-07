@@ -364,7 +364,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
     badExamples: [
       '`{ "prompt": "" }` → INVALID_INPUT',
       '`{ "input_images": ["/etc/passwd"] }` → UNSAFE_PATH',
-      '`{ "aspect_ratio": "21:9" }` if not in allowed enum → INVALID_INPUT',
+      '`{ "aspect_ratio": "5:3" }` if not in allowed enum → INVALID_INPUT (valid ratios: 1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9, 1:4, 4:1, 1:8, 8:1)',
     ],
     failsWhen: [
       'INVALID_INPUT: empty prompt, bad aspect_ratio/image_size, unreadable reference',
