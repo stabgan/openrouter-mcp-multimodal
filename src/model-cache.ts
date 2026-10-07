@@ -129,6 +129,14 @@ export class ModelCache {
     this.inflight = (async () => fetcher())();
     try {
       const models = await this.inflight;
+      if (models.length === 0 && Object.keys(this.models).length > 0) {
+        // Upstream returned an empty model list but we have stale data.
+        // Preserve the existing models rather than replacing them with
+        // nothing — stale data is far more useful than no data. Refresh
+        // the TTL so we don't hot-loop retries on every tool call.
+        this.populatedAt = Date.now();
+        return;
+      }
       this.setModels(models);
     } finally {
       this.inflight = null;

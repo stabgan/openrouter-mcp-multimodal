@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ModelCache } from '../model-cache.js';
 
 describe('ModelCache.ensureFresh coalescing', () => {
@@ -56,5 +56,44 @@ describe('ModelCache.ensureFresh coalescing', () => {
     await expect(cache.ensureFresh(fail)).rejects.toThrow('nope');
     await expect(cache.ensureFresh(fail)).rejects.toThrow('nope');
     expect(calls).toBe(2);
+  });
+
+  it('preserves stale data when upstream returns empty model list', async () => {
+    // Populate with real data first.
+    cache.setModels([{ id: 'openai/gpt-4o', name: 'GPT-4o' }]);
+    expect(cache.size()).toBe(1);
+    expect(cache.has('openai/gpt-4o')).toBe(true);
+
+    // Invalidate so ensureFresh will refetch.
+    const orig = cache.isValid;
+    let validCalls = 0;
+    vi.spyOn(cache, 'isValid').mockImplementation(() => {
+      validCalls += 1;
+      // First call (from ensureFresh entry): stale. Subsequent: let through normally.
+      if (validCalls === 1) return false;
+      return orig.call(cache);
+    });
+
+    // Fetcher returns empty — simulates partial upstream outage.
+    const emptyFetcher = vi.fn(async () => []);
+    await cache.ensureFresh(emptyFetcher);
+
+    // Stale data must survive — the empty response should NOT replace it.
+    expect(cache.size()).toBe(1);
+    expect(cache.has('openai/gpt-4o')).toBe(true);
+    expect(emptyFetcher).toHaveBeenCalledOnce();
+  });
+
+  it('accepts empty list on first boot (no stale data to preserve)', async () => {
+    // Cache starts completely empty.
+    expect(cache.size()).toBe(0);
+
+    const emptyFetcher = vi.fn(async () => []);
+    await cache.ensureFresh(emptyFetcher);
+
+    // No stale data → accept the empty list (prevents hot-loop on first boot).
+    expect(cache.size()).toBe(0);
+    expect(cache.isValid()).toBe(true);
+    expect(emptyFetcher).toHaveBeenCalledOnce();
   });
 });
