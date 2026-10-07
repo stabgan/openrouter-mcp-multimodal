@@ -21,12 +21,30 @@ export async function handleSearchModels(
 ) {
   const args = request.params.arguments ?? {};
 
-  // Validate numeric params — MCP clients that ignore the JSON schema can
-  // send strings, booleans, or other types. Without this guard the handler
-  // silently falls back to defaults, which is confusing (e.g. `limit: "50"`
-  // returns only 20 results with no error). Matches the explicit typeof
-  // checks used by every other handler (chat_completion, generate_video,
-  // rerank, etc.). Range clamping is handled by clampLimit/clampOffset.
+  // Validate param types — MCP clients that ignore the JSON schema can
+  // send numbers, booleans, or other types. Without these guards the handler
+  // either silently falls back to defaults (confusing) or crashes with a
+  // TypeError when buildMatcher() calls .trim() on a non-string value.
+  // Matches the explicit typeof checks used by every other handler
+  // (chat_completion, generate_video, rerank, etc.).
+  if (args.query !== undefined && typeof args.query !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'query must be a string.');
+  }
+  if (args.provider !== undefined && typeof args.provider !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'provider must be a string.');
+  }
+  if (
+    args.capabilities !== undefined &&
+    (typeof args.capabilities !== 'object' ||
+      args.capabilities === null ||
+      Array.isArray(args.capabilities))
+  ) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      'capabilities must be an object (e.g. { "vision": true }).',
+    );
+  }
+  // Range clamping is handled by clampLimit/clampOffset.
   if (args.limit !== undefined) {
     if (typeof args.limit !== 'number' || !Number.isFinite(args.limit)) {
       return toolError(
