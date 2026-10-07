@@ -377,21 +377,28 @@ export async function handleGenerateVideo(
   ) {
     return toolError(ErrorCode.INVALID_INPUT, 'seed must be an integer.');
   }
-  if (
-    args.poll_interval_ms !== undefined &&
-    (typeof args.poll_interval_ms !== 'number' ||
+  if (args.poll_interval_ms !== undefined) {
+    if (
+      typeof args.poll_interval_ms !== 'number' ||
       !Number.isFinite(args.poll_interval_ms) ||
-      args.poll_interval_ms <= 0)
-  ) {
-    return toolError(ErrorCode.INVALID_INPUT, 'poll_interval_ms must be a positive finite number.');
+      !Number.isInteger(args.poll_interval_ms) ||
+      args.poll_interval_ms < MIN_POLL_INTERVAL_MS
+    ) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `poll_interval_ms must be an integer >= ${MIN_POLL_INTERVAL_MS}.`,
+      );
+    }
   }
-  if (
-    args.max_wait_ms !== undefined &&
-    (typeof args.max_wait_ms !== 'number' ||
+  if (args.max_wait_ms !== undefined) {
+    if (
+      typeof args.max_wait_ms !== 'number' ||
       !Number.isFinite(args.max_wait_ms) ||
-      args.max_wait_ms <= 0)
-  ) {
-    return toolError(ErrorCode.INVALID_INPUT, 'max_wait_ms must be a positive finite number.');
+      !Number.isInteger(args.max_wait_ms) ||
+      args.max_wait_ms < 100
+    ) {
+      return toolError(ErrorCode.INVALID_INPUT, 'max_wait_ms must be an integer >= 100.');
+    }
   }
 
   if (args.reference_images !== undefined) {
