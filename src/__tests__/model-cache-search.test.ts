@@ -102,6 +102,30 @@ describe('ModelCache.searchPaginated', () => {
     expect(total).toBe(1);
   });
 
+  it('strips routing suffixes from query for catalog matching', () => {
+    const { page, total } = cache.searchPaginated({ query: 'openai/gpt-4:nitro' }, 0, 10);
+    expect(total).toBe(1);
+    expect(page[0].id).toBe('openai/gpt-4');
+  });
+
+  it('strips :free suffix from query and matches base model', () => {
+    const { page, total } = cache.searchPaginated({ query: 'anthropic/claude-3:free' }, 0, 10);
+    expect(total).toBe(1);
+    expect(page[0].id).toBe('anthropic/claude-3');
+  });
+
+  it('strips routing suffix case-insensitively from query', () => {
+    const { page, total } = cache.searchPaginated({ query: 'openai/gpt-4:FLOOR' }, 0, 10);
+    expect(total).toBe(1);
+    expect(page[0].id).toBe('openai/gpt-4');
+  });
+
+  it('search with routing suffix still returns results (non-paginated)', () => {
+    const results = cache.search({ query: 'meta/llama-3:online' });
+    expect(results).toHaveLength(1);
+    expect(results[0].id).toBe('meta/llama-3');
+  });
+
   it('sorts results by id for stable pagination', () => {
     cache.setModels([{ id: 'z/z-last' }, { id: 'a/a-first' }, { id: 'm/m-mid' }]);
     const page1 = cache.searchPaginated({}, 0, 2);
