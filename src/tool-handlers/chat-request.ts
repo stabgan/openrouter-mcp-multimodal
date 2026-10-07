@@ -105,6 +105,22 @@ export function validateChatMessages(
     if ('content' in msg && msg.content === null && role !== 'assistant') {
       return toolError(ErrorCode.INVALID_INPUT, `Message at index ${i} has null content.`);
     }
+    // Reject wrong content types (boolean, number, plain object). Valid
+    // content is string, Array<ContentPart>, null (assistant only), or absent.
+    // MCP clients that ignore the JSON schema can send numbers, booleans, or
+    // plain objects — forwarding these produces confusing upstream API errors.
+    if (
+      'content' in msg &&
+      msg.content !== null &&
+      msg.content !== undefined &&
+      typeof msg.content !== 'string' &&
+      !Array.isArray(msg.content)
+    ) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `Message at index ${i} has invalid content type (expected string or array, got ${typeof msg.content}).`,
+      );
+    }
   }
   return null;
 }
