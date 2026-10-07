@@ -97,7 +97,15 @@ export function getMimeType(filePath: string): string {
   return mimeFromExtension(path.extname(filePath)) ?? 'image/jpeg';
 }
 
-export async function fetchHttpImage(urlString: string): Promise<Buffer> {
+/**
+ * Shared HTTP image fetch with CDN error-page guard and empty-buffer check.
+ * Returns both the buffer and the raw Content-Type header so callers that
+ * need MIME information (e.g. fetchImageWithMime) can derive it without
+ * duplicating the validation logic.
+ */
+async function fetchHttpImageValidated(
+  urlString: string,
+): Promise<{ buffer: Buffer; contentType: string | undefined }> {
   const { buffer, contentType } = await fetchHttpResource(urlString, {
     timeoutMs: getFetchTimeoutMs(),
     maxBytes: getMaxDownloadBytes(),
@@ -116,6 +124,11 @@ export async function fetchHttpImage(urlString: string): Promise<Buffer> {
   if (buffer.length === 0) {
     throw new Error('Image URL returned empty response (0 bytes)');
   }
+  return { buffer, contentType };
+}
+
+export async function fetchHttpImage(urlString: string): Promise<Buffer> {
+  const { buffer } = await fetchHttpImageValidated(urlString);
   return buffer;
 }
 
@@ -245,24 +258,7 @@ export async function fetchImageWithMime(
     return { buffer, mime: parsed.mediaType };
   }
   if (source.startsWith('http://') || source.startsWith('https://')) {
-    const { buffer, contentType } = await fetchHttpResource(source, {
-      timeoutMs: getFetchTimeoutMs(),
-      maxBytes: getMaxDownloadBytes(),
-      maxRedirects: getMaxRedirects(),
-    });
-    // CDN / reverse-proxy error pages sometimes return 200 with text/html.
-    // Without this guard the HTML body would be returned as image data,
-    // leading to corrupt output or confusing API errors downstream.
-    const ct = contentType?.split(';')[0]?.trim().toLowerCase();
-    if (ct === 'text/html' || ct === 'application/xhtml+xml') {
-      throw new Error(
-        `Image URL returned ${ct} instead of an image format — ` +
-          'likely a temporary CDN or upstream error. Retry after a brief delay.',
-      );
-    }
-    if (buffer.length === 0) {
-      throw new Error('Image URL returned empty response (0 bytes)');
-    }
+    const { buffer, contentType } = await fetchHttpImageValidated(source);
     const mime = (
       contentType?.split(';')[0]?.trim() ||
       sniffImageMime(buffer) ||
