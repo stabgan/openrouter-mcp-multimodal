@@ -62,4 +62,4 @@ _Why it serves the approach:_ Most users install via `npx`; release confidence c
 
 **One-liner:** One MCP server — text, image, audio, and video analysis and generation across 300+ OpenRouter models, with security sandboxes built in.
 
-**Key message:** Install with `npx`, paste your OpenRouter key, and your agent gets 14 hardened tools. No other MCP package covers generation and analysis for every modality in a single dependency.
+**Key message:** Install with `npx`, paste your OpenRouter key, and your agent gets 19 hardened tools. No other MCP package covers generation and analysis for every modality in a single dependency.
