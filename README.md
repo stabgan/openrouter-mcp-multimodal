@@ -53,7 +53,7 @@ Unlike text-only MCP servers, one install covers the **full multimodal surface**
 | **Video**   | `analyze_video`, `generate_video`, `generate_video_from_image`, `get_video_status`      | Clip understanding, Veo 3.1 / Seedance 2.5 / Kling v3.0 / Wan 2.7 / Grok Imagine Video generation with progress notifications                                                                                       |
 | **Catalog** | `search_models`, `get_model_info`, `validate_model`, `rerank_documents`, `health_check` | Model discovery, validation, reranking, ops health                                                                                                                                |
 
-**Production hardening:** input/output path sandboxes (including analyze\_\* local files as of v4.5.2), SSRF guards, structured errors with `_meta.code`, MCP 2025-06-18 structured outputs, tool icons (2025-11-25), async video progress notifications, and **1000+** automated tests (unit, mock, regression, and live integration).
+**Production hardening:** input/output path sandboxes (including analyze\_\* local files as of v4.5.2), SSRF guards, structured errors with `_meta.code`, MCP 2025-06-18 structured outputs, tool icons (2025-11-25), async video progress notifications, and **1300+** automated tests (unit, mock, regression, and live integration).
 
 ## Quick start
 
@@ -536,15 +536,15 @@ npm run build
 
 | Command                    | What it runs                                               |
 | :------------------------- | :--------------------------------------------------------- |
-| `npm test`                 | **1018** unit + mock tests (no API key, &lt;20s)           |
+| `npm test`                 | **1283** unit + mock tests (no API key, &lt;20s)           |
 | `npm run test:regression`  | Security + schema regression guards                        |
-| `npm run test:integration` | **16** live OpenRouter scenarios (**requires** `.env` key) |
+| `npm run test:integration` | **17** live OpenRouter scenarios (**requires** `.env` key) |
 | `npm run test:e2e`         | Full MCP stdio smoke (`scripts/live-e2e.mjs`)              |
 | `npm run ci`               | lint + format + build + **all** of the above except e2e    |
 
 **Free models for CI / zero-credit accounts:** integration tests default to `google/gemma-4-26b-a4b-it:free` (override with `OPENROUTER_INTEGRATION_MODEL`). GitHub Actions requires the `OPENROUTER_API_KEY` repository secret.
 
-Mock tests live under `src/__tests__/mock/` and cover handlers, path sandboxes, SSRF blocks, model-cache pagination, tool descriptions, and structured outputs — **330+** additional cases beyond the core suite.
+Mock tests live under `src/__tests__/mock/` and cover handlers, path sandboxes, SSRF blocks, model-cache pagination, tool descriptions, and structured outputs — **380+** additional cases beyond the core suite.
 
 ```bash
 npm run lint
