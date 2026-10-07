@@ -82,7 +82,7 @@ export async function handleGenerateImageDedicated(
   }
 
   logger.audit('generate_image_dedicated.start', {
-    model: model || DEFAULT_MODEL,
+    model: model?.trim() || DEFAULT_MODEL,
     prompt_preview: prompt.slice(0, 80),
     resolution,
     aspect_ratio,
@@ -146,7 +146,7 @@ export async function handleGenerateImageDedicated(
   const safeSavePath = savePathResult.path;
 
   const body: Record<string, unknown> = {
-    model: model || DEFAULT_MODEL,
+    model: model?.trim() || DEFAULT_MODEL,
     prompt,
   };
   if (resolution) body.resolution = resolution;
@@ -203,7 +203,7 @@ export async function handleGenerateImageDedicated(
 
   const baseMeta: Record<string, unknown> = {
     server_version: SERVER_VERSION,
-    model: model || DEFAULT_MODEL,
+    model: model?.trim() || DEFAULT_MODEL,
     images_count: images.length,
     saved_image_index: 0,
   };

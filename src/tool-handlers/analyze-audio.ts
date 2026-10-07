@@ -80,7 +80,7 @@ export async function handleAnalyzeAudio(
   const requestOpts = Object.keys(headers).length > 0 ? { headers } : undefined;
 
   const body: Record<string, unknown> = {
-    model: model || defaultModel || DEFAULT_MODEL,
+    model: model?.trim() || defaultModel || DEFAULT_MODEL,
     messages: [
       {
         role: 'user',

@@ -69,7 +69,7 @@ export async function handleGenerateAudio(
   }
 
   logger.audit('generate_audio.start', {
-    model: model || DEFAULT_MODEL,
+    model: model?.trim() || DEFAULT_MODEL,
     voice: voice?.trim() || DEFAULT_VOICE,
     format: format || DEFAULT_FORMAT,
     prompt_preview: prompt.slice(0, 80),
@@ -88,7 +88,7 @@ export async function handleGenerateAudio(
   let stream: AsyncIterable<Record<string, unknown>>;
   try {
     const body: Record<string, unknown> = {
-      model: model || DEFAULT_MODEL,
+      model: model?.trim() || DEFAULT_MODEL,
       messages: [{ role: 'user', content: prompt }],
       modalities: ['text', 'audio'],
       audio: { voice: selectedVoice, format: selectedFormat },

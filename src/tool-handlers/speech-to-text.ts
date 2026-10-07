@@ -77,7 +77,7 @@ export async function handleSpeechToText(
   if (cacheError) return cacheError;
 
   logger.audit('speech_to_text.start', {
-    model: model || DEFAULT_MODEL,
+    model: model?.trim() || DEFAULT_MODEL,
     audio_path: audio_path.startsWith('data:') ? 'data_url' : audio_path.slice(0, 80),
     language,
     response_format,
@@ -100,7 +100,7 @@ export async function handleSpeechToText(
   }
 
   const body: Record<string, unknown> = {
-    model: model || DEFAULT_MODEL,
+    model: model?.trim() || DEFAULT_MODEL,
     input_audio: {
       data: audioInput.data,
       format: audioInput.format,
@@ -134,7 +134,7 @@ export async function handleSpeechToText(
 
   const baseMeta: Record<string, unknown> = {
     server_version: SERVER_VERSION,
-    model: model || DEFAULT_MODEL,
+    model: model?.trim() || DEFAULT_MODEL,
     content_is_untrusted: true,
   };
   if (response.language) baseMeta.language = response.language;

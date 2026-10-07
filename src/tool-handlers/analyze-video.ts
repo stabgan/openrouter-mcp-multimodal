@@ -54,7 +54,10 @@ export async function handleAnalyzeVideo(
   if (cacheError) return cacheError;
 
   const pickedModel =
-    model || process.env.OPENROUTER_DEFAULT_VIDEO_MODEL || defaultModel || FALLBACK_DEFAULT_MODEL;
+    model?.trim() ||
+    process.env.OPENROUTER_DEFAULT_VIDEO_MODEL ||
+    defaultModel ||
+    FALLBACK_DEFAULT_MODEL;
 
   let videoData;
   try {

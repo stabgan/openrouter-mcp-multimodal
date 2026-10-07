@@ -357,7 +357,8 @@ export async function handleGenerateVideo(
     }
   }
 
-  const model = args.model || process.env.OPENROUTER_DEFAULT_VIDEO_GEN_MODEL || FALLBACK_MODEL;
+  const model =
+    args.model?.trim() || process.env.OPENROUTER_DEFAULT_VIDEO_GEN_MODEL || FALLBACK_MODEL;
 
   const deprecationWarning = checkSoraDeprecation(model);
 

@@ -63,7 +63,7 @@ export async function handleGenerateImage(
   }
 
   logger.audit('generate_image.start', {
-    model: model || DEFAULT_MODEL,
+    model: model?.trim() || DEFAULT_MODEL,
     prompt_preview: prompt.slice(0, 80),
     aspect_ratio,
     image_size,
@@ -123,7 +123,7 @@ export async function handleGenerateImage(
   if (image_size) imageConfig.image_size = image_size;
 
   const body: Record<string, unknown> = {
-    model: model || DEFAULT_MODEL,
+    model: model?.trim() || DEFAULT_MODEL,
     messages: [{ role: 'user', content }],
     modalities: modalities?.length ? modalities : ['image', 'text'],
   };

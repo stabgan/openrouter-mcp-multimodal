@@ -69,7 +69,7 @@ export async function handleChatCompletion(
 
   const body = buildChatCompletionBody({
     messages,
-    model: model || defaultModel || DEFAULT_CHAT_MODEL,
+    model: model?.trim() || defaultModel || DEFAULT_CHAT_MODEL,
     temperature,
     max_tokens,
     provider,

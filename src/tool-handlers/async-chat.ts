@@ -185,7 +185,7 @@ export async function handleStartChatCompletion(
   const webSearchError = validateWebSearchOptions(web_max_results, web_blocked_domains, online);
   if (webSearchError) return webSearchError;
 
-  const effectiveModel = model || defaultModel || DEFAULT_CHAT_MODEL;
+  const effectiveModel = model?.trim() || defaultModel || DEFAULT_CHAT_MODEL;
   const jobId = generateJobId();
 
   const job: AsyncJob = {

@@ -93,7 +93,7 @@ export async function handleRerankDocuments(
     }
   }
 
-  const effectiveModel = model || DEFAULT_MODEL;
+  const effectiveModel = model?.trim() || DEFAULT_MODEL;
 
   let response: RerankResponse;
   try {
