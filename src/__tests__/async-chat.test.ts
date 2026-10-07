@@ -170,7 +170,9 @@ describe('async chat in-memory lifecycle', () => {
           params: { arguments: { job_id: jobId } },
         });
         expect(status.isError).toBe(true);
-        expect((status as { _meta: { code: string } })._meta.code).toBe(ErrorCode.JOB_FAILED);
+        // Matches the sync chat_completion path which returns ErrorCode.INTERNAL
+        // when the model produces no textual content.
+        expect((status as { _meta: { code: string } })._meta.code).toBe(ErrorCode.INTERNAL);
       },
       { timeout: 3000, interval: 20 },
     );

@@ -300,7 +300,9 @@ async function runCompletionInBackground(
 
       if (!extracted.text) {
         job.status = 'failed';
-        job.error = 'Model returned no textual content.';
+        job.error_code = ErrorCode.INTERNAL;
+        const frHint = extracted.finishReason ? ` (finish_reason: ${extracted.finishReason})` : '';
+        job.error = `Model returned no textual content${frHint}.`;
       } else {
         job.status = 'completed';
         // Web search injects untrusted web content into the model's context —
