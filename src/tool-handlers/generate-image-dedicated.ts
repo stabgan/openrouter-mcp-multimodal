@@ -83,6 +83,10 @@ export async function handleGenerateImageDedicated(
     return toolError(ErrorCode.INVALID_INPUT, 'prompt is required.');
   }
 
+  if (model !== undefined && typeof model !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'model must be a string.');
+  }
+
   logger.audit('generate_image_dedicated.start', {
     model: model?.trim() || DEFAULT_MODEL,
     prompt_preview: prompt.slice(0, 80),

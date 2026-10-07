@@ -50,6 +50,10 @@ export async function handleAnalyzeVideo(
     return toolError(ErrorCode.INVALID_INPUT, 'video_path is required.');
   }
 
+  if (model !== undefined && typeof model !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'model must be a string.');
+  }
+
   const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });
   if (cacheError) return cacheError;
 

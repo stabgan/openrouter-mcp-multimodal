@@ -62,6 +62,13 @@ export async function handleTextToSpeech(
     return toolError(ErrorCode.INVALID_INPUT, 'input text is required.');
   }
 
+  if (model !== undefined && typeof model !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'model must be a string.');
+  }
+  if (voice !== undefined && typeof voice !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'voice must be a string.');
+  }
+
   if (response_format && !VALID_FORMATS.has(response_format)) {
     return toolError(
       ErrorCode.INVALID_INPUT,

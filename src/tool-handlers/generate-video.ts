@@ -368,6 +368,10 @@ export async function handleGenerateVideo(
     return toolError(ErrorCode.INVALID_INPUT, 'prompt is required.');
   }
 
+  if (args.model !== undefined && typeof args.model !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'model must be a string.');
+  }
+
   if (
     args.duration !== undefined &&
     (typeof args.duration !== 'number' ||

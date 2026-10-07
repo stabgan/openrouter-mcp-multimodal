@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import type { ChatCompletion } from 'openai/resources/chat/completions.js';
+import { ErrorCode, toolError } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
 import {
@@ -55,6 +56,10 @@ export async function handleChatCompletion(
 
   const messagesError = validateChatMessages(messages);
   if (messagesError) return messagesError;
+
+  if (model !== undefined && typeof model !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'model must be a string.');
+  }
 
   const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });
   if (cacheError) return cacheError;

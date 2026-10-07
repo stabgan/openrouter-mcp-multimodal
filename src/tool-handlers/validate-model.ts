@@ -10,6 +10,11 @@ export async function handleValidateModel(
   apiClient?: OpenRouterAPIClient,
 ) {
   const rawModel = request.params.arguments?.model;
+
+  if (rawModel !== undefined && typeof rawModel !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'model must be a string.');
+  }
+
   const model = typeof rawModel === 'string' ? rawModel.trim() : '';
 
   if (!model) {

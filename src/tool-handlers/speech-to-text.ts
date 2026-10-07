@@ -59,6 +59,10 @@ export async function handleSpeechToText(
     return toolError(ErrorCode.INVALID_INPUT, 'audio_path is required.');
   }
 
+  if (model !== undefined && typeof model !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'model must be a string.');
+  }
+
   if (response_format && !VALID_RESPONSE_FORMATS.has(response_format)) {
     return toolError(
       ErrorCode.INVALID_INPUT,

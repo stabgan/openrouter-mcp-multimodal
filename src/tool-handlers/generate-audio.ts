@@ -61,6 +61,13 @@ export async function handleGenerateAudio(
     return toolError(ErrorCode.INVALID_INPUT, 'prompt is required.');
   }
 
+  if (model !== undefined && typeof model !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'model must be a string.');
+  }
+  if (voice !== undefined && typeof voice !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'voice must be a string.');
+  }
+
   if (format && !(VALID_FORMATS as readonly string[]).includes(format)) {
     return toolError(
       ErrorCode.INVALID_INPUT,
