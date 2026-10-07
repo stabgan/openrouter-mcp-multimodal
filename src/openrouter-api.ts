@@ -358,9 +358,17 @@ export interface VideoJobStatus {
   [key: string]: unknown;
 }
 
+/**
+ * Byte cap for safeReadText. API error responses are typically well under
+ * 4 KiB of JSON; capping here prevents memory exhaustion if a misbehaving
+ * upstream sends an oversized body on a 4xx/5xx.
+ */
+const SAFE_READ_TEXT_MAX_BYTES = 4096;
+
 async function safeReadText(res: Response): Promise<string> {
   try {
-    const t = await res.text();
+    const buffer = await readResponseBody(res, SAFE_READ_TEXT_MAX_BYTES, 'error detail');
+    const t = buffer.toString('utf8');
     return t.length > 500 ? t.slice(0, 500) + '…' : t;
   } catch {
     return '';
