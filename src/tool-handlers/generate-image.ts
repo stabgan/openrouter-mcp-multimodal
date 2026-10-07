@@ -2,7 +2,7 @@ import { extname } from 'node:path';
 import OpenAI from 'openai';
 import type { ChatCompletion } from 'openai/resources/chat/completions.js';
 import { IMAGE_ASPECT_RATIOS } from '../tool-definitions.js';
-import { resolveOptionalOutputPath, isToolErrorResult, UnsafePathError } from './path-safety.js';
+import { resolveOptionalOutputPath, isToolErrorResult } from './path-safety.js';
 import { parseBase64DataUrl } from './fetch-utils.js';
 import { extensionForImageMime } from './image-utils.js';
 import { buildUserContent } from './generate-image-input.js';
@@ -10,7 +10,7 @@ import { asOpenAIChatBody } from './chat-request.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
-import { classifyUpstreamError } from './openrouter-errors.js';
+import { classifyUpstreamError, classifyResourceLoadError } from './openrouter-errors.js';
 import { buildBinaryToolResult } from './tool-result-payload.js';
 import { replaceExtension, writeOutputFile } from './path-utils.js';
 import {
@@ -126,10 +126,7 @@ export async function handleGenerateImage(
   try {
     content = await buildUserContent(prompt, input_images);
   } catch (err) {
-    if (err instanceof UnsafePathError) {
-      return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
-    }
-    return toolErrorFrom(ErrorCode.INVALID_INPUT, err, 'input_images');
+    return classifyResourceLoadError(err, 'input_images');
   }
 
   const imageConfig: Record<string, string> = {};
