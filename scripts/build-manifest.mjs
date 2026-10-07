@@ -35,7 +35,7 @@ const manifest = {
   description: 'Chat with 300+ LLMs via OpenRouter. Analyze and generate images, audio, and video from MCP.',
   long_description:
     'All-in-one MCP server for OpenRouter. Chat with 300+ LLMs (Claude, Gemini, GPT, Llama, Qwen, Grok). ' +
-    'Analyze images, audio, and video. Generate images, speech, music, and video (Veo 3.1, Sora 2 Pro, ' +
+    'Analyze images, audio, and video. Generate images, speech, music, and video (Veo 3.1, Kling v3.0, ' +
     'Seedance, Wan). v4.5 adds response caching, reasoning token passthrough, web search, ' +
     'rerank_documents, generate_video_from_image, health_check, audit logging for paid ops, ' +
     'MCP 2025-06-18 structured outputs + progress notifications. Apache 2.0.',
@@ -90,7 +90,7 @@ const manifest = {
   keywords: [
     'openrouter', 'mcp', 'multimodal', 'claude', 'gemini', 'gpt',
     'vision', 'image-generation', 'video-generation', 'tts', 'stt',
-    'veo', 'sora', 'ai-agent', 'claude-desktop',
+    'veo', 'kling', 'ai-agent', 'claude-desktop',
   ],
   license: 'Apache-2.0',
   compatibility: {
