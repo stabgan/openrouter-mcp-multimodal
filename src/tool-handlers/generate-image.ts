@@ -175,10 +175,10 @@ export async function handleGenerateImage(
       ? refusal
       : typeof messageContent === 'string'
         ? messageContent
-        : JSON.stringify(messageContent);
+        : (JSON.stringify(messageContent) ?? '(no content)');
     return toolError(
       ErrorCode.UPSTREAM_REFUSED,
-      `Model returned no image. ${refusal ? 'Refusal' : 'Text response'}: ${text.slice(0, 300)}`,
+      `Model returned no image. ${refusal ? 'Refusal' : 'Text response'}: ${(text ?? '(no content)').slice(0, 300)}`,
       {
         reason: refusal ? 'refusal' : 'no_image_in_response',
         finish_reason: completion.choices?.[0]?.finish_reason,
