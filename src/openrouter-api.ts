@@ -90,7 +90,7 @@ async function fetchWithRetry(
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const res = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
-      if (res.status === 429 || res.status >= 500) {
+      if (res.status === 408 || res.status === 429 || res.status >= 500) {
         if (attempt < retries) {
           const retryAfter = parseRetryAfter(res.headers.get('retry-after'));
           try {

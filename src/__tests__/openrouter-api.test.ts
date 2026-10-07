@@ -92,12 +92,28 @@ describe('fetchWithRetry', () => {
     return new Response(body, { status, ...init });
   }
 
-  it('does not retry 4xx other than 429', async () => {
+  it('does not retry 4xx other than 408 and 429', async () => {
     const fetchMock = vi.fn().mockResolvedValue(mockResponse(401));
     globalThis.fetch = fetchMock;
     const res = await fetchWithRetry('https://example.test', {}, { retries: 2, timeoutMs: 1000 });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(res.status).toBe(401);
+  });
+
+  it('retries 408 (Request Timeout) then succeeds', async () => {
+    const res408 = new Response('request timeout', { status: 408 });
+    vi.spyOn(res408.body!, 'cancel').mockResolvedValue(undefined);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(res408)
+      .mockResolvedValueOnce(mockResponse(200));
+    globalThis.fetch = fetchMock;
+
+    const promise = fetchWithRetry('https://example.test', {}, { retries: 2, timeoutMs: 1000 });
+    await vi.runAllTimersAsync();
+    const res = await promise;
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(res.status).toBe(200);
   });
 
   it('retries 429 and cancels the response body', async () => {
