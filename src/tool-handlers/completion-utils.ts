@@ -206,6 +206,22 @@ export function classifyEmptyCompletion(extracted: ExtractedText, label: string)
           ],
         },
       );
+    case 'tool_calls':
+    case 'function_call':
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `${label} responded with tool calls instead of text. ` +
+          'This MCP tool does not support multi-turn tool execution — ' +
+          'use a prompt or model that generates direct text output.',
+        details,
+        {
+          suggestions: [
+            'Rephrase the prompt so the model responds with text instead of calling tools',
+            'Use a different model that does not default to tool calling for this input',
+            'Remove any tools or function definitions from the conversation context',
+          ],
+        },
+      );
     default:
       return toolError(ErrorCode.INTERNAL, `${label} returned no textual content.`, details);
   }
