@@ -107,6 +107,7 @@ const CACHE_PROPERTIES = {
 export const TOOL_DEFINITIONS = [
   {
     name: 'chat_completion',
+    title: 'Chat completion',
     description: TOOL_DESCRIPTIONS.chat_completion,
     annotations: {
       title: 'Chat completion',
@@ -286,6 +287,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'start_chat_completion',
+    title: 'Start async chat completion',
     description: TOOL_DESCRIPTIONS.start_chat_completion,
     annotations: {
       title: 'Start async chat completion',
@@ -389,6 +391,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'get_chat_completion_status',
+    title: 'Get async chat completion status',
     description: TOOL_DESCRIPTIONS.get_chat_completion_status,
     annotations: {
       title: 'Get async chat completion status',
@@ -410,6 +413,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'analyze_image',
+    title: 'Analyze image',
     description: TOOL_DESCRIPTIONS.analyze_image,
     annotations: {
       title: 'Analyze image',
@@ -451,6 +455,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'analyze_audio',
+    title: 'Analyze audio',
     description: TOOL_DESCRIPTIONS.analyze_audio,
     annotations: {
       title: 'Analyze audio',
@@ -488,6 +493,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'analyze_video',
+    title: 'Analyze video',
     description: TOOL_DESCRIPTIONS.analyze_video,
     annotations: {
       title: 'Analyze video',
