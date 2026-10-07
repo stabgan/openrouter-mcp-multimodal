@@ -349,13 +349,24 @@ export async function resolveSpeechToTextAudio(
       maxRedirects: getMaxRedirects(),
     });
     assertWithinAudioInputLimit(buffer.length, 'Audio download');
-    const ext = path.extname(new URL(trimmed).pathname);
+    // Magic bytes first, then extension, then Content-Type — matches prepareAudioData.
+    const detected = detectAudioFormat(buffer);
     let format: string | undefined;
-    if (ext) {
+    if (detected.ext !== 'pcm') {
       try {
-        format = sttFormatFromExtension(ext);
+        format = sttFormatFromExtension(detected.ext);
       } catch {
         format = undefined;
+      }
+    }
+    if (!format) {
+      const ext = path.extname(new URL(trimmed).pathname);
+      if (ext) {
+        try {
+          format = sttFormatFromExtension(ext);
+        } catch {
+          format = undefined;
+        }
       }
     }
     format =
