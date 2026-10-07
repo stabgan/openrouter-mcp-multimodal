@@ -106,6 +106,31 @@ function extractErrorType(err: unknown): string | undefined {
   return undefined;
 }
 
+/**
+ * Extract the Node.js / system-level error `code` property (e.g.
+ * `'ECONNREFUSED'`, `'ENOTFOUND'`, `'ECONNRESET'`).  The OpenAI SDK
+ * preserves the original `cause` chain, so we walk up to two levels deep.
+ *
+ * Using the code property directly is more robust than relying on it
+ * appearing inside the error message string — SDK wrappers may rephrase
+ * the message while the code stays stable.
+ */
+function extractNodeErrorCode(err: unknown): string | undefined {
+  if (typeof err !== 'object' || err === null) return undefined;
+  const e = err as { code?: unknown; cause?: unknown };
+  if (typeof e.code === 'string' && e.code.length > 0 && !/^\d{3}$/.test(e.code)) {
+    return e.code;
+  }
+  // Walk `cause` — the OpenAI SDK wraps transport errors as `cause`.
+  if (e.cause && typeof e.cause === 'object') {
+    const cause = e.cause as { code?: unknown };
+    if (typeof cause.code === 'string' && cause.code.length > 0 && !/^\d{3}$/.test(cause.code)) {
+      return cause.code;
+    }
+  }
+  return undefined;
+}
+
 function isAuthFailure(
   status: number | undefined,
   lower: string,
@@ -195,6 +220,7 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
   const rawMsg = extractMessage(err);
   const status = extractStatus(err);
   const errorType = extractErrorType(err);
+  const nodeCode = extractNodeErrorCode(err);
   const lower = rawMsg.toLowerCase();
   const fullMsg = contextMessage ? `${contextMessage}: ${rawMsg}` : rawMsg;
   const retryAfterSeconds = extractRetryAfterSeconds(err);
@@ -280,8 +306,10 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
     lower.includes('timeout') ||
     // Catch AbortSignal-based cancellations ("The operation was aborted")
     // but not ECONNABORTED which is a connection interruption, not a timeout.
-    (lower.includes('aborted') && !lower.includes('econnaborted')) ||
-    (err instanceof Error && (err as { name?: string }).name === 'AbortError')
+    (lower.includes('aborted') && !lower.includes('econnaborted') && nodeCode !== 'ECONNABORTED') ||
+    (err instanceof Error && (err as { name?: string }).name === 'AbortError') ||
+    nodeCode === 'ETIMEDOUT' ||
+    nodeCode === 'UND_ERR_CONNECT_TIMEOUT'
   ) {
     return toolError(
       ErrorCode.UPSTREAM_TIMEOUT,
@@ -308,7 +336,11 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
     lower.includes('econnrefused') ||
     lower.includes('enotfound') ||
     lower.includes('enetunreach') ||
-    lower.includes('ehostunreach')
+    lower.includes('ehostunreach') ||
+    nodeCode === 'ECONNREFUSED' ||
+    nodeCode === 'ENOTFOUND' ||
+    nodeCode === 'ENETUNREACH' ||
+    nodeCode === 'EHOSTUNREACH'
   ) {
     return toolError(
       ErrorCode.UPSTREAM_REFUSED,
@@ -327,7 +359,7 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
   // Temporary DNS resolution failures — unlike ENOTFOUND (permanent), EAI_AGAIN is
   // transient and usually resolves on retry. Common during brief network hiccups or
   // DNS server overload.
-  if (lower.includes('eai_again')) {
+  if (lower.includes('eai_again') || nodeCode === 'EAI_AGAIN') {
     return toolError(
       ErrorCode.UPSTREAM_REFUSED,
       fullMsg,
@@ -348,7 +380,10 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
     lower.includes('econnreset') ||
     lower.includes('epipe') ||
     lower.includes('socket hang up') ||
-    lower.includes('econnaborted')
+    lower.includes('econnaborted') ||
+    nodeCode === 'ECONNRESET' ||
+    nodeCode === 'EPIPE' ||
+    nodeCode === 'ECONNABORTED'
   ) {
     return toolError(
       ErrorCode.UPSTREAM_HTTP,
@@ -384,7 +419,7 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
   // TLS protocol errors — version mismatches, cipher suite incompatibilities,
   // or corrupted TLS handshakes. Common behind corporate proxies that
   // intercept HTTPS traffic with incompatible TLS settings.
-  if (lower.includes('eproto') || lower.includes('ssl routines')) {
+  if (lower.includes('eproto') || lower.includes('ssl routines') || nodeCode === 'EPROTO') {
     return toolError(
       ErrorCode.UPSTREAM_REFUSED,
       fullMsg,

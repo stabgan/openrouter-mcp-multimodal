@@ -427,3 +427,83 @@ describe('classifyUpstreamError — TLS/certificate errors', () => {
     expect(r.content[0].text.startsWith('generate_image:')).toBe(true);
   });
 });
+
+describe('classifyUpstreamError — code-property classification', () => {
+  it('classifies ECONNREFUSED via code property even when message lacks the code', () => {
+    const err = Object.assign(new Error('Connection refused'), { code: 'ECONNREFUSED' });
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_REFUSED');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'network' });
+  });
+
+  it('classifies ENOTFOUND via code property even when message lacks the code', () => {
+    const err = Object.assign(new Error('DNS lookup failed'), { code: 'ENOTFOUND' });
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_REFUSED');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'network' });
+  });
+
+  it('classifies ECONNRESET via code property even when message lacks the code', () => {
+    const err = Object.assign(new Error('Connection was reset by peer'), { code: 'ECONNRESET' });
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_HTTP');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'connection_reset' });
+  });
+
+  it('classifies EPIPE via code property even when message lacks the code', () => {
+    const err = Object.assign(new Error('Broken pipe'), { code: 'EPIPE' });
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_HTTP');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'connection_reset' });
+  });
+
+  it('classifies ECONNABORTED via code property even when message lacks the code', () => {
+    const err = Object.assign(new Error('Connection aborted'), { code: 'ECONNABORTED' });
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_HTTP');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'connection_reset' });
+  });
+
+  it('classifies EAI_AGAIN via code property even when message lacks the code', () => {
+    const err = Object.assign(new Error('Temporary DNS failure'), { code: 'EAI_AGAIN' });
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_REFUSED');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'dns_transient' });
+  });
+
+  it('classifies EPROTO via code property even when message lacks the code', () => {
+    const err = Object.assign(new Error('TLS handshake failed'), { code: 'EPROTO' });
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_REFUSED');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'tls' });
+  });
+
+  it('classifies ETIMEDOUT via code property as UPSTREAM_TIMEOUT', () => {
+    const err = Object.assign(new Error('Connect failed'), { code: 'ETIMEDOUT' });
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_TIMEOUT');
+  });
+
+  it('classifies UND_ERR_CONNECT_TIMEOUT (undici) as UPSTREAM_TIMEOUT', () => {
+    const err = Object.assign(new Error('Connect failed'), {
+      code: 'UND_ERR_CONNECT_TIMEOUT',
+    });
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_TIMEOUT');
+  });
+
+  it('extracts code from cause chain (SDK wrapper pattern)', () => {
+    const inner = Object.assign(new Error('connect refused'), { code: 'ECONNREFUSED' });
+    const outer = Object.assign(new Error('API connection error'), { cause: inner });
+    const r = classifyUpstreamError(outer);
+    expect(r._meta.code).toBe('UPSTREAM_REFUSED');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'network' });
+  });
+
+  it('ignores numeric-string codes (HTTP status codes) as node error codes', () => {
+    const err = Object.assign(new Error('Some upstream error'), { code: '500' });
+    const r = classifyUpstreamError(err);
+    // Should use status-based classification, not code-property classification
+    expect(r._meta.code).toBe('UPSTREAM_HTTP');
+  });
+});
