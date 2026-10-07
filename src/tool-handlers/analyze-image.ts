@@ -39,7 +39,7 @@ export async function handleAnalyzeImage(
   const args = request.params.arguments ?? ({ image_path: '' } as AnalyzeImageToolRequest);
   const { image_path, question, model, cache_input, cache, cache_ttl, cache_clear } = args;
 
-  if (!image_path) {
+  if (!image_path?.trim()) {
     return toolError(ErrorCode.INVALID_INPUT, 'image_path is required.');
   }
 

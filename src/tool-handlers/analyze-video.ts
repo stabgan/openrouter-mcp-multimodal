@@ -40,7 +40,7 @@ export async function handleAnalyzeVideo(
   const args = request.params.arguments ?? ({ video_path: '' } as AnalyzeVideoToolRequest);
   const { video_path, question, model, cache_input, cache, cache_ttl, cache_clear } = args;
 
-  if (!video_path) {
+  if (!video_path?.trim()) {
     return toolError(ErrorCode.INVALID_INPUT, 'video_path is required.');
   }
 

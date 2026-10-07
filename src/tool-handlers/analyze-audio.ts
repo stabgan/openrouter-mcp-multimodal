@@ -39,7 +39,7 @@ export async function handleAnalyzeAudio(
   const args = request.params.arguments ?? ({ audio_path: '' } as AnalyzeAudioToolRequest);
   const { audio_path, question, model, cache_input, cache, cache_ttl, cache_clear } = args;
 
-  if (!audio_path) {
+  if (!audio_path?.trim()) {
     return toolError(ErrorCode.INVALID_INPUT, 'audio_path is required.');
   }
 

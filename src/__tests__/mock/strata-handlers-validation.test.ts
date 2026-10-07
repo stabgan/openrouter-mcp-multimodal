@@ -68,13 +68,13 @@ describe('mock strata: handler INVALID_INPUT guards', () => {
   });
 
   const blankPathCases = ['', '   ', '\t'];
-  it.each([''])('analyze_image rejects blank image_path %j', async (p) => {
+  it.each(blankPathCases)('analyze_image rejects blank image_path %j', async (p) => {
     const r = await handleAnalyzeImage({ params: { arguments: { image_path: p } } }, mockOpenAI());
     expect(r.isError).toBe(true);
     expect((r as { _meta: { code: string } })._meta.code).toBe('INVALID_INPUT');
   });
 
-  it.each([''])('analyze_audio rejects blank audio_path %j', async (p) => {
+  it.each(blankPathCases)('analyze_audio rejects blank audio_path %j', async (p) => {
     const r = await handleAnalyzeAudio({ params: { arguments: { audio_path: p } } }, mockOpenAI());
     expect(r.isError).toBe(true);
     expect((r as { _meta: { code: string } })._meta.code).toBe('INVALID_INPUT');
