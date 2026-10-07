@@ -108,6 +108,9 @@ export async function handleChatCompletion(
   const cacheMeta = extractCacheMeta(responseHeaders);
   const extra: Record<string, unknown> = { server_version: SERVER_VERSION };
   if (cacheMeta) extra.cache = cacheMeta;
+  // Web search injects untrusted web content into the model's context —
+  // flag the output so downstream agents treat it with appropriate caution.
+  if (online) extra.content_is_untrusted = true;
 
   const capped = capResultText(extracted.text);
   if (capped.truncated) extra.result_truncated = true;

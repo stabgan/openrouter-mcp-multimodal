@@ -5,6 +5,8 @@ import { handleAnalyzeImage } from '../tool-handlers/analyze-image.js';
 import { handleAnalyzeAudio } from '../tool-handlers/analyze-audio.js';
 import { handleAnalyzeVideo } from '../tool-handlers/analyze-video.js';
 import { handleSpeechToText } from '../tool-handlers/speech-to-text.js';
+import { handleChatCompletion } from '../tool-handlers/chat-completion.js';
+import { handleStartChatCompletion } from '../tool-handlers/async-chat.js';
 import { withInputSandbox } from './helpers/input-sandbox.js';
 import type OpenAI from 'openai';
 import type { OpenRouterAPIClient } from '../openrouter-api.js';
@@ -104,5 +106,62 @@ describe('content_is_untrusted hint', () => {
         (r as { _meta?: { content_is_untrusted?: boolean } })._meta?.content_is_untrusted,
       ).toBe(true);
     });
+  });
+
+  it('chat_completion marks output untrusted when online is true', async () => {
+    const { openai } = mockOpenAI('Here are the latest results from the web.');
+    const r = await handleChatCompletion(
+      {
+        params: {
+          arguments: {
+            messages: [{ role: 'user', content: 'search for news' }],
+            online: true,
+          },
+        },
+      },
+      openai,
+    );
+    expect(r.isError).toBeUndefined();
+    expect((r as { _meta?: { content_is_untrusted?: boolean } })._meta?.content_is_untrusted).toBe(
+      true,
+    );
+  });
+
+  it('chat_completion does NOT mark output untrusted when online is false', async () => {
+    const { openai } = mockOpenAI('Just a regular response.');
+    const r = await handleChatCompletion(
+      {
+        params: {
+          arguments: {
+            messages: [{ role: 'user', content: 'hello' }],
+          },
+        },
+      },
+      openai,
+    );
+    expect(r.isError).toBeUndefined();
+    expect(
+      (r as { _meta?: { content_is_untrusted?: boolean } })._meta?.content_is_untrusted,
+    ).toBeUndefined();
+  });
+
+  it('start_chat_completion marks output untrusted when online is true', async () => {
+    const { openai } = mockOpenAI('Web search results here.');
+    const r = await handleStartChatCompletion(
+      {
+        params: {
+          arguments: {
+            messages: [{ role: 'user', content: 'search news' }],
+            online: true,
+          },
+        },
+      },
+      openai,
+    );
+    // start_chat_completion returns immediately with a job_id; the untrusted
+    // flag appears on the completed job result, not on the start response.
+    expect(r.isError).toBeUndefined();
+    const meta = (r as { _meta?: { job_id?: string } })._meta;
+    expect(meta?.job_id).toBeDefined();
   });
 });

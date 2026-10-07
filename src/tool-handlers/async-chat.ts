@@ -288,11 +288,15 @@ async function runCompletionInBackground(
         job.error = 'Model returned no textual content.';
       } else {
         job.status = 'completed';
+        // Web search injects untrusted web content into the model's context —
+        // flag the output so downstream agents treat it with appropriate caution.
+        const completionExtra: Record<string, unknown> = { server_version: SERVER_VERSION };
+        if (opts.online) completionExtra.content_is_untrusted = true;
         job.result = {
           text: extracted.text,
           meta: buildCompletionMeta(extracted, {
             includeReasoning: wantsReasoning,
-            extra: { server_version: SERVER_VERSION },
+            extra: completionExtra,
           }),
         };
       }
