@@ -169,7 +169,7 @@ export async function handleGenerateAudio(
       const modelText = transcript || textContent;
       const modelTextLabel = transcript ? 'transcript only' : 'text only';
       return toolError(
-        isContentFiltered ? ErrorCode.UPSTREAM_REFUSED : ErrorCode.UPSTREAM_REFUSED,
+        isContentFiltered ? ErrorCode.UPSTREAM_REFUSED : ErrorCode.UNSUPPORTED_FORMAT,
         modelText
           ? `No audio returned${reasonHint} (model emitted ${modelTextLabel}): ${modelText.slice(0, 300)}`
           : `No audio returned${reasonHint}.`,

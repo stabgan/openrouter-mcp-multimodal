@@ -278,20 +278,20 @@ describe('handleGenerateAudio', () => {
     expect(openai.chat.completions.create).not.toHaveBeenCalled();
   });
 
-  it('returns UPSTREAM_REFUSED when stream has transcript but no audio', async () => {
+  it('returns UNSUPPORTED_FORMAT when stream has transcript but no audio', async () => {
     const openai = mockAudioStream([{ transcript: 'hello only' }]);
     const r = await handleGenerateAudio({ params: { arguments: { prompt: 'hi' } } }, openai);
     expect(r.isError).toBe(true);
-    expect((r as { _meta: { code: string } })._meta.code).toBe(ErrorCode.UPSTREAM_REFUSED);
+    expect((r as { _meta: { code: string } })._meta.code).toBe(ErrorCode.UNSUPPORTED_FORMAT);
     expect(r.content[0]?.text).toContain('transcript only');
     expect((r as { _meta: { suggestions?: string[] } })._meta.suggestions).toBeDefined();
   });
 
-  it('returns UPSTREAM_REFUSED for empty stream', async () => {
+  it('returns UNSUPPORTED_FORMAT for empty stream', async () => {
     const openai = mockAudioStream([]);
     const r = await handleGenerateAudio({ params: { arguments: { prompt: 'hi' } } }, openai);
     expect(r.isError).toBe(true);
-    expect((r as { _meta: { code: string } })._meta.code).toBe(ErrorCode.UPSTREAM_REFUSED);
+    expect((r as { _meta: { code: string } })._meta.code).toBe(ErrorCode.UNSUPPORTED_FORMAT);
     expect(r.content[0]?.text).toContain('No audio returned');
     expect((r as { _meta: { suggestions?: string[] } })._meta.suggestions).toBeDefined();
   });
