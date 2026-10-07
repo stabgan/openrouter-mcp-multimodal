@@ -212,6 +212,22 @@ export function isBlockedIPv6(ip: string): boolean {
     return isBlockedIPv4(dotted);
   }
 
+  // NAT64 Well-Known Prefix (RFC 6052) — 64:ff9b::/96
+  // Embeds IPv4 in the last 32 bits; block if the embedded IPv4 is private.
+  if (g0 === 0x0064 && g1 === 0xff9b && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0) {
+    const v4 = ((g6 << 16) >>> 0) | g7;
+    const dotted = `${(v4 >>> 24) & 0xff}.${(v4 >>> 16) & 0xff}.${(v4 >>> 8) & 0xff}.${v4 & 0xff}`;
+    return isBlockedIPv4(dotted);
+  }
+
+  // NAT64 Local-Use Prefix (RFC 8215) — 64:ff9b:1::/48
+  // Same embedded-IPv4 position (last 32 bits); g3–g5 are subnet bits.
+  if (g0 === 0x0064 && g1 === 0xff9b && g2 === 0x0001) {
+    const v4 = ((g6 << 16) >>> 0) | g7;
+    const dotted = `${(v4 >>> 24) & 0xff}.${(v4 >>> 16) & 0xff}.${(v4 >>> 8) & 0xff}.${v4 & 0xff}`;
+    return isBlockedIPv4(dotted);
+  }
+
   return false;
 }
 

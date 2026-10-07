@@ -65,6 +65,31 @@ describe('isBlockedIPv6 — comprehensive', () => {
     expect(isBlockedIPv6('2001:20::1')).toBe(true);
   });
 
+  it('blocks NAT64 well-known prefix (64:ff9b::/96) encoding private IPv4', () => {
+    expect(isBlockedIPv6('64:ff9b::127.0.0.1')).toBe(true); // loopback
+    expect(isBlockedIPv6('64:ff9b::10.0.0.1')).toBe(true); // RFC1918
+    expect(isBlockedIPv6('64:ff9b::192.168.1.1')).toBe(true); // RFC1918
+    expect(isBlockedIPv6('64:ff9b::169.254.169.254')).toBe(true); // link-local / metadata
+    expect(isBlockedIPv6('64:ff9b::172.16.0.1')).toBe(true); // RFC1918
+    expect(isBlockedIPv6('64:ff9b::0:7f00:1')).toBe(true); // 127.0.0.1 hex form
+  });
+
+  it('allows NAT64 well-known prefix encoding public IPv4', () => {
+    expect(isBlockedIPv6('64:ff9b::8.8.8.8')).toBe(false);
+    expect(isBlockedIPv6('64:ff9b::1.1.1.1')).toBe(false);
+  });
+
+  it('blocks NAT64 local-use prefix (64:ff9b:1::/48) encoding private IPv4', () => {
+    expect(isBlockedIPv6('64:ff9b:1::7f00:1')).toBe(true); // 127.0.0.1
+    expect(isBlockedIPv6('64:ff9b:1::a9fe:a9fe')).toBe(true); // 169.254.169.254
+    expect(isBlockedIPv6('64:ff9b:1::a00:1')).toBe(true); // 10.0.0.1
+    expect(isBlockedIPv6('64:ff9b:1:abcd:ef01:2345:c0a8:1')).toBe(true); // 192.168.0.1 with subnet bits
+  });
+
+  it('allows NAT64 local-use prefix encoding public IPv4', () => {
+    expect(isBlockedIPv6('64:ff9b:1::808:808')).toBe(false); // 8.8.8.8
+  });
+
   it('allows public addresses', () => {
     expect(isBlockedIPv6('2001:4860:4860::8888')).toBe(false); // Google DNS
     expect(isBlockedIPv6('2606:4700:4700::1111')).toBe(false); // Cloudflare
