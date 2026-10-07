@@ -111,6 +111,11 @@ export async function handleGenerateAudio(
   try {
     const audioChunks: string[] = [];
     const transcriptChunks: string[] = [];
+    // Capture plain text content from delta.content — models that cannot
+    // generate audio may fall back to a text-only response explaining why.
+    // Without this the caller sees a generic "No audio returned" message
+    // instead of the model's actual explanation.
+    const contentChunks: string[] = [];
     let approxRawBytes = 0;
     const maxBytes = getAudioGenMaxBytes();
     let finishReason: string | undefined;
@@ -131,6 +136,9 @@ export async function handleGenerateAudio(
       if (typedChunk.usage) streamUsage = typedChunk.usage;
 
       const delta = choice?.delta;
+      if (delta && typeof delta.content === 'string') {
+        contentChunks.push(delta.content);
+      }
       if (delta && typeof delta === 'object' && delta.audio) {
         const a = delta.audio as { data?: unknown; transcript?: unknown };
         if (typeof a.data === 'string') {
@@ -149,16 +157,21 @@ export async function handleGenerateAudio(
     }
 
     const transcript = transcriptChunks.join('');
+    const textContent = contentChunks.join('');
 
     if (audioChunks.length === 0) {
       // Surface finish_reason so callers know *why* no audio was returned.
       // content_filter is the most common non-obvious case.
       const isContentFiltered = finishReason === 'content_filter';
       const reasonHint = finishReason ? ` (finish_reason: ${finishReason})` : '';
+      // Prefer transcript (from delta.audio.transcript) over plain text
+      // content (from delta.content) since the transcript is audio-specific.
+      const modelText = transcript || textContent;
+      const modelTextLabel = transcript ? 'transcript only' : 'text only';
       return toolError(
         isContentFiltered ? ErrorCode.UPSTREAM_REFUSED : ErrorCode.UPSTREAM_REFUSED,
-        transcript
-          ? `No audio returned${reasonHint} (model emitted transcript only): ${transcript.slice(0, 300)}`
+        modelText
+          ? `No audio returned${reasonHint} (model emitted ${modelTextLabel}): ${modelText.slice(0, 300)}`
           : `No audio returned${reasonHint}.`,
         {
           reason: isContentFiltered ? 'content_filter' : 'no_audio_in_stream',
