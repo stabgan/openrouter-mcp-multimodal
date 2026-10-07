@@ -8,6 +8,7 @@ import {
   UnsafeOutputPathError,
 } from './path-safety.js';
 import { parseBase64DataUrl } from './fetch-utils.js';
+import { extensionForImageMime } from './image-utils.js';
 import { buildUserContent } from './generate-image-input.js';
 import { asOpenAIChatBody } from './chat-request.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
@@ -40,17 +41,6 @@ const DEFAULT_MODEL = 'google/gemini-2.5-flash-image';
 const VALID_ASPECT_RATIOS = new Set<string>(IMAGE_ASPECT_RATIOS);
 
 const VALID_IMAGE_SIZES = new Set(['0.5K', '1K', '2K', '4K']);
-
-/** Map a resolved MIME type to a file extension for save_path correction. */
-function extensionForImageMime(mime: string): string {
-  if (mime.includes('svg')) return 'svg';
-  if (mime.includes('webp')) return 'webp';
-  if (mime.includes('jpeg') || mime.includes('jpg')) return 'jpg';
-  if (mime.includes('gif')) return 'gif';
-  if (mime.includes('bmp')) return 'bmp';
-  // Default to png for image/png and any unknown image type.
-  return 'png';
-}
 
 export async function handleGenerateImage(
   request: { params: { arguments: GenerateImageToolRequest } },

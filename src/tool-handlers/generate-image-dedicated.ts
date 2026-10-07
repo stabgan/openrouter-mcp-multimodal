@@ -18,9 +18,9 @@ import { logger } from '../logger.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
 import { buildBinaryToolResult } from './tool-result-payload.js';
 import { fetchHttpResource, readEnvInt } from './fetch-utils.js';
+import { extensionForImageMime, sniffImageMime } from './image-utils.js';
 import { type CacheOptions, buildCacheHeaders, validateCacheOptions } from './cache.js';
 import { replaceExtension, writeOutputFile } from './path-utils.js';
-import { sniffImageMime } from './image-utils.js';
 import {
   readProviderDefaults,
   mergeProviderOptions,
@@ -55,15 +55,6 @@ const MIME_BY_FORMAT: Record<string, string> = {
   svg: 'image/svg+xml',
   jpeg: 'image/jpeg',
 };
-
-/** Map a resolved MIME type to a file extension for save_path correction. */
-function extensionForImageMime(mime: string): string {
-  if (mime.includes('svg')) return 'svg';
-  if (mime.includes('webp')) return 'webp';
-  if (mime.includes('jpeg') || mime.includes('jpg')) return 'jpg';
-  // Default to png for image/png and any unknown image type.
-  return 'png';
-}
 
 export async function handleGenerateImageDedicated(
   request: { params: { arguments: GenerateImageDedicatedRequest } },

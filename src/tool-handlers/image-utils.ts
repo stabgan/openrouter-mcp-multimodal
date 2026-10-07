@@ -72,6 +72,21 @@ const IMAGE_EXT_MIME: Record<string, string> = {
   bmp: 'image/bmp',
 };
 
+/**
+ * Map a resolved MIME type to a file extension for save_path correction.
+ * Shared by generate_image, generate_image_dedicated, and any handler that
+ * needs to correct a caller-supplied extension to match the actual format.
+ */
+export function extensionForImageMime(mime: string): string {
+  if (mime.includes('svg')) return 'svg';
+  if (mime.includes('webp')) return 'webp';
+  if (mime.includes('jpeg') || mime.includes('jpg')) return 'jpg';
+  if (mime.includes('gif')) return 'gif';
+  if (mime.includes('bmp')) return 'bmp';
+  // Default to png for image/png and any unknown image type.
+  return 'png';
+}
+
 export function mimeFromExtension(ext: string): string | null {
   const normalized = ext.toLowerCase().replace(/^\./, '');
   if (!normalized) return null;
