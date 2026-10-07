@@ -1,6 +1,5 @@
 import OpenAI from 'openai';
 import type { ChatCompletion } from 'openai/resources/chat/completions.js';
-import { ErrorCode, toolError } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
 import {
@@ -8,6 +7,7 @@ import {
   detectReasoningCutoff,
   buildCompletionMeta,
   capResultText,
+  classifyEmptyCompletion,
 } from './completion-utils.js';
 import { extractCacheMeta, validateCacheOptions } from './cache.js';
 import { awaitCompletionWithHeaders } from './openai-withresponse.js';
@@ -110,10 +110,7 @@ export async function handleChatCompletion(
   if (cutoff) return cutoff;
 
   if (!extracted.text) {
-    return toolError(ErrorCode.INTERNAL, 'Model returned no textual content.', {
-      finish_reason: extracted.finishReason,
-      native_finish_reason: extracted.nativeFinishReason,
-    });
+    return classifyEmptyCompletion(extracted, 'Model');
   }
 
   const cacheMeta = extractCacheMeta(responseHeaders);

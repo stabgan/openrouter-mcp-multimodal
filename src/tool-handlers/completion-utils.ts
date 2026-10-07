@@ -165,6 +165,52 @@ export function detectReasoningCutoff(extracted: ExtractedText): ToolErrorResult
   return null;
 }
 
+/**
+ * Classify an empty-text completion into the correct `ErrorCode` based on
+ * `finish_reason`. Previously every handler used `ErrorCode.INTERNAL` for
+ * this case, which is misleading when the model was content-filtered or
+ * hit `max_tokens` without emitting text. `generate_audio` already handled
+ * `content_filter` correctly; this brings parity to all chat/analyze tools.
+ */
+export function classifyEmptyCompletion(extracted: ExtractedText, label: string): ToolErrorResult {
+  const details: Record<string, unknown> = {
+    finish_reason: extracted.finishReason,
+  };
+  if (extracted.nativeFinishReason) {
+    details.native_finish_reason = extracted.nativeFinishReason;
+  }
+
+  switch (extracted.finishReason) {
+    case 'content_filter':
+      return toolError(
+        ErrorCode.UPSTREAM_REFUSED,
+        `${label} was blocked by the content filter.`,
+        details,
+        {
+          suggestions: [
+            'Rephrase the prompt — the model content filter blocked the request',
+            'Try a different model or provider via provider.order',
+          ],
+        },
+      );
+    case 'length':
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `${label} hit max_tokens without producing output. Raise max_tokens or shorten the input.`,
+        details,
+        {
+          suggestions: [
+            'Raise max_tokens',
+            'Shorten the input messages',
+            'Use a model with a larger context window',
+          ],
+        },
+      );
+    default:
+      return toolError(ErrorCode.INTERNAL, `${label} returned no textual content.`, details);
+  }
+}
+
 export function toUsageMeta(
   usage: ChatCompletion['usage'] | undefined,
 ): Record<string, unknown> | undefined {

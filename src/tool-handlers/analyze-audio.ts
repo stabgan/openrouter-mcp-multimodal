@@ -9,6 +9,7 @@ import {
   detectReasoningCutoff,
   buildCompletionMeta,
   capResultText,
+  classifyEmptyCompletion,
 } from './completion-utils.js';
 import {
   type CacheOptions,
@@ -102,9 +103,7 @@ export async function handleAnalyzeAudio(
   if (cutoff) return cutoff;
 
   if (!extracted.text) {
-    return toolError(ErrorCode.INTERNAL, 'Audio model returned no textual content.', {
-      finish_reason: extracted.finishReason,
-    });
+    return classifyEmptyCompletion(extracted, 'Audio model');
   }
 
   const cacheMeta = extractCacheMeta(responseHeaders);

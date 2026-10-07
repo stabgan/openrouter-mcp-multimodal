@@ -12,6 +12,7 @@ import {
   detectReasoningCutoff,
   buildCompletionMeta,
   capResultText,
+  classifyEmptyCompletion,
 } from './completion-utils.js';
 import { resolveSafeJobStatusPath, isValidJobId } from './path-safety.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
@@ -300,9 +301,12 @@ async function runCompletionInBackground(
 
       if (!extracted.text) {
         job.status = 'failed';
-        job.error_code = ErrorCode.INTERNAL;
-        const frHint = extracted.finishReason ? ` (finish_reason: ${extracted.finishReason})` : '';
-        job.error = `Model returned no textual content${frHint}.`;
+        const classified = classifyEmptyCompletion(extracted, 'Model');
+        job.error_code = classified._meta.code;
+        job.error = classified.content[0]?.text ?? 'Model returned no textual content.';
+        if (classified._meta.suggestions) {
+          job.error_suggestions = classified._meta.suggestions as string[];
+        }
       } else {
         job.status = 'completed';
         // Web search injects untrusted web content into the model's context —
