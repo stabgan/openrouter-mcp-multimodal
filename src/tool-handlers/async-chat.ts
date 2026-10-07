@@ -243,14 +243,24 @@ export async function handleStartChatCompletion(
     cache_ttl,
     cache_clear,
   }).catch((err) => {
-    logger.error('async_chat.unhandled', {
-      job_id: job.id,
-      err: err instanceof Error ? err.message : String(err),
-    });
-    if (job.status === 'running') {
-      job.status = 'failed';
-      job.error = 'Unexpected error during background completion.';
-      job.error_code = ErrorCode.INTERNAL;
+    // Guarded so a throw here cannot surface as an unhandledRejection
+    // (the entire chain is void-ed).
+    try {
+      logger.error('async_chat.unhandled', {
+        job_id: job.id,
+        err: err instanceof Error ? err.message : String(err),
+      });
+      if (job.status === 'running') {
+        job.status = 'failed';
+        job.error = 'Unexpected error during background completion.';
+        job.error_code = ErrorCode.INTERNAL;
+      }
+      // Best-effort persist + evict — mirrors the cleanup at the end of
+      // runCompletionInBackground that may not have executed.
+      persistJob(job).catch(() => undefined);
+      evictTerminalJobsIfNeeded();
+    } catch {
+      /* last-resort guard — never let .catch() itself reject */
     }
   });
 
