@@ -387,7 +387,25 @@ If still failing, use the full path from `where npx` as the command.
 | `rerank_documents`           | Relevance ranking for RAG                                                  |
 | `health_check`               | API key + reachability probe                                               |
 
-Errors use a closed `_meta.code` taxonomy: `INVALID_INPUT` · `UNSAFE_PATH` · `UPSTREAM_*` · `MODEL_NOT_FOUND` · `JOB_STILL_RUNNING` · and more.
+Every error carries `_meta.code` from a closed taxonomy (13 codes). Switch on these for programmatic handling:
+
+| `_meta.code` | Meaning | Recovery |
+| :--- | :--- | :--- |
+| `INVALID_INPUT` | Bad or missing arguments | Check tool description for correct schema |
+| `INVALID_CREDENTIALS` | API key missing, invalid, or revoked | Regenerate at [openrouter.ai/keys](https://openrouter.ai/keys) |
+| `UNSAFE_PATH` | Local path escaped the input/output sandbox | Move files under `OPENROUTER_INPUT_DIR` / `OPENROUTER_OUTPUT_DIR` |
+| `UPSTREAM_HTTP` | Non-auth HTTP error from OpenRouter (4xx/5xx) | Check `_meta.details.status`; retry if transient |
+| `UPSTREAM_TIMEOUT` | Upstream did not respond in time | Retry, or use `start_chat_completion` for slow models |
+| `UPSTREAM_REFUSED` | Content policy, rate limit, or insufficient credits | Check `_meta.retry_after_seconds`; review prompt or add credits |
+| `UNSUPPORTED_FORMAT` | File is not a recognized media format | Verify file type matches tool expectations |
+| `RESOURCE_TOO_LARGE` | File exceeds fetch/inline size cap | Trim file or use `save_path` to skip inline |
+| `ZDR_INCOMPATIBLE` | Model/provider requires zero data retention | Use a ZDR-compatible provider or different model |
+| `MODEL_NOT_FOUND` | Model slug not in OpenRouter catalog | Run `validate_model` or `search_models` first |
+| `JOB_FAILED` | Async job (video/chat) failed on provider side | Check `_meta.details`; retry or change model |
+| `JOB_STILL_RUNNING` | Async job not yet complete (not an error) | Call `get_video_status` / `get_chat_completion_status` to poll |
+| `INTERNAL` | Unexpected server-side error | Report if reproducible |
+
+Errors include `_meta.suggestions` with agent-oriented next steps when available.
 
 ### Binary tool results (v4.7.0+)
 
