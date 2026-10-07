@@ -17,8 +17,14 @@ import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
 import { buildBinaryToolResult } from './tool-result-payload.js';
-import { fetchHttpResource, readEnvInt } from './fetch-utils.js';
-import { extensionForImageMime, sniffImageMime } from './image-utils.js';
+import { fetchHttpResource } from './fetch-utils.js';
+import {
+  extensionForImageMime,
+  getMaxDownloadBytes,
+  getMaxRedirects,
+  getFetchTimeoutMs,
+  sniffImageMime,
+} from './image-utils.js';
 import { type CacheOptions, buildCacheHeaders, validateCacheOptions } from './cache.js';
 import { replaceExtension, writeOutputFile } from './path-utils.js';
 import {
@@ -258,11 +264,10 @@ export async function handleGenerateImageDedicated(
 
     if (firstImage.url) {
       try {
-        const maxBytes = readEnvInt('OPENROUTER_IMAGE_MAX_DOWNLOAD_BYTES', 20 * 1024 * 1024, 1024);
         const { buffer: fetched, contentType } = await fetchHttpResource(firstImage.url, {
-          maxBytes,
-          maxRedirects: 3,
-          timeoutMs: 30_000,
+          maxBytes: getMaxDownloadBytes(),
+          maxRedirects: getMaxRedirects(),
+          timeoutMs: getFetchTimeoutMs(),
         });
         if (fetched.length === 0) {
           return toolError(ErrorCode.UPSTREAM_REFUSED, 'Downloaded image URL returned empty body.');

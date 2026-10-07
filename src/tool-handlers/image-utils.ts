@@ -28,15 +28,15 @@ export function getImageJpegQuality(): number {
   return readEnvInt('OPENROUTER_IMAGE_JPEG_QUALITY', DEFAULT_JPEG_QUALITY, 1);
 }
 
-function getFetchTimeoutMs(): number {
+export function getFetchTimeoutMs(): number {
   return readEnvInt('OPENROUTER_IMAGE_FETCH_TIMEOUT_MS', DEFAULT_FETCH_TIMEOUT_MS, 1000);
 }
 
-function getMaxDownloadBytes(): number {
+export function getMaxDownloadBytes(): number {
   return readEnvInt('OPENROUTER_IMAGE_MAX_DOWNLOAD_BYTES', DEFAULT_MAX_DOWNLOAD_BYTES, 1024);
 }
 
-function getMaxRedirects(): number {
+export function getMaxRedirects(): number {
   return readEnvInt('OPENROUTER_IMAGE_MAX_REDIRECTS', DEFAULT_MAX_REDIRECTS, 0);
 }
 

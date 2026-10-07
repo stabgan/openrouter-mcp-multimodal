@@ -111,7 +111,7 @@ describe('save_path sandbox guards (resolveOptionalOutputPath)', () => {
 
     expect(fetchUtils.fetchHttpResource).toHaveBeenCalledWith(
       'https://example.com/generated.png',
-      expect.objectContaining({ maxRedirects: 3 }),
+      expect.objectContaining({ maxRedirects: 8 }),
     );
     expect(r.content).toHaveLength(1);
     expect(r.content[0]?.type).toBe('text');
