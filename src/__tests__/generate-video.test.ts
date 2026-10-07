@@ -27,6 +27,8 @@ describe('generate-video internals', () => {
       },
       'google/veo-3.1',
     );
+    // provider is intentionally excluded — it is merged with env defaults
+    // by the caller, not by buildRequestBody.
     expect(body).toEqual({
       model: 'google/veo-3.1',
       prompt: 'a cat',
@@ -34,7 +36,6 @@ describe('generate-video internals', () => {
       aspect_ratio: '16:9',
       duration: 8,
       seed: 42,
-      provider: { 'google-vertex': { negative_prompt: 'blurry' } },
     });
   });
 

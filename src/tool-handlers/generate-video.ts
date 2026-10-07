@@ -34,6 +34,8 @@ const SORA_DEPRECATED_MODELS = new Set([
   'openai/sora-2-pro-2025-10-06',
 ]);
 
+const SORA_REMOVAL_DATE = new Date('2026-09-24T00:00:00Z');
+
 const SORA_ALTERNATIVES = [
   'google/veo-3.1 (recommended — fast, audio support)',
   'google/veo-3.1-fast (budget-friendly)',
@@ -51,10 +53,20 @@ function checkSoraDeprecation(model: string): string | null {
   if (!SORA_DEPRECATED_MODELS.has(normalized) && !normalized.startsWith('openai/sora')) {
     return null;
   }
+  const isPastDeadline = Date.now() >= SORA_REMOVAL_DATE.getTime();
+  const alternatives = SORA_ALTERNATIVES.map((a) => `  • ${a}`).join('\n');
+  if (isPastDeadline) {
+    return (
+      `⚠️ REMOVED: ${model} was deprecated by OpenAI with a removal date of September 24, 2026, ` +
+      `which has now passed. This model may no longer be available. ` +
+      `Your request will still be attempted but is likely to fail. Recommended alternatives:\n` +
+      alternatives
+    );
+  }
   return (
     `⚠️ DEPRECATION WARNING: ${model} is deprecated by OpenAI and will be removed from the API on September 24, 2026. ` +
     `Your request will still be attempted, but may fail. Recommended alternatives:\n` +
-    SORA_ALTERNATIVES.map((a) => `  • ${a}`).join('\n')
+    alternatives
   );
 }
 
@@ -142,7 +154,8 @@ function buildRequestBody(args: GenerateVideoToolRequest, model: string): Record
   if (args.aspect_ratio) body.aspect_ratio = args.aspect_ratio;
   if (typeof args.duration === 'number') body.duration = args.duration;
   if (typeof args.seed === 'number') body.seed = args.seed;
-  if (args.provider && typeof args.provider === 'object') body.provider = args.provider;
+  // provider is intentionally omitted — it is merged with env defaults
+  // by the caller via mergeProviderOptions() + buildProviderBody().
   return body;
 }
 
@@ -365,8 +378,6 @@ export async function handleGenerateVideo(
   );
   if (mergedProvider) {
     body.provider = mergedProvider;
-  } else {
-    delete body.provider;
   }
 
   try {
@@ -465,7 +476,7 @@ export async function handleGetVideoStatus(
     return classifyUpstreamError(err, 'get_video_status.poll');
   }
 
-  if (status.status === 'failed' || isTerminalFailureStatus(status.status)) {
+  if (isTerminalFailureStatus(status.status)) {
     return toolError(ErrorCode.JOB_FAILED, extractJobError(status), { video_id: id });
   }
   if (status.status === 'completed') {
