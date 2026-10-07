@@ -23,6 +23,7 @@ import {
   validateMaxTokens,
   validateResponseFormat,
   validateWebSearchOptions,
+  validateReasoningEffort,
 } from './chat-request.js';
 
 export type ChatCompletionToolRequest = ChatToolRequest;
@@ -40,6 +41,7 @@ export async function handleChatCompletion(
     max_tokens,
     provider,
     include_reasoning,
+    reasoning_effort,
     online,
     web_max_results,
     web_blocked_domains,
@@ -69,6 +71,9 @@ export async function handleChatCompletion(
   const webSearchError = validateWebSearchOptions(web_max_results, web_blocked_domains, online);
   if (webSearchError) return webSearchError;
 
+  const reasoningEffortError = validateReasoningEffort(reasoning_effort);
+  if (reasoningEffortError) return reasoningEffortError;
+
   const wantsReasoning = include_reasoning ?? readIncludeReasoningDefault();
 
   const body = buildChatCompletionBody({
@@ -78,6 +83,7 @@ export async function handleChatCompletion(
     max_tokens,
     provider,
     include_reasoning,
+    reasoning_effort,
     online,
     web_max_results,
     web_blocked_domains,

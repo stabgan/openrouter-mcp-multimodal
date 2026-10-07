@@ -28,6 +28,7 @@ import {
   validateMaxTokens,
   validateResponseFormat,
   validateWebSearchOptions,
+  validateReasoningEffort,
 } from './chat-request.js';
 
 export type StartChatCompletionRequest = ChatToolRequest;
@@ -160,6 +161,7 @@ export async function handleStartChatCompletion(
     max_tokens,
     provider,
     include_reasoning,
+    reasoning_effort,
     online,
     web_max_results,
     web_blocked_domains,
@@ -189,6 +191,9 @@ export async function handleStartChatCompletion(
   const webSearchError = validateWebSearchOptions(web_max_results, web_blocked_domains, online);
   if (webSearchError) return webSearchError;
 
+  const reasoningEffortError = validateReasoningEffort(reasoning_effort);
+  if (reasoningEffortError) return reasoningEffortError;
+
   const effectiveModel = model?.trim() || defaultModel || DEFAULT_CHAT_MODEL;
   const jobId = generateJobId();
 
@@ -213,6 +218,7 @@ export async function handleStartChatCompletion(
     max_tokens,
     provider,
     include_reasoning,
+    reasoning_effort,
     online,
     web_max_results,
     web_blocked_domains,

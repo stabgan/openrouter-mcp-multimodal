@@ -208,6 +208,13 @@ export const TOOL_DEFINITIONS = [
             'Enable `openrouter:response_healing` — auto-fix malformed JSON (missing brackets, ' +
             'trailing commas, markdown wrappers). Reduces JSON defects by 80%+.',
         },
+        reasoning_effort: {
+          type: 'string',
+          description:
+            'Control reasoning depth for thinking models (o1, o3, Claude extended thinking, etc.). ' +
+            'Common values: `low`, `medium`, `high`. Higher effort = more reasoning tokens = better quality but slower and costlier. ' +
+            'Passed through to the provider.',
+        },
         response_format: {
           type: 'object',
           description:
@@ -252,6 +259,11 @@ export const TOOL_DEFINITIONS = [
         max_tokens: { type: 'number', minimum: 1 },
         provider: { type: 'object' },
         include_reasoning: { type: 'boolean' },
+        reasoning_effort: {
+          type: 'string',
+          description:
+            'Control reasoning depth for thinking models. Common values: `low`, `medium`, `high`.',
+        },
         online: { type: 'boolean' },
         web_max_results: { type: 'number', minimum: 1 },
         web_blocked_domains: {

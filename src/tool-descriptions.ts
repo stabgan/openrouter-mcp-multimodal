@@ -73,9 +73,9 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
     summary:
       'Send messages to an OpenRouter chat model and get a text reply. Supports provider routing, ' +
       'model suffixes (`:nitro` fastest, `:floor` cheapest, `:free` zero-cost, `:online` web search, ' +
-      '`:exacto` tool accuracy), reasoning tokens, web search (`online: true`), structured output ' +
-      '(`response_format`), response caching, multi-model fusion (`fusion: true`), subagent delegation ' +
-      '(`subagent: true`), and JSON response healing.',
+      '`:exacto` tool accuracy), reasoning tokens, reasoning effort control (`reasoning_effort`), ' +
+      'web search (`online: true`), structured output (`response_format`), response caching, ' +
+      'multi-model fusion (`fusion: true`), subagent delegation (`subagent: true`), and JSON response healing.',
     useWhen: [
       'You need text generation, Q&A, summarization, or multi-turn dialogue',
       'You want web-grounded answers (`online: true`)',
@@ -83,6 +83,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
       'You want the model to delegate busywork to a cheaper model (`subagent: true`)',
       'You need reliable JSON output (`response_healing: true` or `response_format: { "type": "json_object" }`)',
       'You need structured output conforming to a JSON Schema (`response_format: { "type": "json_schema", ... }`)',
+      'You want to control reasoning depth for thinking models (`reasoning_effort: "low"` / `"medium"` / `"high"`)',
       'You already know the model id (or rely on the server default)',
     ],
     notWhen: [
@@ -94,6 +95,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
       '`{ "messages": [{ "role": "user", "content": "Explain recursion in one paragraph." }] }`',
       '`{ "model": "openai/gpt-4o:nitro", "messages": [...], "online": true }` for web search',
       '`{ "messages": [...], "include_reasoning": true }` for chain-of-thought models',
+      '`{ "messages": [...], "reasoning_effort": "high" }` for maximum reasoning depth on thinking models',
       '`{ "messages": [...], "response_format": { "type": "json_object" } }` for JSON mode',
     ],
     badExamples: [

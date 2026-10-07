@@ -50,6 +50,12 @@ export interface ChatToolRequest extends CacheOptions {
    * `{ type: "text" }` — plain text (default, equivalent to omitting).
    */
   response_format?: { type: string; [key: string]: unknown };
+  /**
+   * Control reasoning effort for thinking models (o1, o3, Claude extended
+   * thinking, etc.). Higher effort = more reasoning tokens = higher quality
+   * but slower and more expensive. Passed through to the provider.
+   */
+  reasoning_effort?: string;
 }
 
 export function readIncludeReasoningDefault(): boolean {
@@ -108,6 +114,21 @@ export function validateMaxTokens(max_tokens: number | undefined): ToolErrorResu
 }
 
 const VALID_RESPONSE_FORMAT_TYPES = new Set(['text', 'json_object', 'json_schema']);
+
+const VALID_REASONING_EFFORTS = new Set(['low', 'medium', 'high']);
+
+export function validateReasoningEffort(
+  reasoningEffort: string | undefined,
+): ToolErrorResult | null {
+  if (reasoningEffort === undefined) return null;
+  if (typeof reasoningEffort !== 'string' || !reasoningEffort.trim()) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `reasoning_effort must be a non-empty string. Common values: ${[...VALID_REASONING_EFFORTS].join(', ')}.`,
+    );
+  }
+  return null;
+}
 
 export function validateResponseFormat(
   responseFormat: { type: string; [key: string]: unknown } | undefined,
@@ -220,6 +241,7 @@ export function buildChatCompletionBody(
   if (typeof effectiveMaxTokens === 'number') body.max_tokens = effectiveMaxTokens;
   if (providerBody) body.provider = providerBody;
   if (wantsReasoning) body.include_reasoning = true;
+  if (input.reasoning_effort?.trim()) body.reasoning_effort = input.reasoning_effort.trim();
   if (input.response_format && input.response_format.type !== 'text') {
     body.response_format = input.response_format;
   }
