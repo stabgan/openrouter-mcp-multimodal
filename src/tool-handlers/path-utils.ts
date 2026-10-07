@@ -2,6 +2,37 @@ import { extname } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 
+/**
+ * Filesystem `errno` codes emitted by `writeOutputFile` and other local I/O.
+ * Used to distinguish local write failures from upstream/network errors when
+ * both are caught by the same catch block.
+ */
+const FS_ERROR_CODES = new Set([
+  'EACCES',
+  'EPERM',
+  'ENOSPC',
+  'EROFS',
+  'ENOENT',
+  'EISDIR',
+  'ENOTDIR',
+  'EMFILE',
+  'ENFILE',
+  'EIO',
+  'EEXIST',
+  'EBUSY',
+]);
+
+/**
+ * True when `err` is a Node.js filesystem error (permission denied, disk
+ * full, read-only FS, etc.) as opposed to a network / upstream error. Catch
+ * blocks that cover both `writeOutputFile` and network operations should
+ * check this to avoid misclassifying write failures as `UPSTREAM_HTTP`.
+ */
+export function isFileSystemError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const code = (err as NodeJS.ErrnoException).code;
+  return code !== undefined && FS_ERROR_CODES.has(code);
+}
 /** Strip existing extension (if any) and append a new one. */
 export function replaceExtension(filePath: string, newExt: string): string {
   const current = extname(filePath);

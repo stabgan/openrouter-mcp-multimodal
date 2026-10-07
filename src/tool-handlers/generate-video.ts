@@ -8,7 +8,7 @@ import { resolveImageBase64 } from './image-source.js';
 import { readEnvInt } from './fetch-utils.js';
 import { classifyUpstreamError, classifyResourceLoadError } from './openrouter-errors.js';
 import { buildBinaryToolResult } from './tool-result-payload.js';
-import { replaceExtension, writeOutputFile } from './path-utils.js';
+import { replaceExtension, writeOutputFile, isFileSystemError } from './path-utils.js';
 import {
   readProviderDefaults,
   mergeProviderOptions,
@@ -536,6 +536,14 @@ export async function handleGenerateVideo(
     if (err instanceof UnsafePathError) {
       return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
     }
+    if (isFileSystemError(err)) {
+      return toolErrorFrom(ErrorCode.INTERNAL, err, 'Write', {
+        suggestions: [
+          'Check that OPENROUTER_OUTPUT_DIR is writable',
+          'Verify sufficient disk space',
+        ],
+      });
+    }
     const errMsg = err instanceof Error ? err.message : String(err);
     if (errMsg.toLowerCase().includes('too large')) {
       return toolErrorFrom(ErrorCode.RESOURCE_TOO_LARGE, err, 'Download', {
@@ -586,6 +594,14 @@ export async function handleGetVideoStatus(
       return { content, _meta };
     } catch (err) {
       if (err instanceof UnsafePathError) return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
+      if (isFileSystemError(err)) {
+        return toolErrorFrom(ErrorCode.INTERNAL, err, 'Write', {
+          suggestions: [
+            'Check that OPENROUTER_OUTPUT_DIR is writable',
+            'Verify sufficient disk space',
+          ],
+        });
+      }
       const errMsg = err instanceof Error ? err.message : String(err);
       if (errMsg.toLowerCase().includes('too large')) {
         return toolErrorFrom(ErrorCode.RESOURCE_TOO_LARGE, err, 'Download', {
