@@ -126,7 +126,7 @@ export const TOOL_DEFINITIONS = [
         messages: CHAT_MESSAGE_SCHEMA,
         temperature: { type: 'number', minimum: 0, maximum: 2, description: 'Default: 1.' },
         max_tokens: {
-          type: 'number',
+          type: 'integer',
           minimum: 1,
           description:
             'Max completion tokens. Falls back to `OPENROUTER_MAX_TOKENS` env var if unset.',
@@ -169,7 +169,7 @@ export const TOOL_DEFINITIONS = [
           description: "Enable OpenRouter's web-search plugin (Exa-backed, $4 / 1000 results).",
         },
         web_max_results: {
-          type: 'number',
+          type: 'integer',
           minimum: 1,
           description: 'Max web-search results when `online: true` (default 5).',
         },
@@ -256,7 +256,7 @@ export const TOOL_DEFINITIONS = [
         model: { type: 'string', description: 'Model ID (same options as chat_completion).' },
         messages: CHAT_MESSAGE_SCHEMA,
         temperature: { type: 'number', minimum: 0, maximum: 2 },
-        max_tokens: { type: 'number', minimum: 1 },
+        max_tokens: { type: 'integer', minimum: 1 },
         provider: { type: 'object' },
         include_reasoning: { type: 'boolean' },
         reasoning_effort: {
@@ -265,7 +265,7 @@ export const TOOL_DEFINITIONS = [
             'Control reasoning depth for thinking models. Common values: `low`, `medium`, `high`.',
         },
         online: { type: 'boolean' },
-        web_max_results: { type: 'number', minimum: 1 },
+        web_max_results: { type: 'integer', minimum: 1 },
         web_blocked_domains: {
           type: 'array',
           items: { type: 'string' },
@@ -473,23 +473,23 @@ export const TOOL_DEFINITIONS = [
           },
         },
         limit: {
-          type: 'number',
+          type: 'integer',
           minimum: 1,
           maximum: 50,
           description: 'Page size (default 20, max 50).',
         },
-        offset: { type: 'number', minimum: 0, description: 'Pagination offset (default 0).' },
+        offset: { type: 'integer', minimum: 0, description: 'Pagination offset (default 0).' },
       },
     },
     outputSchema: {
       type: 'object',
       properties: {
         results: { type: 'array', items: { type: 'object' } },
-        offset: { type: 'number' },
-        limit: { type: 'number' },
-        total: { type: 'number' },
+        offset: { type: 'integer' },
+        limit: { type: 'integer' },
+        total: { type: 'integer' },
         has_more: { type: 'boolean' },
-        next_offset: { type: ['number', 'null'] },
+        next_offset: { type: ['integer', 'null'] },
       },
       required: ['results', 'offset', 'limit', 'total', 'has_more', 'next_offset'],
     },
@@ -519,7 +519,7 @@ export const TOOL_DEFINITIONS = [
       properties: {
         id: { type: 'string' },
         name: { type: 'string' },
-        context_length: { type: 'number' },
+        context_length: { type: 'integer' },
         architecture: { type: 'object' },
       },
       required: ['id'],
@@ -580,7 +580,7 @@ export const TOOL_DEFINITIONS = [
           enum: [...IMAGE_SIZES],
           description: 'Optional resolution tier for supported models.',
         },
-        max_tokens: { type: 'number', minimum: 1, description: 'Optional completion token cap.' },
+        max_tokens: { type: 'integer', minimum: 1, description: 'Optional completion token cap.' },
         save_path: SAVE_PATH_PROPERTY,
         input_images: {
           type: 'array',
@@ -645,7 +645,7 @@ export const TOOL_DEFINITIONS = [
           description: 'Output image format.',
         },
         n: {
-          type: 'number',
+          type: 'integer',
           minimum: 1,
           maximum: 10,
           description: 'Number of images to request (default 1; only images[0] is saved/inlined).',
@@ -832,7 +832,7 @@ export const TOOL_DEFINITIONS = [
           minimum: 1,
           description: 'Clip duration in seconds (provider-dependent).',
         },
-        seed: { type: 'number', description: 'Optional reproducibility seed.' },
+        seed: { type: 'integer', description: 'Optional reproducibility seed.' },
         first_frame_image: {
           type: 'string',
           description: 'Optional first-frame image (path, URL, or data URL).',
@@ -851,13 +851,13 @@ export const TOOL_DEFINITIONS = [
         provider: { type: 'object', description: 'Provider routing overrides.' },
         save_path: SAVE_PATH_PROPERTY,
         max_wait_ms: {
-          type: 'number',
+          type: 'integer',
           minimum: 100,
           description:
             'Max time to poll before returning JOB_STILL_RUNNING (ms). Default: 600000 (10 min) via OPENROUTER_VIDEO_MAX_WAIT_MS.',
         },
         poll_interval_ms: {
-          type: 'number',
+          type: 'integer',
           minimum: 50,
           description:
             'Poll interval while waiting (ms). Default: 15000 via OPENROUTER_VIDEO_POLL_INTERVAL_MS.',
@@ -888,16 +888,16 @@ export const TOOL_DEFINITIONS = [
         resolution: { type: 'string', description: 'Provider-specific resolution.' },
         aspect_ratio: { type: 'string', description: 'Provider-specific aspect ratio.' },
         duration: { type: 'number', minimum: 1, description: 'Clip duration in seconds.' },
-        seed: { type: 'number', description: 'Optional reproducibility seed.' },
+        seed: { type: 'integer', description: 'Optional reproducibility seed.' },
         provider: { type: 'object', description: 'Provider routing overrides.' },
         save_path: SAVE_PATH_PROPERTY,
         max_wait_ms: {
-          type: 'number',
+          type: 'integer',
           minimum: 100,
           description: 'Max poll wait (ms) before JOB_STILL_RUNNING. Default: 600000.',
         },
         poll_interval_ms: {
-          type: 'number',
+          type: 'integer',
           minimum: 50,
           description: 'Poll interval (ms). Default: 15000.',
         },
@@ -946,7 +946,7 @@ export const TOOL_DEFINITIONS = [
           type: 'string',
           description: 'Reranker model (default: cohere/rerank-v3.5).',
         },
-        top_n: { type: 'number', minimum: 1, description: 'Return only the top N results.' },
+        top_n: { type: 'integer', minimum: 1, description: 'Return only the top N results.' },
         return_documents: {
           type: 'boolean',
           description: 'When true, include original document text in each result.',
@@ -963,7 +963,7 @@ export const TOOL_DEFINITIONS = [
           items: {
             type: 'object',
             properties: {
-              index: { type: 'number' },
+              index: { type: 'integer' },
               score: { type: 'number' },
               document: { type: 'string' },
             },
@@ -992,7 +992,7 @@ export const TOOL_DEFINITIONS = [
         server_version: { type: 'string' },
         protocol_version: { type: 'string' },
         api_key_valid: { type: 'boolean' },
-        models_cached: { type: 'number' },
+        models_cached: { type: 'integer' },
         error: { type: 'string' },
       },
       required: ['ok', 'server_version', 'protocol_version', 'api_key_valid', 'models_cached'],
