@@ -24,13 +24,26 @@ const AUTH_SUGGESTIONS = [
  */
 const MAX_SANITIZED_ERROR_LENGTH = 2048;
 
-/** Strip bearer tokens, API key material, and overly long messages from user-visible output. */
+/**
+ * Strip bearer tokens, API key material, embedded data URLs, large base64
+ * blobs, and overly long messages from user-visible output.
+ *
+ * Data-URL and base64 redaction mirrors the logger's `redactString` so that
+ * error responses never leak embedded media payloads (images, audio, video)
+ * that upstream SDKs may echo back in error bodies.
+ */
 export function sanitizeErrorMessage(msg: string): string {
   let sanitized = msg
     .replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]')
     .replace(/sk-or-v\d+-[\w-]+/gi, '[REDACTED]')
     .replace(/sk-[\w-]{20,}/gi, '[REDACTED]')
-    .replace(/Authorization:\s*\S+/gi, 'Authorization: [REDACTED]');
+    .replace(/Authorization:\s*\S+/gi, 'Authorization: [REDACTED]')
+    // Redact data URLs — they carry inline binary payloads (images, audio).
+    .replace(/data:[^;,\s]+;base64,[A-Za-z0-9+/=_-]{64,}/g, '[REDACTED data-url]')
+    // Redact bare base64 blobs ≥ 256 chars (same heuristic as logger).
+    .replace(/(?<![A-Za-z0-9+/=_-])[A-Za-z0-9+/=_-]{256,}(?![A-Za-z0-9+/=_-])/g, (match) =>
+      /^[A-Za-z0-9+/=_-]+$/.test(match) ? `[REDACTED base64 ${match.length} chars]` : match,
+    );
 
   if (sanitized.length > MAX_SANITIZED_ERROR_LENGTH) {
     sanitized =
