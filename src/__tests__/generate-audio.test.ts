@@ -20,14 +20,40 @@ import {
   DEFAULT_TTS_VOICE,
 } from '../tts-defaults.js';
 
-function mockAudioStream(chunks: Array<{ data?: string; transcript?: string }>): OpenAI {
+interface MockStreamChunk {
+  data?: string;
+  transcript?: string;
+}
+
+interface MockStreamOptions {
+  finishReason?: string;
+  usage?: Record<string, unknown>;
+}
+
+function mockAudioStream(chunks: MockStreamChunk[], opts?: MockStreamOptions): OpenAI {
   return {
     chat: {
       completions: {
         create: vi.fn().mockResolvedValue(
           (async function* () {
-            for (const chunk of chunks) {
-              yield { choices: [{ delta: { audio: chunk } }] };
+            for (let i = 0; i < chunks.length; i++) {
+              const isLast = i === chunks.length - 1;
+              yield {
+                choices: [
+                  {
+                    delta: { audio: chunks[i] },
+                    finish_reason: isLast ? (opts?.finishReason ?? null) : null,
+                  },
+                ],
+                ...(isLast && opts?.usage ? { usage: opts.usage } : {}),
+              };
+            }
+            // If no chunks at all but we want to send finish_reason, emit a bare chunk
+            if (chunks.length === 0 && (opts?.finishReason || opts?.usage)) {
+              yield {
+                choices: [{ delta: {}, finish_reason: opts.finishReason ?? null }],
+                ...(opts.usage ? { usage: opts.usage } : {}),
+              };
             }
           })(),
         ),
@@ -321,6 +347,54 @@ describe('handleGenerateAudio', () => {
     expect(r.content.every((c) => c.type === 'text')).toBe(true);
     expect(r.content[0]?.text).toContain('Too large to inline');
     expect(r._meta.save_path).toBeUndefined();
+  });
+
+  it('includes finish_reason and usage in _meta on success', async () => {
+    const pcm = Buffer.alloc(64, 0x44);
+    const openai = mockAudioStream([{ data: pcmChunk(pcm) }], {
+      finishReason: 'stop',
+      usage: { prompt_tokens: 10, completion_tokens: 50, total_tokens: 60 },
+    });
+    const r = await handleGenerateAudio({ params: { arguments: { prompt: 'hi' } } }, openai);
+    expect(r.isError).toBeUndefined();
+    expect(r._meta.finish_reason).toBe('stop');
+    expect(r._meta.usage).toEqual({
+      prompt_tokens: 10,
+      completion_tokens: 50,
+      total_tokens: 60,
+    });
+  });
+
+  it('includes model in _meta on success', async () => {
+    const pcm = Buffer.alloc(64, 0x55);
+    const openai = mockAudioStream([{ data: pcmChunk(pcm) }], { finishReason: 'stop' });
+    const r = await handleGenerateAudio(
+      { params: { arguments: { prompt: 'hi', model: 'openai/gpt-audio' } } },
+      openai,
+    );
+    expect(r._meta.model).toBe('openai/gpt-audio');
+  });
+
+  it('surfaces finish_reason in no-audio error when content_filter', async () => {
+    const openai = mockAudioStream([], { finishReason: 'content_filter' });
+    const r = await handleGenerateAudio({ params: { arguments: { prompt: 'hi' } } }, openai);
+    expect(r.isError).toBe(true);
+    expect((r as { _meta: { code: string } })._meta.code).toBe(ErrorCode.UPSTREAM_REFUSED);
+    expect(r.content[0]?.text).toContain('content_filter');
+    const details = (r as { _meta: { details?: Record<string, unknown> } })._meta.details;
+    expect(details?.reason).toBe('content_filter');
+    expect(details?.finish_reason).toBe('content_filter');
+    const suggestions = (r as { _meta: { suggestions?: string[] } })._meta.suggestions;
+    expect(suggestions?.some((s) => s.toLowerCase().includes('rephrase'))).toBe(true);
+  });
+
+  it('includes finish_reason hint in no-audio error for non-filter reasons', async () => {
+    const openai = mockAudioStream([{ transcript: 'text only' }], { finishReason: 'length' });
+    const r = await handleGenerateAudio({ params: { arguments: { prompt: 'hi' } } }, openai);
+    expect(r.isError).toBe(true);
+    expect(r.content[0]?.text).toContain('length');
+    const details = (r as { _meta: { details?: Record<string, unknown> } })._meta.details;
+    expect(details?.finish_reason).toBe('length');
   });
 });
 

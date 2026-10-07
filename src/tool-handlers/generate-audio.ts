@@ -113,10 +113,24 @@ export async function handleGenerateAudio(
     const transcriptChunks: string[] = [];
     let approxRawBytes = 0;
     const maxBytes = getAudioGenMaxBytes();
+    let finishReason: string | undefined;
+    let streamUsage: Record<string, unknown> | undefined;
 
     for await (const chunk of stream) {
-      const delta = (chunk as { choices?: Array<{ delta?: Record<string, unknown> }> }).choices?.[0]
-        ?.delta;
+      const typedChunk = chunk as {
+        choices?: Array<{ delta?: Record<string, unknown>; finish_reason?: string | null }>;
+        usage?: Record<string, unknown>;
+      };
+
+      // Extract finish_reason and usage from the final chunk — mirrors
+      // how chat_completion, analyze_image, analyze_audio, and analyze_video
+      // surface this metadata. Without this, callers cannot tell if audio
+      // was truncated (finish_reason=length) or content-filtered.
+      const choice = typedChunk.choices?.[0];
+      if (choice?.finish_reason) finishReason = choice.finish_reason;
+      if (typedChunk.usage) streamUsage = typedChunk.usage;
+
+      const delta = choice?.delta;
       if (delta && typeof delta === 'object' && delta.audio) {
         const a = delta.audio as { data?: unknown; transcript?: unknown };
         if (typeof a.data === 'string') {
@@ -137,18 +151,27 @@ export async function handleGenerateAudio(
     const transcript = transcriptChunks.join('');
 
     if (audioChunks.length === 0) {
+      // Surface finish_reason so callers know *why* no audio was returned.
+      // content_filter is the most common non-obvious case.
+      const isContentFiltered = finishReason === 'content_filter';
+      const reasonHint = finishReason ? ` (finish_reason: ${finishReason})` : '';
       return toolError(
-        ErrorCode.UPSTREAM_REFUSED,
+        isContentFiltered ? ErrorCode.UPSTREAM_REFUSED : ErrorCode.UPSTREAM_REFUSED,
         transcript
-          ? `No audio returned (model emitted transcript only): ${transcript.slice(0, 300)}`
-          : 'No audio returned.',
-        { reason: 'no_audio_in_stream' },
+          ? `No audio returned${reasonHint} (model emitted transcript only): ${transcript.slice(0, 300)}`
+          : `No audio returned${reasonHint}.`,
         {
-          suggestions: [
-            'Try a different model — not all models support audio generation',
-            'Try a different voice',
-            'Simplify or rephrase the prompt',
-          ],
+          reason: isContentFiltered ? 'content_filter' : 'no_audio_in_stream',
+          ...(finishReason ? { finish_reason: finishReason } : {}),
+        },
+        {
+          suggestions: isContentFiltered
+            ? ['Rephrase the prompt — the model content filter blocked the request']
+            : [
+                'Try a different model — not all models support audio generation',
+                'Try a different voice',
+                'Simplify or rephrase the prompt',
+              ],
         },
       );
     }
@@ -161,6 +184,16 @@ export async function handleGenerateAudio(
       detected.ext = 'wav';
       detected.mimeType = 'audio/wav';
     }
+
+    // Build _meta with finish_reason, model, and usage — consistent with
+    // every other completion-based handler (chat_completion, analyze_image,
+    // analyze_audio, analyze_video, async_chat).
+    const baseMeta: Record<string, unknown> = {
+      server_version: SERVER_VERSION,
+      model: model?.trim() || DEFAULT_MODEL,
+    };
+    if (finishReason) baseMeta.finish_reason = finishReason;
+    if (streamUsage) baseMeta.usage = streamUsage;
 
     if (safeBase) {
       const fileExt = extname(safeBase).toLowerCase().slice(1);
@@ -186,9 +219,7 @@ export async function handleGenerateAudio(
         {
           savedPath: actualSavePath,
           summaryText: result,
-          meta: {
-            server_version: SERVER_VERSION,
-          },
+          meta: baseMeta,
         },
       );
     }
@@ -197,9 +228,7 @@ export async function handleGenerateAudio(
       { kind: 'audio', buffer: audioBuffer, mimeType: detected.mimeType },
       {
         prefixText: transcript || 'Audio generated successfully.',
-        meta: {
-          server_version: SERVER_VERSION,
-        },
+        meta: baseMeta,
       },
     );
   } catch (err) {
