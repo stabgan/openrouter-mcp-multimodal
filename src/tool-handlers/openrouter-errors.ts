@@ -523,7 +523,14 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
     );
   }
 
-  return toolError(ErrorCode.UPSTREAM_HTTP, fullMsg);
+  return toolError(
+    ErrorCode.UPSTREAM_HTTP,
+    fullMsg,
+    { status },
+    {
+      suggestions: ['Retry after a brief delay', 'Check https://status.openrouter.ai for outages'],
+    },
+  );
 }
 
 /**
