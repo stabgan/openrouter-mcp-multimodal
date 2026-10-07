@@ -6,5 +6,6 @@ export default defineConfig({
     setupFiles: ['src/__tests__/integration.setup.ts'],
     testTimeout: 90_000,
     hookTimeout: 30_000,
+    passWithNoTests: true,
   },
 });

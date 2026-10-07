@@ -7,8 +7,11 @@ config({ path: path.join(repoRoot, '.env'), quiet: true });
 
 const key = process.env.OPENROUTER_API_KEY?.trim();
 if (!key) {
-  throw new Error(
-    'OPENROUTER_API_KEY is required for integration tests. ' +
-      'Set it in .env at the repo root or export it in the environment.',
+  // Warn instead of throwing so `npm run ci` and `npm run test:all` pass
+  // cleanly in environments without an API key (local dev, CI without
+  // secrets). Integration tests self-skip via describe.skipIf().
+  console.warn(
+    '\n⚠  OPENROUTER_API_KEY not set — integration tests will be skipped.\n' +
+      '   Set it in .env at the repo root or export it in the environment.\n',
   );
 }

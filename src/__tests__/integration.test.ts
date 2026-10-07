@@ -22,16 +22,23 @@ const testImagePath = path.resolve(
   'fixtures/test.png',
 );
 
+/** Skip all integration tests when no API key is available. */
+const SKIP = !process.env.OPENROUTER_API_KEY?.trim();
+
 /** Loaded and validated in integration.setup.ts (from .env or environment). */
 const API_KEY = process.env.OPENROUTER_API_KEY!;
-const INTEGRATION_MODEL = resolveIntegrationModel();
-const CHAT_MODEL = process.env.OPENROUTER_INTEGRATION_CHAT_MODEL?.trim() || INTEGRATION_MODEL;
-const VISION_MODEL = process.env.OPENROUTER_INTEGRATION_VISION_MODEL?.trim() || INTEGRATION_MODEL;
+const INTEGRATION_MODEL = SKIP ? 'skip' : resolveIntegrationModel();
+const CHAT_MODEL = SKIP
+  ? 'skip'
+  : process.env.OPENROUTER_INTEGRATION_CHAT_MODEL?.trim() || INTEGRATION_MODEL;
+const VISION_MODEL = SKIP
+  ? 'skip'
+  : process.env.OPENROUTER_INTEGRATION_VISION_MODEL?.trim() || INTEGRATION_MODEL;
 
 /** Paid-only tools — skip live generation when OPENROUTER_INTEGRATION_SKIP_PAID=1 (zero-credit accounts). */
 const SKIP_PAID_INTEGRATION = process.env.OPENROUTER_INTEGRATION_SKIP_PAID === '1';
 
-describe('Integration: chat_completion', () => {
+describe.skipIf(SKIP)('Integration: chat_completion', () => {
   let openai: OpenAI;
 
   beforeAll(() => {
@@ -66,7 +73,7 @@ describe('Integration: chat_completion', () => {
   });
 });
 
-describe('Integration: analyze_image', () => {
+describe.skipIf(SKIP)('Integration: analyze_image', () => {
   let openai: OpenAI;
 
   beforeAll(() => {
@@ -115,7 +122,7 @@ describe('Integration: analyze_image', () => {
   });
 });
 
-describe('Integration: search_models', () => {
+describe.skipIf(SKIP)('Integration: search_models', () => {
   let apiClient: OpenRouterAPIClient;
   let cache: ModelCache;
 
@@ -159,7 +166,7 @@ describe('Integration: search_models', () => {
   });
 });
 
-describe('Integration: get_model_info + validate_model', () => {
+describe.skipIf(SKIP)('Integration: get_model_info + validate_model', () => {
   let apiClient: OpenRouterAPIClient;
   let cache: ModelCache;
 
@@ -209,7 +216,7 @@ describe('Integration: get_model_info + validate_model', () => {
   });
 });
 
-describe('Integration: analyze_audio', () => {
+describe.skipIf(SKIP)('Integration: analyze_audio', () => {
   let openai: OpenAI;
 
   beforeAll(() => {
@@ -272,7 +279,7 @@ describe('Integration: analyze_audio', () => {
   });
 });
 
-describe('Integration: text_to_speech', () => {
+describe.skipIf(SKIP)('Integration: text_to_speech', () => {
   let apiClient: OpenRouterAPIClient;
 
   beforeAll(() => {
@@ -289,7 +296,7 @@ describe('Integration: text_to_speech', () => {
   }, 60_000);
 });
 
-describe.skipIf(SKIP_PAID_INTEGRATION)('Integration: generate_audio', () => {
+describe.skipIf(SKIP || SKIP_PAID_INTEGRATION)('Integration: generate_audio', () => {
   let openai: OpenAI;
 
   beforeAll(() => {
