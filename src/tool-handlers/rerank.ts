@@ -99,6 +99,21 @@ export async function handleRerankDocuments(
       `documents has ${documents.length} entries — max ${MAX_DOCUMENTS}.`,
     );
   }
+  // Validate model type — MCP clients that ignore the JSON schema can send
+  // numbers or booleans. Without this guard `model?.trim()` throws TypeError
+  // on non-string values (e.g. `model: 42` → `(42).trim()` crashes), caught
+  // by the router as a confusing INTERNAL error. Matches the type checks
+  // applied to query, provider, and capabilities in search_models.
+  if (model !== undefined && typeof model !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'model must be a string.');
+  }
+  // Validate return_documents type — the handler uses `=== true` for strict
+  // boolean comparison, so non-boolean truthy values like `"true"` or `1`
+  // are silently treated as false, causing the caller to not receive
+  // documents without any error. Reject wrong types explicitly instead.
+  if (return_documents !== undefined && typeof return_documents !== 'boolean') {
+    return toolError(ErrorCode.INVALID_INPUT, 'return_documents must be a boolean.');
+  }
   if (top_n !== undefined) {
     if (typeof top_n !== 'number' || !Number.isFinite(top_n) || !Number.isInteger(top_n)) {
       return toolError(ErrorCode.INVALID_INPUT, 'top_n must be a positive integer.');
