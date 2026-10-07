@@ -157,6 +157,15 @@ describe('classifyUpstreamError — auth and status codes', () => {
     expect(r._meta.suggestions!.some((s) => /retry/i.test(s))).toBe(true);
   });
 
+  it('maps HTTP 504 Gateway Timeout to UPSTREAM_TIMEOUT', () => {
+    const err = Object.assign(new Error('upstream did not respond'), { status: 504 });
+    const r = classifyUpstreamError(err, 'generate_video');
+    expect(r._meta.code).toBe('UPSTREAM_TIMEOUT');
+    expect(r._meta.details).toEqual({ status: 504 });
+    expect(r._meta.suggestions).toBeDefined();
+    expect(r._meta.suggestions!.some((s) => /retry/i.test(s))).toBe(true);
+  });
+
   it('maps HTTP 413 to RESOURCE_TOO_LARGE', () => {
     const err = Object.assign(new Error('Payload Too Large'), { status: 413 });
     const r = classifyUpstreamError(err, 'generate_image');

@@ -459,7 +459,7 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
     );
   }
 
-  if (status === 408) {
+  if (status === 408 || status === 504) {
     return toolError(
       ErrorCode.UPSTREAM_TIMEOUT,
       fullMsg,
