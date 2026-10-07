@@ -61,10 +61,14 @@ export async function handleAnalyzeAudio(
     }
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('Blocked host')) return toolErrorFrom(ErrorCode.UPSTREAM_REFUSED, err);
-    if (msg.toLowerCase().includes('too large')) {
+    const lower = msg.toLowerCase();
+    if (lower.includes('too large')) {
       return toolErrorFrom(ErrorCode.RESOURCE_TOO_LARGE, err);
     }
-    if (msg.toLowerCase().includes('unsupported')) {
+    if (lower.includes('timed out') || lower.includes('timeout')) {
+      return toolErrorFrom(ErrorCode.UPSTREAM_TIMEOUT, err);
+    }
+    if (lower.includes('unsupported')) {
       return toolErrorFrom(ErrorCode.UNSUPPORTED_FORMAT, err);
     }
     return toolErrorFrom(ErrorCode.INVALID_INPUT, err);

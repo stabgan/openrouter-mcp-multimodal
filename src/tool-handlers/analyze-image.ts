@@ -64,8 +64,12 @@ export async function handleAnalyzeImage(
     if (msg.includes('Blocked host')) {
       return toolError(ErrorCode.UPSTREAM_REFUSED, detail);
     }
-    if (msg.toLowerCase().includes('too large')) {
+    const lower = msg.toLowerCase();
+    if (lower.includes('too large')) {
       return toolError(ErrorCode.RESOURCE_TOO_LARGE, detail);
+    }
+    if (lower.includes('timed out') || lower.includes('timeout')) {
+      return toolError(ErrorCode.UPSTREAM_TIMEOUT, detail);
     }
     return toolError(ErrorCode.INVALID_INPUT, detail);
   }

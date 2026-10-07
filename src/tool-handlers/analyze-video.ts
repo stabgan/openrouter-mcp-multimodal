@@ -71,10 +71,14 @@ export async function handleAnalyzeVideo(
     if (msg.includes('Blocked host')) {
       return toolError(ErrorCode.UPSTREAM_REFUSED, detail);
     }
-    if (msg.toLowerCase().includes('too large')) {
+    const lower = msg.toLowerCase();
+    if (lower.includes('too large')) {
       return toolError(ErrorCode.RESOURCE_TOO_LARGE, detail);
     }
-    if (msg.toLowerCase().includes('unsupported') || msg.toLowerCase().includes('not a video')) {
+    if (lower.includes('timed out') || lower.includes('timeout')) {
+      return toolError(ErrorCode.UPSTREAM_TIMEOUT, detail);
+    }
+    if (lower.includes('unsupported') || lower.includes('not a video')) {
       return toolError(ErrorCode.UNSUPPORTED_FORMAT, detail);
     }
     return toolError(ErrorCode.INVALID_INPUT, detail);
