@@ -1,7 +1,7 @@
 /**
  * Map OpenRouter / OpenAI SDK errors to our closed `ErrorCode` enum.
  */
-import { ErrorCode, toolError, type ToolErrorResult } from '../errors.js';
+import { ErrorCode, sanitizeErrorMessage, toolError, type ToolErrorResult } from '../errors.js';
 
 interface SdkLikeError {
   status?: number;
@@ -16,64 +16,6 @@ const AUTH_SUGGESTIONS = [
   'Verify OPENROUTER_API_KEY is set and matches https://openrouter.ai/keys',
   'Ensure the key has not been revoked or expired',
 ] as const;
-
-/**
- * Hard cap on sanitized error message length. Upstream errors can be
- * arbitrarily large (e.g. HTML error pages that slip past the HTML check,
- * or verbose JSON bodies); this prevents oversized MCP tool results.
- */
-const MAX_SANITIZED_ERROR_LENGTH = 2048;
-
-/**
- * Pre-truncate input before running regex replacements. Upstream SDK errors
- * can include full response bodies (HTML pages, large JSON payloads) that
- * would cause the redaction regexes to scan megabytes of text for no benefit
- * — the final output is capped at MAX_SANITIZED_ERROR_LENGTH anyway.
- *
- * The multiplier provides enough headroom for redaction markers (which are
- * shorter than the content they replace) to not displace useful text from
- * the first MAX_SANITIZED_ERROR_LENGTH chars of output.
- */
-const MAX_SANITIZE_INPUT_LENGTH = MAX_SANITIZED_ERROR_LENGTH * 4;
-
-/**
- * Strip bearer tokens, API key material, embedded data URLs, large base64
- * blobs, and overly long messages from user-visible output.
- *
- * Data-URL and base64 redaction mirrors the logger's `redactString` so that
- * error responses never leak embedded media payloads (images, audio, video)
- * that upstream SDKs may echo back in error bodies.
- */
-export function sanitizeErrorMessage(msg: string): string {
-  // Pre-truncate to avoid running regex replacements on very large strings
-  // (e.g. upstream SDK errors that include the full response body).
-  const bounded =
-    msg.length > MAX_SANITIZE_INPUT_LENGTH ? msg.slice(0, MAX_SANITIZE_INPUT_LENGTH) : msg;
-
-  let sanitized = bounded
-    .replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]')
-    .replace(/sk-or-v\d+-[\w-]+/gi, '[REDACTED]')
-    .replace(/sk-[\w-]{20,}/gi, '[REDACTED]')
-    .replace(/Authorization:\s*\S+/gi, 'Authorization: [REDACTED]')
-    // Redact data URLs — they carry inline binary payloads (images, audio).
-    // The `(?:;[^;,\s]+)*` group handles optional MIME parameters
-    // (e.g. `data:audio/wav;charset=binary;base64,...`) that the simpler
-    // `data:TYPE;base64,...` pattern would miss.
-    .replace(/data:[^;,\s]+(?:;[^;,\s]+)*;base64,[A-Za-z0-9+/=_-]{64,}/g, '[REDACTED data-url]')
-    // Redact bare base64 blobs ≥ 256 chars (same heuristic as logger).
-    .replace(
-      /(?<![A-Za-z0-9+/=_-])[A-Za-z0-9+/=_-]{256,}(?![A-Za-z0-9+/=_-])/g,
-      (match) => `[REDACTED base64 ${match.length} chars]`,
-    );
-
-  if (sanitized.length > MAX_SANITIZED_ERROR_LENGTH) {
-    sanitized =
-      sanitized.slice(0, MAX_SANITIZED_ERROR_LENGTH) +
-      `… [truncated — ${sanitized.length - MAX_SANITIZED_ERROR_LENGTH} chars omitted]`;
-  }
-
-  return sanitized;
-}
 
 function extractRetryAfterSeconds(err: unknown): number | undefined {
   if (typeof err !== 'object' || err === null) return undefined;
