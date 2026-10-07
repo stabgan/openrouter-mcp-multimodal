@@ -24,6 +24,8 @@ describe('getVideoFormat', () => {
     expect(getVideoFormat('clip.m4v')).toBe('mp4');
     expect(getVideoFormat('clip.mpeg')).toBe('mpeg');
     expect(getVideoFormat('clip.mpg')).toBe('mpeg');
+    expect(getVideoFormat('clip.m2ts')).toBe('mpeg');
+    expect(getVideoFormat('clip.mts')).toBe('mpeg');
     expect(getVideoFormat('clip.mov')).toBe('mov');
     expect(getVideoFormat('clip.qt')).toBe('mov');
     expect(getVideoFormat('clip.webm')).toBe('webm');
@@ -73,6 +75,14 @@ describe('detectVideoFormat', () => {
   it('detects MPEG-PS start codes', () => {
     expect(detectVideoFormat(Buffer.from([0x00, 0x00, 0x01, 0xba]))).toBe('mpeg');
     expect(detectVideoFormat(Buffer.from([0x00, 0x00, 0x01, 0xb3]))).toBe('mpeg');
+  });
+
+  it('detects MPEG-TS via sync bytes at 188-byte packet boundaries', () => {
+    // MPEG-TS requires at least 377 bytes with 0x47 at offsets 0 and 188.
+    const buf = Buffer.alloc(377);
+    buf[0] = 0x47;
+    buf[188] = 0x47;
+    expect(detectVideoFormat(buf)).toBe('mpeg');
   });
 
   it('returns undefined for unknown bytes', () => {

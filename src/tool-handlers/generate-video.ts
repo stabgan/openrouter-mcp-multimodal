@@ -280,7 +280,7 @@ async function finalizeCompletedJob(
     ? 'webm'
     : mime.includes('quicktime') || mime.includes('mov')
       ? 'mov'
-      : mime.includes('mpeg')
+      : mime.includes('mpeg') || mime.includes('mp2t')
         ? 'mpeg'
         : 'mp4';
 
