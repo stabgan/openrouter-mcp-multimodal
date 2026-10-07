@@ -518,6 +518,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
       'You only have one image and simple image-to-video → generate_video_from_image (fewer params)',
       'Job already submitted → get_video_status with `video_id`',
       'You want to analyze existing video → analyze_video',
+      'OpenAI Sora models (openai/sora-*) — removed from OpenRouter on 2026-09-24. Use google/veo-3.1, bytedance/seedance-2.5, kwaivgi/kling-v3.0-pro, or other alternatives',
     ],
     goodExamples: [
       '`{ "prompt": "Ocean waves at sunset, cinematic" }`',
@@ -527,10 +528,11 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
     badExamples: [
       'Treating JOB_STILL_RUNNING as failure — it is success with resume metadata',
       '`{ "prompt": "   " }` → INVALID_INPUT',
+      '`{ "model": "openai/sora-2" }` → INVALID_INPUT (Sora removed; use Veo 3.1 or other models)',
       'Polling get_video_status in the same turn without waiting → expect JOB_STILL_RUNNING again',
     ],
     failsWhen: [
-      'INVALID_INPUT: empty prompt',
+      'INVALID_INPUT: empty prompt, or Sora model requested (removed 2026-09-24)',
       'UNSAFE_PATH: save_path or image paths escaped sandbox',
       'UPSTREAM_REFUSED: policy, credits, or bad request',
       'JOB_FAILED: provider marked job failed',
@@ -549,6 +551,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
     notWhen: [
       'You need last_frame_image or reference_images[] → generate_video',
       'Checking job status → get_video_status',
+      'OpenAI Sora models (openai/sora-*) — removed from OpenRouter on 2026-09-24. Use google/veo-3.1 or alternatives',
     ],
     goodExamples: [
       '`{ "image": "start.png", "prompt": "Camera slowly zooms in" }`',
@@ -556,10 +559,11 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
     ],
     badExamples: [
       '`{ "first_frame_image": "x.png" }` → wrong key; use `image`',
+      '`{ "model": "openai/sora-2" }` → INVALID_INPUT (Sora removed; use Veo 3.1 or other models)',
       'Passing video_id here → use get_video_status',
     ],
     failsWhen: [
-      'INVALID_INPUT: image or prompt missing',
+      'INVALID_INPUT: image or prompt missing, or Sora model requested (removed 2026-09-24)',
       'UNSAFE_PATH: image path escaped sandbox',
       'UPSTREAM_REFUSED / JOB_FAILED: same as generate_video',
     ],
