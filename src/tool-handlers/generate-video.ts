@@ -369,14 +369,17 @@ export async function handleGenerateVideo(
   }
 
   if (
-    typeof args.duration === 'number' &&
-    (!Number.isFinite(args.duration) || !Number.isInteger(args.duration) || args.duration < 1)
+    args.duration !== undefined &&
+    (typeof args.duration !== 'number' ||
+      !Number.isFinite(args.duration) ||
+      !Number.isInteger(args.duration) ||
+      args.duration < 1)
   ) {
     return toolError(ErrorCode.INVALID_INPUT, 'duration must be an integer >= 1 (seconds).');
   }
   if (
-    typeof args.seed === 'number' &&
-    (!Number.isFinite(args.seed) || !Number.isInteger(args.seed))
+    args.seed !== undefined &&
+    (typeof args.seed !== 'number' || !Number.isFinite(args.seed) || !Number.isInteger(args.seed))
   ) {
     return toolError(ErrorCode.INVALID_INPUT, 'seed must be an integer.');
   }

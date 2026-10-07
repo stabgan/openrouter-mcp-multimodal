@@ -70,12 +70,12 @@ export async function handleTextToSpeech(
   }
 
   if (
-    typeof speed === 'number' &&
-    (!Number.isFinite(speed) || speed < MIN_SPEED || speed > MAX_SPEED)
+    speed !== undefined &&
+    (typeof speed !== 'number' || !Number.isFinite(speed) || speed < MIN_SPEED || speed > MAX_SPEED)
   ) {
     return toolError(
       ErrorCode.INVALID_INPUT,
-      `speed must be between ${MIN_SPEED} and ${MAX_SPEED} (inclusive).`,
+      `speed must be a number between ${MIN_SPEED} and ${MAX_SPEED}.`,
     );
   }
 

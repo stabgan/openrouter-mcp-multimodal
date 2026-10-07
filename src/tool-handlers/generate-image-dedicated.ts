@@ -119,10 +119,14 @@ export async function handleGenerateImageDedicated(
     );
   }
   if (
-    typeof n === 'number' &&
-    (!Number.isFinite(n) || !Number.isInteger(n) || n < 1 || n > MAX_IMAGES)
+    n !== undefined &&
+    (typeof n !== 'number' ||
+      !Number.isFinite(n) ||
+      !Number.isInteger(n) ||
+      n < 1 ||
+      n > MAX_IMAGES)
   ) {
-    return toolError(ErrorCode.INVALID_INPUT, `n must be between 1 and ${MAX_IMAGES} (inclusive).`);
+    return toolError(ErrorCode.INVALID_INPUT, `n must be an integer between 1 and ${MAX_IMAGES}.`);
   }
 
   if (input_references !== undefined) {

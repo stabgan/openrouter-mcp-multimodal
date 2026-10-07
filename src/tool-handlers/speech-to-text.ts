@@ -67,10 +67,13 @@ export async function handleSpeechToText(
   }
 
   if (
-    typeof temperature === 'number' &&
-    (!Number.isFinite(temperature) || temperature < 0 || temperature > 1)
+    temperature !== undefined &&
+    (typeof temperature !== 'number' ||
+      !Number.isFinite(temperature) ||
+      temperature < 0 ||
+      temperature > 1)
   ) {
-    return toolError(ErrorCode.INVALID_INPUT, 'temperature must be between 0 and 1 (inclusive).');
+    return toolError(ErrorCode.INVALID_INPUT, 'temperature must be a number between 0 and 1.');
   }
 
   const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });
