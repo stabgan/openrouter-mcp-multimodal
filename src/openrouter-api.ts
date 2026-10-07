@@ -173,7 +173,12 @@ export class OpenRouterAPIClient {
         `GET /videos/${id} failed: HTTP ${res.status}${detail ? ` — ${detail}` : ''}`,
       );
     }
-    return readJsonOrThrow<VideoJobStatus>(res, `GET /videos/${id}`);
+    // Skip embedded error extraction: job status responses legitimately
+    // contain `error` fields for failed/cancelled jobs. extractEmbeddedError
+    // would throw on those, hiding the structured status from callers.
+    return readJsonOrThrow<VideoJobStatus>(res, `GET /videos/${id}`, {
+      skipEmbeddedErrorCheck: true,
+    });
   }
 
   /** Download generated video binary. */
@@ -400,7 +405,11 @@ async function readTranscriptionResponse(
   return readJsonOrThrow<TranscriptionResponse>(res, context);
 }
 
-async function readJsonOrThrow<T>(res: Response, context: string): Promise<T> {
+async function readJsonOrThrow<T>(
+  res: Response,
+  context: string,
+  opts?: { skipEmbeddedErrorCheck?: boolean },
+): Promise<T> {
   const buffer = await readResponseBody(res, MAX_JSON_RESPONSE_BYTES, `${context} response`);
   const raw = buffer.toString('utf8');
   let data: unknown;
@@ -410,8 +419,10 @@ async function readJsonOrThrow<T>(res: Response, context: string): Promise<T> {
     const detail = raw.length > 500 ? raw.slice(0, 500) + '…' : raw;
     throw new Error(`${context}: non-JSON response${detail ? ` — ${detail}` : ''}`);
   }
-  const embedded = extractEmbeddedError(data);
-  if (embedded) throw new Error(`${context}: ${embedded}`);
+  if (!opts?.skipEmbeddedErrorCheck) {
+    const embedded = extractEmbeddedError(data);
+    if (embedded) throw new Error(`${context}: ${embedded}`);
+  }
   return data as T;
 }
 
