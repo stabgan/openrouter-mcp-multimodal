@@ -14,6 +14,7 @@ export interface RerankDocumentsRequest {
 }
 
 const DEFAULT_MODEL = 'cohere/rerank-v3.5';
+const MAX_DOCUMENTS = 1000;
 
 function isValidDocumentIndex(index: unknown, documentCount: number): index is number {
   return (
@@ -83,6 +84,12 @@ export async function handleRerankDocuments(
   }
   if (documents.some((d) => typeof d !== 'string' || !d.trim())) {
     return toolError(ErrorCode.INVALID_INPUT, 'every document must be a non-empty string.');
+  }
+  if (documents.length > MAX_DOCUMENTS) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `documents has ${documents.length} entries — max ${MAX_DOCUMENTS}.`,
+    );
   }
   if (top_n !== undefined) {
     if (typeof top_n !== 'number' || !Number.isFinite(top_n) || !Number.isInteger(top_n)) {

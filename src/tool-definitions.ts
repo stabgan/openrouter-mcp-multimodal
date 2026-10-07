@@ -929,7 +929,7 @@ export const TOOL_DEFINITIONS = [
       type: 'object',
       properties: {
         query: { type: 'string', description: 'Search query to rank documents against.' },
-        documents: { type: 'array', items: { type: 'string' }, minItems: 1 },
+        documents: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 1000 },
         model: {
           type: 'string',
           description: 'Reranker model (default: cohere/rerank-v3.5).',
