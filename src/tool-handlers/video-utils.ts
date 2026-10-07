@@ -33,6 +33,8 @@ export function getVideoFormat(filePath: string): VideoFormat | undefined {
     m4v: 'mp4',
     mpeg: 'mpeg',
     mpg: 'mpeg',
+    m2ts: 'mpeg',
+    mts: 'mpeg',
     mov: 'mov',
     qt: 'mov',
     webm: 'webm',
@@ -56,6 +58,7 @@ function mimeSubtypeToFormat(subtype: string): VideoFormat | undefined {
     mp4: 'mp4',
     'x-m4v': 'mp4',
     mpeg: 'mpeg',
+    mp2t: 'mpeg',
     mov: 'mov',
     quicktime: 'mov',
     'x-quicktime': 'mov',
@@ -74,8 +77,9 @@ function formatFromContentType(ct: string | null): VideoFormat | undefined {
 
 /**
  * Detect a container from the first bytes of a buffer. Recognizes mp4/mov
- * (`ftyp` box at offset 4), webm (EBML magic `1A 45 DF A3`), and MPEG-PS
- * (`00 00 01 BA` / `00 00 01 B3`). Returns `undefined` if no match.
+ * (`ftyp` box at offset 4), webm (EBML magic `1A 45 DF A3`), MPEG-PS
+ * (`00 00 01 BA` / `00 00 01 B3`), and MPEG-TS (sync byte `0x47` at
+ * 188-byte packet boundaries). Returns `undefined` if no match.
  *
  * Intentionally conservative: if the magic doesn't match, the caller falls
  * back to the filename / Content-Type.
@@ -95,7 +99,7 @@ export function detectVideoFormat(buffer: Buffer): VideoFormat | undefined {
     if (buffer[0] === 0x1a && buffer[1] === 0x45 && buffer[2] === 0xdf && buffer[3] === 0xa3) {
       return 'webm';
     }
-    // MPEG-PS / MPEG-TS start codes.
+    // MPEG Program Stream start codes.
     if (
       buffer[0] === 0x00 &&
       buffer[1] === 0x00 &&
@@ -104,6 +108,12 @@ export function detectVideoFormat(buffer: Buffer): VideoFormat | undefined {
     ) {
       return 'mpeg';
     }
+  }
+  // MPEG Transport Stream: 188-byte packets starting with sync byte 0x47.
+  // Require the sync byte at offset 0 and at least one more at offset 188
+  // to avoid false positives from files that happen to start with 'G'.
+  if (buffer.length >= 377 && buffer[0] === 0x47 && buffer[188] === 0x47) {
+    return 'mpeg';
   }
   return undefined;
 }
