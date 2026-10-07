@@ -81,8 +81,8 @@ export async function handleRerankDocuments(
   if (!Array.isArray(documents) || documents.length === 0) {
     return toolError(ErrorCode.INVALID_INPUT, 'documents must be a non-empty array of strings.');
   }
-  if (documents.some((d) => typeof d !== 'string')) {
-    return toolError(ErrorCode.INVALID_INPUT, 'every document must be a string.');
+  if (documents.some((d) => typeof d !== 'string' || !d.trim())) {
+    return toolError(ErrorCode.INVALID_INPUT, 'every document must be a non-empty string.');
   }
   if (top_n !== undefined) {
     if (typeof top_n !== 'number' || !Number.isFinite(top_n) || !Number.isInteger(top_n)) {
