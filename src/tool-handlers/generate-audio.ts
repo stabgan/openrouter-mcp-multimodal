@@ -11,6 +11,12 @@ import { buildBinaryToolResult } from './tool-result-payload.js';
 import { replaceExtension, writeOutputFile } from './path-utils.js';
 import { createWavHeader, wrapPcmInWav, detectAudioFormat } from './audio-utils.js';
 import { readEnvInt } from './fetch-utils.js';
+import {
+  readProviderDefaults,
+  mergeProviderOptions,
+  buildProviderBody,
+  type ProviderRoutingOptions,
+} from './provider-routing.js';
 
 // Re-export WAV helpers so existing test imports from this module keep working.
 export { createWavHeader, wrapPcmInWav };
@@ -21,6 +27,7 @@ export interface GenerateAudioToolRequest {
   voice?: string;
   format?: string;
   save_path?: string;
+  provider?: Record<string, unknown>;
 }
 
 const DEFAULT_MODEL = 'openai/gpt-audio';
@@ -46,7 +53,7 @@ export async function handleGenerateAudio(
   request: { params: { arguments: GenerateAudioToolRequest } },
   openai: OpenAI,
 ) {
-  const { prompt, model, voice, format, save_path } = request.params.arguments ?? {
+  const { prompt, model, voice, format, save_path, provider } = request.params.arguments ?? {
     prompt: '',
   };
 
@@ -80,14 +87,22 @@ export async function handleGenerateAudio(
 
   let stream: AsyncIterable<Record<string, unknown>>;
   try {
+    const body: Record<string, unknown> = {
+      model: model || DEFAULT_MODEL,
+      messages: [{ role: 'user', content: prompt }],
+      modalities: ['text', 'audio'],
+      audio: { voice: selectedVoice, format: selectedFormat },
+      stream: true,
+    };
+
+    // Merge user-supplied provider options with OPENROUTER_PROVIDER_* env defaults.
+    const mergedProvider = buildProviderBody(
+      mergeProviderOptions(readProviderDefaults(), provider as ProviderRoutingOptions),
+    );
+    if (mergedProvider) body.provider = mergedProvider;
+
     stream = (await openai.chat.completions.create(
-      asOpenAIChatBody({
-        model: model || DEFAULT_MODEL,
-        messages: [{ role: 'user', content: prompt }],
-        modalities: ['text', 'audio'],
-        audio: { voice: selectedVoice, format: selectedFormat },
-        stream: true,
-      }),
+      asOpenAIChatBody(body),
     )) as unknown as AsyncIterable<Record<string, unknown>>;
   } catch (err) {
     return classifyUpstreamError(err, 'generate_audio');

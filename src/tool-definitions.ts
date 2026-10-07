@@ -633,6 +633,10 @@ export const TOOL_DEFINITIONS = [
           description: 'Output audio format (default: pcm16, auto-wrapped as WAV when needed).',
         },
         save_path: SAVE_PATH_PROPERTY,
+        provider: {
+          type: 'object',
+          description: 'Provider routing overrides (order, sort, allow_fallbacks, etc.).',
+        },
       },
       required: ['prompt'],
     },
