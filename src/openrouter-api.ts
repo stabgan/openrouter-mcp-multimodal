@@ -43,7 +43,9 @@ async function readResponseBody(res: Response, maxBytes: number, label: string):
     if (buf.length > maxBytes) throw new Error(`${label} too large`);
     return buf;
   }
-  const chunks: Buffer[] = [];
+  // Collect raw Uint8Array chunks without copying each into a Buffer.
+  // Buffer.concat accepts Uint8Array[], so only the final concat allocates.
+  const chunks: Uint8Array[] = [];
   let total = 0;
   for (;;) {
     const { done, value } = await reader.read();
@@ -57,7 +59,7 @@ async function readResponseBody(res: Response, maxBytes: number, label: string):
       }
       throw new Error(`${label} too large`);
     }
-    chunks.push(Buffer.from(value));
+    chunks.push(value);
   }
   return Buffer.concat(chunks);
 }
