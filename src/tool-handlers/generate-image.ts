@@ -54,7 +54,7 @@ export async function handleGenerateImage(
     provider,
   } = request.params.arguments ?? { prompt: '' };
 
-  if (!prompt?.trim()) {
+  if (typeof prompt !== 'string' || !prompt.trim()) {
     return toolError(ErrorCode.INVALID_INPUT, 'prompt is required.');
   }
 

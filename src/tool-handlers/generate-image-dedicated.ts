@@ -79,7 +79,7 @@ export async function handleGenerateImageDedicated(
     cache_clear,
   } = args;
 
-  if (!prompt?.trim()) {
+  if (typeof prompt !== 'string' || !prompt.trim()) {
     return toolError(ErrorCode.INVALID_INPUT, 'prompt is required.');
   }
 

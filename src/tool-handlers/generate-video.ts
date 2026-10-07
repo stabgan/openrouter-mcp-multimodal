@@ -333,7 +333,7 @@ export async function handleGenerateVideo(
   progress?: ProgressHook,
 ) {
   const args = request.params.arguments ?? ({} as GenerateVideoToolRequest);
-  if (!args.prompt || !args.prompt.trim()) {
+  if (typeof args.prompt !== 'string' || !args.prompt.trim()) {
     return toolError(ErrorCode.INVALID_INPUT, 'prompt is required.');
   }
 
@@ -518,7 +518,7 @@ export async function handleGetVideoStatus(
   apiClient: OpenRouterAPIClient,
 ) {
   const args = request.params.arguments ?? ({} as GetVideoStatusToolRequest);
-  const id = args.video_id?.trim();
+  const id = typeof args.video_id === 'string' ? args.video_id.trim() : '';
   if (!id) return toolError(ErrorCode.INVALID_INPUT, 'video_id is required.');
 
   if (!isValidVideoId(id)) {
@@ -606,10 +606,10 @@ export async function handleGenerateVideoFromImage(
   progress?: ProgressHook,
 ) {
   const args = request.params.arguments ?? ({} as GenerateVideoFromImageRequest);
-  if (!args.image?.trim()) {
+  if (typeof args.image !== 'string' || !args.image.trim()) {
     return toolError(ErrorCode.INVALID_INPUT, 'image is required.');
   }
-  if (!args.prompt || !args.prompt.trim()) {
+  if (typeof args.prompt !== 'string' || !args.prompt.trim()) {
     return toolError(ErrorCode.INVALID_INPUT, 'prompt is required.');
   }
   return handleGenerateVideo(

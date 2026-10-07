@@ -76,7 +76,7 @@ export async function handleRerankDocuments(
   const args = request.params.arguments ?? ({ query: '', documents: [] } as RerankDocumentsRequest);
   const { query, documents, model, top_n, return_documents } = args;
 
-  if (!query?.trim()) {
+  if (typeof query !== 'string' || !query.trim()) {
     return toolError(ErrorCode.INVALID_INPUT, 'query is required.');
   }
   if (!Array.isArray(documents) || documents.length === 0) {

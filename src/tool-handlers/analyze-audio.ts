@@ -44,7 +44,7 @@ export async function handleAnalyzeAudio(
   const { audio_path, question, model, cache_input, provider, cache, cache_ttl, cache_clear } =
     args;
 
-  if (!audio_path?.trim()) {
+  if (typeof audio_path !== 'string' || !audio_path.trim()) {
     return toolError(ErrorCode.INVALID_INPUT, 'audio_path is required.');
   }
 

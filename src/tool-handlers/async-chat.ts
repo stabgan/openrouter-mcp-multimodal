@@ -344,7 +344,7 @@ export async function handleGetChatCompletionStatus(request: {
   params: { arguments: GetChatCompletionStatusRequest };
 }) {
   const args = request.params.arguments ?? ({} as GetChatCompletionStatusRequest);
-  const jobId = args.job_id?.trim();
+  const jobId = typeof args.job_id === 'string' ? args.job_id.trim() : '';
 
   if (!jobId) {
     return toolError(ErrorCode.INVALID_INPUT, 'job_id is required.');

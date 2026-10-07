@@ -58,7 +58,7 @@ export async function handleTextToSpeech(
     cache_clear,
   } = args;
 
-  if (!input?.trim()) {
+  if (typeof input !== 'string' || !input.trim()) {
     return toolError(ErrorCode.INVALID_INPUT, 'input text is required.');
   }
 
