@@ -265,7 +265,22 @@ export async function handleStartChatCompletion(
     createdAt: new Date().toISOString(),
     model: effectiveModel,
   };
-  rememberJob(job);
+
+  if (!rememberJob(job)) {
+    const max = readAsyncJobsMemoryMax();
+    return toolError(
+      ErrorCode.INTERNAL,
+      `Too many concurrent async jobs (limit: ${max}). ` +
+        'Wait for running jobs to complete or increase OPENROUTER_ASYNC_JOBS_MEMORY_MAX.',
+      { active_jobs: max },
+      {
+        suggestions: [
+          'Poll existing jobs with get_chat_completion_status to free capacity',
+          'Increase OPENROUTER_ASYNC_JOBS_MEMORY_MAX if you need more concurrent jobs',
+        ],
+      },
+    );
+  }
 
   logger.audit('async_chat.start', {
     job_id: jobId,
