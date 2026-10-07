@@ -120,11 +120,15 @@ export class OpenRouterAPIClient {
   }
 
   private authHeaders(extra?: Record<string, string>): Record<string, string> {
+    // Spread extra first so that non-negotiable headers (Authorization,
+    // HTTP-Referer, X-Title) always win.  Current call sites only pass
+    // cache headers and Content-Type, but this ordering prevents a future
+    // code path from accidentally overriding the API key or identity.
     return {
+      ...extra,
       Authorization: `Bearer ${this.apiKey}`,
       'HTTP-Referer': 'https://github.com/stabgan/openrouter-mcp-multimodal',
       'X-Title': 'openrouter-mcp-multimodal',
-      ...extra,
     };
   }
 
