@@ -125,6 +125,44 @@ export async function handleTextToSpeech(
 
   const { buffer: rawBuffer, contentType } = result;
 
+  // Guard: reject 0-byte responses — a 200 OK with no body is silent corruption.
+  // Every other generation handler (generate_video, generate_image, generate_audio)
+  // already rejects empty payloads; TTS was the gap.
+  if (rawBuffer.length === 0) {
+    return toolError(
+      ErrorCode.UPSTREAM_REFUSED,
+      'TTS API returned an empty audio response (0 bytes).',
+      undefined,
+      {
+        suggestions: [
+          'Retry after a brief delay',
+          'Try a different model or voice',
+          'Check https://status.openrouter.ai for outages',
+        ],
+      },
+    );
+  }
+
+  // Guard: CDN / reverse-proxy error pages sometimes return 200 with text/html.
+  // Without this guard the HTML body would be saved as an audio file that cannot
+  // be played — silently corrupt output. Mirrors the same protection in
+  // generate_video (finalizeCompletedJob) and generate_image_dedicated.
+  const rawMime = contentType.split(';')[0]?.trim().toLowerCase() ?? '';
+  if (rawMime === 'text/html' || rawMime === 'application/xhtml+xml') {
+    return toolError(
+      ErrorCode.UPSTREAM_HTTP,
+      `TTS API returned ${rawMime} instead of audio — ` +
+        'likely a temporary CDN or upstream error. Retry after a brief delay.',
+      undefined,
+      {
+        suggestions: [
+          'Retry after a brief delay',
+          'Check https://status.openrouter.ai for outages',
+        ],
+      },
+    );
+  }
+
   // Wrap raw PCM in a WAV container so the output is universally playable,
   // matching the behaviour of generate_audio (see BUG-005).
   let buffer = rawBuffer;
