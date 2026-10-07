@@ -144,6 +144,20 @@ export function sniffImageMime(buffer: Buffer): string | null {
   }
   // BMP
   if (buffer[0] === 0x42 && buffer[1] === 0x4d) return 'image/bmp';
+  // SVG: text-based XML — check the first 256 bytes for `<svg` or `<?xml…<svg`.
+  // No binary image format starts with these characters, so false positives are
+  // not possible. Covers direct `<svg`, XML-declared `<?xml …><svg`, and leading
+  // whitespace / BOM variants.
+  if (buffer.length >= 4) {
+    const head = buffer
+      .subarray(0, Math.min(256, buffer.length))
+      .toString('utf8')
+      .trimStart()
+      .toLowerCase();
+    if (head.startsWith('<svg') || (head.startsWith('<?xml') && head.includes('<svg'))) {
+      return 'image/svg+xml';
+    }
+  }
   return null;
 }
 
