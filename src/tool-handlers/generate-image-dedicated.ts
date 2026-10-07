@@ -268,6 +268,24 @@ export async function handleGenerateImageDedicated(
           return toolError(ErrorCode.UPSTREAM_REFUSED, 'Downloaded image URL returned empty body.');
         }
         const resolvedMime = contentType?.split(';')[0]?.trim() || mimeType;
+        // CDN / reverse-proxy error pages sometimes return 200 with text/html.
+        // Without this guard the HTML body would be saved as an image file that
+        // cannot be opened — silently corrupt output with no actionable error.
+        // Mirrors the same protection in generate-video's finalizeCompletedJob.
+        if (resolvedMime === 'text/html' || resolvedMime === 'application/xhtml+xml') {
+          return toolError(
+            ErrorCode.UPSTREAM_HTTP,
+            `Image download returned ${resolvedMime} instead of an image format — ` +
+              'likely a temporary CDN or upstream error. Retry after a brief delay.',
+            { image_url: firstImage.url },
+            {
+              suggestions: [
+                'Retry after a brief delay',
+                'Check https://status.openrouter.ai for outages',
+              ],
+            },
+          );
+        }
         // Re-derive extension from actual download MIME for accuracy.
         const dlExt = extensionForImageMime(resolvedMime);
         const dlPath = currentExt === dlExt ? safeSavePath : replaceExtension(safeSavePath, dlExt);
