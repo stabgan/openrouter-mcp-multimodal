@@ -84,7 +84,6 @@ describe('tool catalog contract', () => {
       'get_model_info',
       'validate_model',
       'speech_to_text',
-      'get_video_status',
       'rerank_documents',
       'health_check',
     ] as const;

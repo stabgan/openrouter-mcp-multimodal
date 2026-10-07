@@ -898,7 +898,7 @@ export const TOOL_DEFINITIONS = [
     description: TOOL_DESCRIPTIONS.get_video_status,
     annotations: {
       title: 'Get video status',
-      readOnlyHint: true,
+      readOnlyHint: false,
       destructiveHint: false,
       idempotentHint: true,
       openWorldHint: true,
