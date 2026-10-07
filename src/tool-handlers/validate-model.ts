@@ -9,9 +9,10 @@ export async function handleValidateModel(
   modelCache: ModelCache,
   apiClient?: OpenRouterAPIClient,
 ) {
-  const { model } = request.params.arguments ?? { model: '' };
+  const rawModel = request.params.arguments?.model;
+  const model = typeof rawModel === 'string' ? rawModel.trim() : '';
 
-  if (!model || typeof model !== 'string') {
+  if (!model) {
     return toolError(ErrorCode.INVALID_INPUT, 'model is required.');
   }
 
