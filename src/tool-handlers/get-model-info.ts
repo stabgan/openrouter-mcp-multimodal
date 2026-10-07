@@ -30,7 +30,12 @@ export async function handleGetModelInfo(
 
   const info = modelCache.lookup(model);
   if (!info) {
-    return toolError(ErrorCode.MODEL_NOT_FOUND, `Model '${model}' not found.`);
+    return toolError(ErrorCode.MODEL_NOT_FOUND, `Model '${model}' not found.`, undefined, {
+      suggestions: [
+        'Use search_models to discover valid model ids',
+        'Use validate_model to pre-flight a model id',
+      ],
+    });
   }
 
   return buildStructuredResult(info);
