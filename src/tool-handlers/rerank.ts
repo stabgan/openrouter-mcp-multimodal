@@ -39,7 +39,15 @@ function normalizeRerankResults(
   }
 
   const normalized = (response.results ?? []).map((r) => {
-    const score = typeof r.score === 'number' ? r.score : r.relevance_score;
+    // Guard against non-finite scores from the upstream API. `typeof NaN === 'number'`
+    // is true, so a bare typeof check would pass NaN/Infinity through to the MCP
+    // response — unusable for downstream consumers. Fall through: score → relevance_score → 0.
+    const score =
+      typeof r.score === 'number' && Number.isFinite(r.score)
+        ? r.score
+        : typeof r.relevance_score === 'number' && Number.isFinite(r.relevance_score)
+          ? r.relevance_score
+          : 0;
     const out: Record<string, unknown> = { index: r.index, score };
     if (returnDocuments) {
       const rawDoc =
