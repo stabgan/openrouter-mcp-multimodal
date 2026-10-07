@@ -63,6 +63,38 @@ describe('generate-video internals', () => {
     expect(_internals.isTerminalFailureStatus('canceled')).toBe(true);
     expect(_internals.isTerminalFailureStatus('processing')).toBe(false);
   });
+
+  it('isValidVideoId accepts typical OpenRouter video IDs', () => {
+    expect(_internals.isValidVideoId('gen-abc123')).toBe(true);
+    expect(_internals.isValidVideoId('vid_abc-def_456')).toBe(true);
+    expect(_internals.isValidVideoId('a'.repeat(256))).toBe(true);
+  });
+
+  it('isValidVideoId rejects IDs exceeding max length', () => {
+    expect(_internals.isValidVideoId('a'.repeat(257))).toBe(false);
+  });
+
+  it('isValidVideoId rejects null bytes', () => {
+    expect(_internals.isValidVideoId('abc\0def')).toBe(false);
+  });
+
+  it('isValidVideoId rejects path traversal sequences', () => {
+    expect(_internals.isValidVideoId('../etc/passwd')).toBe(false);
+    expect(_internals.isValidVideoId('vid..secret')).toBe(false);
+  });
+
+  it('isValidVideoId rejects path separators', () => {
+    expect(_internals.isValidVideoId('vid/escape')).toBe(false);
+    expect(_internals.isValidVideoId('vid\\escape')).toBe(false);
+  });
+
+  it('isValidVideoId rejects control characters', () => {
+    expect(_internals.isValidVideoId('vid\n123')).toBe(false);
+    expect(_internals.isValidVideoId('vid\t123')).toBe(false);
+    expect(_internals.isValidVideoId('vid\r123')).toBe(false);
+    expect(_internals.isValidVideoId('\x1fvid')).toBe(false);
+    expect(_internals.isValidVideoId('vid\x7f')).toBe(false);
+  });
 });
 
 describe('handleGenerateVideo', () => {
@@ -326,6 +358,27 @@ describe('handleGetVideoStatus', () => {
   it('returns INVALID_INPUT when video_id is missing', async () => {
     const r = await handleGetVideoStatus(
       { params: { arguments: { video_id: '' } } },
+      {} as OpenRouterAPIClient,
+    );
+    expect(r.isError).toBe(true);
+    expect((r as { _meta: { code: string } })._meta.code).toBe('INVALID_INPUT');
+  });
+
+  it('rejects video_id with path traversal characters', async () => {
+    const r = await handleGetVideoStatus(
+      { params: { arguments: { video_id: '../escape' } } },
+      {} as OpenRouterAPIClient,
+    );
+    expect(r.isError).toBe(true);
+    expect((r as { _meta: { code: string } })._meta.code).toBe('INVALID_INPUT');
+    expect((r as { content: Array<{ text: string }> }).content[0].text).toMatch(
+      /control characters.*path separators|path separators.*control characters/i,
+    );
+  });
+
+  it('rejects video_id with control characters', async () => {
+    const r = await handleGetVideoStatus(
+      { params: { arguments: { video_id: 'vid\ninjection' } } },
       {} as OpenRouterAPIClient,
     );
     expect(r.isError).toBe(true);

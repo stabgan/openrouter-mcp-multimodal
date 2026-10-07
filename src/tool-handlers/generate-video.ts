@@ -41,6 +41,16 @@ const MAX_VIDEO_ID_LENGTH = 256;
 function isValidVideoId(id: string): boolean {
   if (id.length > MAX_VIDEO_ID_LENGTH) return false;
   if (id.includes('\0')) return false;
+  // Block path traversal and path separators — defense-in-depth, mirrors
+  // isValidJobId in path-safety.ts. Video IDs are URL-encoded when
+  // interpolated into API URLs, but rejecting these characters prevents
+  // misuse if the ID is ever used in a non-URL context (log paths, cache
+  // keys, etc.).
+  if (id.includes('..') || id.includes('/') || id.includes('\\')) return false;
+  // Reject control characters (U+0000–U+001F, U+007F) — they can cause
+  // log injection and are never legitimate parts of an API-issued ID.
+  // eslint-disable-next-line no-control-regex
+  if (/[\x00-\x1f\x7f]/.test(id)) return false;
   return true;
 }
 
@@ -545,7 +555,7 @@ export async function handleGetVideoStatus(
   if (!isValidVideoId(id)) {
     return toolError(
       ErrorCode.INVALID_INPUT,
-      `Invalid video_id — must be ≤ ${MAX_VIDEO_ID_LENGTH} characters and must not contain null bytes.`,
+      `Invalid video_id — must be ≤ ${MAX_VIDEO_ID_LENGTH} characters and must not contain null bytes, control characters, or path separators.`,
     );
   }
 
