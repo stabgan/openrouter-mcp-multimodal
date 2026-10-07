@@ -368,8 +368,11 @@ export async function handleGenerateVideo(
     return toolError(ErrorCode.INVALID_INPUT, 'prompt is required.');
   }
 
-  if (typeof args.duration === 'number' && (!Number.isFinite(args.duration) || args.duration < 1)) {
-    return toolError(ErrorCode.INVALID_INPUT, 'duration must be a finite number >= 1 (seconds).');
+  if (
+    typeof args.duration === 'number' &&
+    (!Number.isFinite(args.duration) || !Number.isInteger(args.duration) || args.duration < 1)
+  ) {
+    return toolError(ErrorCode.INVALID_INPUT, 'duration must be an integer >= 1 (seconds).');
   }
   if (
     typeof args.seed === 'number' &&

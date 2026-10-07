@@ -828,7 +828,7 @@ export const TOOL_DEFINITIONS = [
           description: 'Provider-specific aspect ratio (e.g. "16:9", "9:16"). No server-side enum.',
         },
         duration: {
-          type: 'number',
+          type: 'integer',
           minimum: 1,
           description: 'Clip duration in seconds (provider-dependent).',
         },
@@ -887,7 +887,7 @@ export const TOOL_DEFINITIONS = [
         model: { type: 'string', description: 'Video model ID (default: google/veo-3.1).' },
         resolution: { type: 'string', description: 'Provider-specific resolution.' },
         aspect_ratio: { type: 'string', description: 'Provider-specific aspect ratio.' },
-        duration: { type: 'number', minimum: 1, description: 'Clip duration in seconds.' },
+        duration: { type: 'integer', minimum: 1, description: 'Clip duration in seconds.' },
         seed: { type: 'integer', description: 'Optional reproducibility seed.' },
         provider: { type: 'object', description: 'Provider routing overrides.' },
         save_path: SAVE_PATH_PROPERTY,
