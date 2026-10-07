@@ -306,7 +306,11 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
     lower.includes('timeout') ||
     // Catch AbortSignal-based cancellations ("The operation was aborted")
     // but not ECONNABORTED which is a connection interruption, not a timeout.
-    (lower.includes('aborted') && !lower.includes('econnaborted') && nodeCode !== 'ECONNABORTED') ||
+    // Use the specific DOMException phrasing to avoid false-positives from
+    // upstream messages like "request aborted by content filter".
+    (lower.includes('operation was aborted') &&
+      !lower.includes('econnaborted') &&
+      nodeCode !== 'ECONNABORTED') ||
     (err instanceof Error && (err as { name?: string }).name === 'AbortError') ||
     nodeCode === 'ETIMEDOUT' ||
     nodeCode === 'UND_ERR_CONNECT_TIMEOUT'
