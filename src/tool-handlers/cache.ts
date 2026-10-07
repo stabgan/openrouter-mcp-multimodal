@@ -71,7 +71,9 @@ export function validateCacheOptions(opts: CacheOptions | undefined): ToolErrorR
 export function buildCacheHeaders(opts: CacheOptions | undefined): Record<string, string> {
   const headers: Record<string, string> = {};
   const defaultOn = readCacheDefault();
-  const enabled = opts?.cache ?? defaultOn;
+  // When cache_ttl is provided, the caller clearly intends caching — auto-enable
+  // it rather than silently sending the TTL header without the enable flag.
+  const enabled = opts?.cache ?? (opts?.cache_ttl ? true : defaultOn);
   if (enabled) headers['X-OpenRouter-Cache'] = 'true';
   if (opts?.cache_ttl) {
     const resolved = resolveCacheTtl(opts.cache_ttl);
