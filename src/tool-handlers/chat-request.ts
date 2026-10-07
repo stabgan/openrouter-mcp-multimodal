@@ -143,9 +143,7 @@ export function validateReasoningEffort(
 
 const MAX_STOP_SEQUENCES = 4;
 
-export function validateStop(
-  stop: string | string[] | undefined,
-): ToolErrorResult | null {
+export function validateStop(stop: string | string[] | undefined): ToolErrorResult | null {
   if (stop === undefined) return null;
   if (typeof stop === 'string') {
     if (stop.length === 0) {
@@ -160,10 +158,7 @@ export function validateStop(
     );
   }
   if (stop.length === 0 || stop.length > MAX_STOP_SEQUENCES) {
-    return toolError(
-      ErrorCode.INVALID_INPUT,
-      `stop array must contain 1–4 strings.`,
-    );
+    return toolError(ErrorCode.INVALID_INPUT, `stop array must contain 1–4 strings.`);
   }
   for (let i = 0; i < stop.length; i++) {
     if (typeof stop[i] !== 'string' || stop[i]!.length === 0) {
@@ -181,10 +176,7 @@ export function validateTopP(topP: number | undefined): ToolErrorResult | null {
   return null;
 }
 
-export function validatePenalty(
-  value: number | undefined,
-  name: string,
-): ToolErrorResult | null {
+export function validatePenalty(value: number | undefined, name: string): ToolErrorResult | null {
   if (value === undefined) return null;
   if (typeof value !== 'number' || !Number.isFinite(value) || value < -2 || value > 2) {
     return toolError(ErrorCode.INVALID_INPUT, `${name} must be a number between -2 and 2.`);
