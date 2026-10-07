@@ -86,6 +86,57 @@ describe('mock strata: handler INVALID_INPUT guards', () => {
     expect((r as { _meta: { code: string } })._meta.code).toBe('INVALID_INPUT');
   });
 
+  const nonStringQuestionCases: Array<[string, unknown]> = [
+    ['number', 42],
+    ['boolean', true],
+    ['object', { nested: 'value' }],
+    ['array', ['a', 'b']],
+  ];
+  it.each(nonStringQuestionCases)(
+    'analyze_image rejects non-string question (%s)',
+    async (_label, question) => {
+      const r = await handleAnalyzeImage(
+        { params: { arguments: { image_path: 'img.png', question } as never } },
+        mockOpenAI(),
+      );
+      expect(r.isError).toBe(true);
+      expect((r as { _meta: { code: string } })._meta.code).toBe('INVALID_INPUT');
+      expect((r as { content: Array<{ text: string }> }).content[0].text).toContain(
+        'question must be a string',
+      );
+    },
+  );
+
+  it.each(nonStringQuestionCases)(
+    'analyze_audio rejects non-string question (%s)',
+    async (_label, question) => {
+      const r = await handleAnalyzeAudio(
+        { params: { arguments: { audio_path: 'audio.mp3', question } as never } },
+        mockOpenAI(),
+      );
+      expect(r.isError).toBe(true);
+      expect((r as { _meta: { code: string } })._meta.code).toBe('INVALID_INPUT');
+      expect((r as { content: Array<{ text: string }> }).content[0].text).toContain(
+        'question must be a string',
+      );
+    },
+  );
+
+  it.each(nonStringQuestionCases)(
+    'analyze_video rejects non-string question (%s)',
+    async (_label, question) => {
+      const r = await handleAnalyzeVideo(
+        { params: { arguments: { video_path: 'vid.mp4', question } as never } },
+        mockOpenAI(),
+      );
+      expect(r.isError).toBe(true);
+      expect((r as { _meta: { code: string } })._meta.code).toBe('INVALID_INPUT');
+      expect((r as { content: Array<{ text: string }> }).content[0].text).toContain(
+        'question must be a string',
+      );
+    },
+  );
+
   const blankPromptCases = ['', '   ', '\n'];
   it.each(blankPromptCases)('generate_image rejects blank prompt %j', async (prompt) => {
     const r = await handleGenerateImage({ params: { arguments: { prompt } } }, mockOpenAI());

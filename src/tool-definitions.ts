@@ -215,6 +215,36 @@ export const TOOL_DEFINITIONS = [
             'Common values: `low`, `medium`, `high`. Higher effort = more reasoning tokens = better quality but slower and costlier. ' +
             'Passed through to the provider.',
         },
+        stop: {
+          oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' }, maxItems: 4 }],
+          description:
+            'Up to 4 sequences where the API will stop generating further tokens. ' +
+            'Pass a single string or an array of strings.',
+        },
+        top_p: {
+          type: 'number',
+          minimum: 0,
+          maximum: 1,
+          description:
+            'Nucleus sampling: only tokens with top_p cumulative probability are considered. ' +
+            'Alternative to temperature. Between 0 and 1.',
+        },
+        frequency_penalty: {
+          type: 'number',
+          minimum: -2,
+          maximum: 2,
+          description:
+            'Penalize new tokens based on their existing frequency in the text so far. ' +
+            'Between -2.0 and 2.0. Positive values reduce repetition.',
+        },
+        presence_penalty: {
+          type: 'number',
+          minimum: -2,
+          maximum: 2,
+          description:
+            'Penalize new tokens based on whether they appear in the text so far. ' +
+            'Between -2.0 and 2.0. Positive values encourage new topics.',
+        },
         response_format: {
           type: 'object',
           description:
@@ -291,6 +321,28 @@ export const TOOL_DEFINITIONS = [
           type: 'boolean',
           description: 'Enable `openrouter:response_healing` — auto-fix malformed JSON.',
         },
+        stop: {
+          oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' }, maxItems: 4 }],
+          description: 'Up to 4 sequences where the API will stop generating further tokens.',
+        },
+        top_p: {
+          type: 'number',
+          minimum: 0,
+          maximum: 1,
+          description: 'Nucleus sampling (alternative to temperature). Between 0 and 1.',
+        },
+        frequency_penalty: {
+          type: 'number',
+          minimum: -2,
+          maximum: 2,
+          description: 'Penalize tokens by existing frequency. Between -2 and 2.',
+        },
+        presence_penalty: {
+          type: 'number',
+          minimum: -2,
+          maximum: 2,
+          description: 'Penalize tokens by whether they appeared already. Between -2 and 2.',
+        },
         response_format: {
           type: 'object',
           description:
@@ -338,7 +390,7 @@ export const TOOL_DEFINITIONS = [
       title: 'Analyze image',
       readOnlyHint: true,
       destructiveHint: false,
-      idempotentHint: false,
+      idempotentHint: true,
       openWorldHint: true,
     },
     inputSchema: {
@@ -379,7 +431,7 @@ export const TOOL_DEFINITIONS = [
       title: 'Analyze audio',
       readOnlyHint: true,
       destructiveHint: false,
-      idempotentHint: false,
+      idempotentHint: true,
       openWorldHint: true,
     },
     inputSchema: {
@@ -416,7 +468,7 @@ export const TOOL_DEFINITIONS = [
       title: 'Analyze video',
       readOnlyHint: true,
       destructiveHint: false,
-      idempotentHint: false,
+      idempotentHint: true,
       openWorldHint: true,
     },
     inputSchema: {
@@ -761,7 +813,7 @@ export const TOOL_DEFINITIONS = [
       title: 'Speech to text (dedicated API)',
       readOnlyHint: true,
       destructiveHint: false,
-      idempotentHint: false,
+      idempotentHint: true,
       openWorldHint: true,
     },
     inputSchema: {

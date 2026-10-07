@@ -25,6 +25,9 @@ import {
   validateResponseFormat,
   validateWebSearchOptions,
   validateReasoningEffort,
+  validateStop,
+  validateTopP,
+  validatePenalty,
 } from './chat-request.js';
 
 export type ChatCompletionToolRequest = ChatToolRequest;
@@ -49,6 +52,10 @@ export async function handleChatCompletion(
     fusion,
     subagent,
     response_healing,
+    stop,
+    top_p,
+    frequency_penalty,
+    presence_penalty,
     cache,
     cache_ttl,
     cache_clear,
@@ -79,6 +86,18 @@ export async function handleChatCompletion(
   const reasoningEffortError = validateReasoningEffort(reasoning_effort);
   if (reasoningEffortError) return reasoningEffortError;
 
+  const stopError = validateStop(stop);
+  if (stopError) return stopError;
+
+  const topPError = validateTopP(top_p);
+  if (topPError) return topPError;
+
+  const freqPenaltyError = validatePenalty(frequency_penalty, 'frequency_penalty');
+  if (freqPenaltyError) return freqPenaltyError;
+
+  const presPenaltyError = validatePenalty(presence_penalty, 'presence_penalty');
+  if (presPenaltyError) return presPenaltyError;
+
   const wantsReasoning = include_reasoning ?? readIncludeReasoningDefault();
 
   const body = buildChatCompletionBody({
@@ -96,6 +115,10 @@ export async function handleChatCompletion(
     subagent,
     response_healing,
     response_format: args.response_format,
+    stop,
+    top_p,
+    frequency_penalty,
+    presence_penalty,
   });
   const requestOpts = buildChatCompletionRequestOpts({ cache, cache_ttl, cache_clear });
 

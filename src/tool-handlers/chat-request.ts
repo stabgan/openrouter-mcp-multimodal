@@ -56,6 +56,17 @@ export interface ChatToolRequest extends CacheOptions {
    * but slower and more expensive. Passed through to the provider.
    */
   reasoning_effort?: string;
+  /**
+   * Up to 4 sequences where the API will stop generating further tokens.
+   * Can be a single string or an array of strings.
+   */
+  stop?: string | string[];
+  /** Nucleus sampling — alternative to temperature. Between 0 and 1. */
+  top_p?: number;
+  /** Penalize new tokens based on their existing frequency in the text so far. Between -2 and 2. */
+  frequency_penalty?: number;
+  /** Penalize new tokens based on whether they appear in the text so far. Between -2 and 2. */
+  presence_penalty?: number;
 }
 
 export function readIncludeReasoningDefault(): boolean {
@@ -126,6 +137,49 @@ export function validateReasoningEffort(
       ErrorCode.INVALID_INPUT,
       `reasoning_effort must be a non-empty string. Common values: ${[...VALID_REASONING_EFFORTS].join(', ')}.`,
     );
+  }
+  return null;
+}
+
+const MAX_STOP_SEQUENCES = 4;
+
+export function validateStop(stop: string | string[] | undefined): ToolErrorResult | null {
+  if (stop === undefined) return null;
+  if (typeof stop === 'string') {
+    if (stop.length === 0) {
+      return toolError(ErrorCode.INVALID_INPUT, 'stop must be a non-empty string or array.');
+    }
+    return null;
+  }
+  if (!Array.isArray(stop)) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      'stop must be a string or an array of up to 4 strings.',
+    );
+  }
+  if (stop.length === 0 || stop.length > MAX_STOP_SEQUENCES) {
+    return toolError(ErrorCode.INVALID_INPUT, `stop array must contain 1–4 strings.`);
+  }
+  for (let i = 0; i < stop.length; i++) {
+    if (typeof stop[i] !== 'string' || stop[i]!.length === 0) {
+      return toolError(ErrorCode.INVALID_INPUT, `stop[${i}] must be a non-empty string.`);
+    }
+  }
+  return null;
+}
+
+export function validateTopP(topP: number | undefined): ToolErrorResult | null {
+  if (topP === undefined) return null;
+  if (typeof topP !== 'number' || !Number.isFinite(topP) || topP < 0 || topP > 1) {
+    return toolError(ErrorCode.INVALID_INPUT, 'top_p must be a number between 0 and 1.');
+  }
+  return null;
+}
+
+export function validatePenalty(value: number | undefined, name: string): ToolErrorResult | null {
+  if (value === undefined) return null;
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < -2 || value > 2) {
+    return toolError(ErrorCode.INVALID_INPUT, `${name} must be a number between -2 and 2.`);
   }
   return null;
 }
@@ -239,6 +293,10 @@ export function buildChatCompletionBody(
     temperature: input.temperature ?? 1,
   };
   if (typeof effectiveMaxTokens === 'number') body.max_tokens = effectiveMaxTokens;
+  if (input.stop !== undefined) body.stop = input.stop;
+  if (input.top_p !== undefined) body.top_p = input.top_p;
+  if (input.frequency_penalty !== undefined) body.frequency_penalty = input.frequency_penalty;
+  if (input.presence_penalty !== undefined) body.presence_penalty = input.presence_penalty;
   if (providerBody) body.provider = providerBody;
   if (wantsReasoning) body.include_reasoning = true;
   if (input.reasoning_effort?.trim()) body.reasoning_effort = input.reasoning_effort.trim();
