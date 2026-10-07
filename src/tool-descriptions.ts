@@ -440,11 +440,11 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
   text_to_speech: buildToolDescription({
     summary:
       "Convert text to speech via OpenRouter's dedicated TTS endpoint (POST /api/v1/audio/speech). " +
-      `Default: ${DEFAULT_TTS_MODEL} with ${DEFAULT_TTS_VOICE}; discover current models with GET /api/v1/models?output_modalities=speech. Output formats: mp3 or pcm (default: ${DEFAULT_TTS_RESPONSE_FORMAT}).`,
+      `Default: ${DEFAULT_TTS_MODEL} with ${DEFAULT_TTS_VOICE}; discover current models with GET /api/v1/models?output_modalities=speech. Output formats: mp3, opus, aac, flac, wav, pcm (default: ${DEFAULT_TTS_RESPONSE_FORMAT}). PCM output is auto-wrapped in a WAV container.`,
     useWhen: [
       'You need text-to-speech with specific voice control',
       'You want fast, dedicated TTS without chat overhead',
-      'You need mp3 or pcm audio output',
+      'You need mp3, opus, aac, flac, wav, or pcm audio output',
     ],
     notWhen: [
       'You want to generate music or sound effects → generate_audio',
@@ -459,7 +459,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
     badExamples: [
       '`{ "input": "" }` → INVALID_INPUT',
       '`{ "prompt": "text" }` → wrong key; use `input`',
-      '`{ "response_format": "wav" }` → only mp3 and pcm are supported',
+      '`{ "response_format": "mp4" }` → not in allowed formats; valid: mp3, opus, aac, flac, wav, pcm',
     ],
     failsWhen: [
       'INVALID_INPUT: empty input, invalid response_format',
