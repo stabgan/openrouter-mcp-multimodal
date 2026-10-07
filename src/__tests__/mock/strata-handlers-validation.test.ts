@@ -86,7 +86,6 @@ describe('mock strata: handler INVALID_INPUT guards', () => {
     expect((r as { _meta: { code: string } })._meta.code).toBe('INVALID_INPUT');
   });
 
-
   const nonStringQuestionCases: Array<[string, unknown]> = [
     ['number', 42],
     ['boolean', true],
