@@ -34,8 +34,8 @@ export const IMAGE_OUTPUT_FORMATS = ['png', 'jpeg', 'webp', 'svg'] as const;
 /** generate_audio handler VALID_FORMATS */
 export const GENERATE_AUDIO_FORMATS = ['wav', 'mp3', 'flac', 'opus', 'pcm16'] as const;
 
-/** text_to_speech handler VALID_FORMATS */
-export const TTS_RESPONSE_FORMATS = ['mp3', 'pcm'] as const;
+/** text_to_speech handler VALID_FORMATS — matches OpenAI/OpenRouter POST /audio/speech. */
+export const TTS_RESPONSE_FORMATS = ['mp3', 'opus', 'aac', 'flac', 'wav', 'pcm'] as const;
 
 /** speech_to_text handler VALID_RESPONSE_FORMATS */
 export const STT_RESPONSE_FORMATS = ['json', 'text', 'srt', 'verbose_json', 'vtt'] as const;
@@ -685,7 +685,7 @@ export const TOOL_DEFINITIONS = [
         response_format: {
           type: 'string',
           enum: [...TTS_RESPONSE_FORMATS],
-          description: `Output audio format (mp3 or pcm). Default: ${DEFAULT_TTS_RESPONSE_FORMAT}.`,
+          description: `Output audio format. Default: ${DEFAULT_TTS_RESPONSE_FORMAT}. PCM output is auto-wrapped in a WAV container.`,
         },
         speed: {
           type: 'number',

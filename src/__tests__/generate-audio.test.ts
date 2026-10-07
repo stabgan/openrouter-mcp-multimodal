@@ -341,7 +341,7 @@ describe('handleTextToSpeech', () => {
   it('rejects response formats unsupported by the dedicated endpoint', async () => {
     const api = { generateSpeech: vi.fn() } as unknown as OpenRouterAPIClient;
     const r = await handleTextToSpeech(
-      { params: { arguments: { input: 'hello', response_format: 'wav' } } },
+      { params: { arguments: { input: 'hello', response_format: 'raw' } } },
       api,
     );
 

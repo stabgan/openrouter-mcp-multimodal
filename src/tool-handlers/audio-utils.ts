@@ -111,6 +111,12 @@ export function detectAudioFormat(data: Buffer): { ext: string; mimeType: string
       return { ext: 'mp3', mimeType: 'audio/mpeg' };
     }
   }
+  // AAC ADTS: 12-bit sync word 0xFFF, Layer field is always 00.
+  // Must come after the MP3 frame-sync check which rejects Layer=00 via
+  // `layerBits !== 0x00`, so AAC data falls through to here.
+  if (data.length >= 2 && data[0] === 0xff && (data[1]! & 0xf6) === 0xf0) {
+    return { ext: 'aac', mimeType: 'audio/aac' };
+  }
   if (data.length >= 12) {
     const riff = data.subarray(0, 4).toString('ascii');
     const wave = data.subarray(8, 12).toString('ascii');
