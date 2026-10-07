@@ -181,6 +181,17 @@ export function isBlockedIPv6(ip: string): boolean {
     return isBlockedIPv4(dotted);
   }
 
+  // IPv4-translatable addresses (RFC 6145) — ::ffff:0:a.b.c.d
+  // Layout: 0:0:0:0:ffff:0:g6:g7 — the IPv4 is in g6:g7 just like the
+  // mapped form above, but g4 holds 0xffff instead of g5. Without this
+  // check an attacker-controlled DNS AAAA record could embed a private
+  // IPv4 address in the translatable prefix and bypass the SSRF guard.
+  if (g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0xffff && g5 === 0) {
+    const v4 = ((g6 << 16) >>> 0) | g7;
+    const dotted = `${(v4 >>> 24) & 0xff}.${(v4 >>> 16) & 0xff}.${(v4 >>> 8) & 0xff}.${v4 & 0xff}`;
+    return isBlockedIPv4(dotted);
+  }
+
   if (g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0) {
     if (g6 !== 0 || g7 !== 0) {
       const v4 = ((g6 << 16) >>> 0) | g7;

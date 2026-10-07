@@ -25,6 +25,21 @@ describe('isBlockedIPv6 — comprehensive', () => {
     expect(isBlockedIPv6('::ffff:1.1.1.1')).toBe(false);
   });
 
+  it('blocks IPv4-translatable (::ffff:0:) private ranges (RFC 6145)', () => {
+    expect(isBlockedIPv6('::ffff:0:127.0.0.1')).toBe(true); // loopback
+    expect(isBlockedIPv6('::ffff:0:10.0.0.1')).toBe(true); // RFC1918
+    expect(isBlockedIPv6('::ffff:0:192.168.1.1')).toBe(true); // RFC1918
+    expect(isBlockedIPv6('::ffff:0:169.254.169.254')).toBe(true); // link-local / metadata
+    expect(isBlockedIPv6('0:0:0:0:ffff:0:7f00:1')).toBe(true); // 127.0.0.1 full hex form
+    expect(isBlockedIPv6('::ffff:0:c0a8:101')).toBe(true); // 192.168.1.1 hex form
+  });
+
+  it('allows IPv4-translatable (::ffff:0:) public addresses', () => {
+    expect(isBlockedIPv6('::ffff:0:8.8.8.8')).toBe(false);
+    expect(isBlockedIPv6('::ffff:0:1.1.1.1')).toBe(false);
+    expect(isBlockedIPv6('0:0:0:0:ffff:0:808:808')).toBe(false); // 8.8.8.8 hex form
+  });
+
   it('blocks IPv4-compatible loopback', () => {
     expect(isBlockedIPv6('::127.0.0.1')).toBe(true);
   });
