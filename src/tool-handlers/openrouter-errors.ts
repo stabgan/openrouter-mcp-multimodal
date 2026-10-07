@@ -278,7 +278,9 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
   if (
     lower.includes('timed out') ||
     lower.includes('timeout') ||
-    lower.includes('aborted') ||
+    // Catch AbortSignal-based cancellations ("The operation was aborted")
+    // but not ECONNABORTED which is a connection interruption, not a timeout.
+    (lower.includes('aborted') && !lower.includes('econnaborted')) ||
     (err instanceof Error && (err as { name?: string }).name === 'AbortError')
   ) {
     return toolError(
@@ -322,8 +324,32 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
     );
   }
 
-  // Transient connection interruptions — socket reset, broken pipe, hang-up.
-  if (lower.includes('econnreset') || lower.includes('epipe') || lower.includes('socket hang up')) {
+  // Temporary DNS resolution failures — unlike ENOTFOUND (permanent), EAI_AGAIN is
+  // transient and usually resolves on retry. Common during brief network hiccups or
+  // DNS server overload.
+  if (lower.includes('eai_again')) {
+    return toolError(
+      ErrorCode.UPSTREAM_REFUSED,
+      fullMsg,
+      { status, reason: 'dns_transient' },
+      {
+        suggestions: [
+          'Retry — DNS resolution temporarily failed',
+          'Verify internet connectivity',
+          'Check https://status.openrouter.ai for outages',
+        ],
+      },
+    );
+  }
+
+  // Transient connection interruptions — socket reset, broken pipe, hang-up,
+  // or connection aborted by the local or remote side.
+  if (
+    lower.includes('econnreset') ||
+    lower.includes('epipe') ||
+    lower.includes('socket hang up') ||
+    lower.includes('econnaborted')
+  ) {
     return toolError(
       ErrorCode.UPSTREAM_HTTP,
       fullMsg,
@@ -349,6 +375,25 @@ export function classifyUpstreamError(err: unknown, contextMessage?: string): To
         suggestions: [
           'If behind a corporate proxy, set NODE_EXTRA_CA_CERTS to the proxy CA bundle',
           'Verify system clock is correct (certificate validity is time-sensitive)',
+          'Check https://status.openrouter.ai for outages',
+        ],
+      },
+    );
+  }
+
+  // TLS protocol errors — version mismatches, cipher suite incompatibilities,
+  // or corrupted TLS handshakes. Common behind corporate proxies that
+  // intercept HTTPS traffic with incompatible TLS settings.
+  if (lower.includes('eproto') || lower.includes('ssl routines')) {
+    return toolError(
+      ErrorCode.UPSTREAM_REFUSED,
+      fullMsg,
+      { status, reason: 'tls' },
+      {
+        suggestions: [
+          'If behind a corporate proxy, verify TLS interception settings',
+          'Ensure Node.js TLS version is compatible (TLS 1.2+ required)',
+          'Set NODE_EXTRA_CA_CERTS if the proxy uses a custom CA',
           'Check https://status.openrouter.ai for outages',
         ],
       },

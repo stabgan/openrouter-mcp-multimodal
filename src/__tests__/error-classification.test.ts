@@ -303,6 +303,34 @@ describe('classifyUpstreamError — network-level errors', () => {
     const r = classifyUpstreamError(err, 'rerank');
     expect(r.content[0].text.startsWith('rerank:')).toBe(true);
   });
+
+  it('maps ECONNABORTED to UPSTREAM_HTTP with connection_reset reason', () => {
+    const err = Object.assign(new Error('socket connection was aborted ECONNABORTED'), {
+      code: 'ECONNABORTED',
+    });
+    const r = classifyUpstreamError(err, 'chat_completion');
+    expect(r._meta.code).toBe('UPSTREAM_HTTP');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'connection_reset' });
+    expect(r._meta.suggestions!.some((s) => /retry/i.test(s))).toBe(true);
+  });
+
+  it('maps EAI_AGAIN (transient DNS) to UPSTREAM_REFUSED with dns_transient reason', () => {
+    const err = Object.assign(new Error('getaddrinfo EAI_AGAIN openrouter.ai'), {
+      code: 'EAI_AGAIN',
+    });
+    const r = classifyUpstreamError(err, 'rerank');
+    expect(r._meta.code).toBe('UPSTREAM_REFUSED');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'dns_transient' });
+    expect(r._meta.suggestions).toBeDefined();
+    expect(r._meta.suggestions!.some((s) => /retry/i.test(s))).toBe(true);
+    expect(r._meta.suggestions!.some((s) => /dns/i.test(s))).toBe(true);
+  });
+
+  it('preserves context label on EAI_AGAIN errors', () => {
+    const err = new Error('getaddrinfo EAI_AGAIN openrouter.ai');
+    const r = classifyUpstreamError(err, 'speech_to_text');
+    expect(r.content[0].text.startsWith('speech_to_text:')).toBe(true);
+  });
 });
 
 describe('classifyUpstreamError — TLS/certificate errors', () => {
@@ -372,5 +400,30 @@ describe('classifyUpstreamError — TLS/certificate errors', () => {
     const err = new Error('DEPTH_ZERO_SELF_SIGNED_CERT');
     const r = classifyUpstreamError(err, 'generate_video');
     expect(r.content[0].text.startsWith('generate_video:')).toBe(true);
+  });
+
+  it('maps EPROTO to UPSTREAM_REFUSED with tls reason', () => {
+    const err = Object.assign(
+      new Error('write EPROTO routines:ssl3_get_record:wrong version number'),
+      { code: 'EPROTO' },
+    );
+    const r = classifyUpstreamError(err, 'chat_completion');
+    expect(r._meta.code).toBe('UPSTREAM_REFUSED');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'tls' });
+    expect(r._meta.suggestions).toBeDefined();
+    expect(r._meta.suggestions!.some((s) => /TLS/i.test(s))).toBe(true);
+  });
+
+  it('maps "ssl routines" errors to UPSTREAM_REFUSED with tls reason', () => {
+    const err = new Error('error:1408F10B:SSL routines:ssl3_get_record:wrong version number');
+    const r = classifyUpstreamError(err);
+    expect(r._meta.code).toBe('UPSTREAM_REFUSED');
+    expect(r._meta.details).toEqual({ status: undefined, reason: 'tls' });
+  });
+
+  it('preserves context label on EPROTO errors', () => {
+    const err = new Error('write EPROTO');
+    const r = classifyUpstreamError(err, 'generate_image');
+    expect(r.content[0].text.startsWith('generate_image:')).toBe(true);
   });
 });
