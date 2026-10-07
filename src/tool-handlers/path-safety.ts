@@ -241,7 +241,11 @@ export async function resolveSafeJobStatusPath(
   if (!isValidJobId(jobId)) return null;
 
   const rootReal = await fs.realpath(jobsDir).catch(() => path.resolve(jobsDir));
-  const jobDirCandidate = path.resolve(jobsDir, jobId);
+  // Resolve the candidate against rootReal (not the raw jobsDir) so the
+  // isInsideRoot check below works correctly when jobsDir is reached through
+  // a symlink.  This mirrors how resolveSafeOutputPath resolves relative
+  // paths against rootReal.
+  const jobDirCandidate = path.resolve(rootReal, jobId);
 
   let jobDirReal: string;
   try {
