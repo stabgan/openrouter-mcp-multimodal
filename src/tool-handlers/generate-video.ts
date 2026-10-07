@@ -490,7 +490,9 @@ export async function handleGenerateVideo(
     if (err instanceof UnsafeOutputPathError) {
       return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
     }
-    return toolErrorFrom(ErrorCode.UPSTREAM_HTTP, err, 'Download');
+    return toolErrorFrom(ErrorCode.UPSTREAM_HTTP, err, 'Download', {
+      suggestions: ['Retry after a brief delay', 'Check https://status.openrouter.ai for outages'],
+    });
   }
 }
 
@@ -522,7 +524,12 @@ export async function handleGetVideoStatus(
       return { content, _meta };
     } catch (err) {
       if (err instanceof UnsafeOutputPathError) return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
-      return toolErrorFrom(ErrorCode.UPSTREAM_HTTP, err, 'Download');
+      return toolErrorFrom(ErrorCode.UPSTREAM_HTTP, err, 'Download', {
+        suggestions: [
+          'Retry after a brief delay',
+          'Check https://status.openrouter.ai for outages',
+        ],
+      });
     }
   }
   return {
