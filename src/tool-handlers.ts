@@ -119,11 +119,16 @@ export class ToolHandlers {
   }
 
   private register(server: Server) {
+    // Pre-compute the merged tool list once — TOOL_DEFINITIONS and TOOL_ICONS
+    // are module-level constants that never change, so rebuilding 19 objects
+    // with spread on every ListTools request is unnecessary allocation.
+    const toolsWithIcons = TOOL_DEFINITIONS.map((tool) => ({
+      ...tool,
+      icons: TOOL_ICONS[tool.name as string],
+    }));
+
     server.setRequestHandler(ListToolsRequestSchema, async () => ({
-      tools: TOOL_DEFINITIONS.map((tool) => ({
-        ...tool,
-        icons: TOOL_ICONS[tool.name as string],
-      })),
+      tools: toolsWithIcons,
     }));
 
     server.setRequestHandler(CallToolRequestSchema, async (request): Promise<CallToolResult> => {
