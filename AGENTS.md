@@ -71,7 +71,7 @@ src/tts-defaults.ts             ← TTS default constants (model, voice, respons
 | `npm run test:all`             | unit + regression + integration                 | Pre-release gate                    |
 | `npm run ci`                   | lint + format + version sync + build + test:all | **The one command before shipping** |
 
-Current: **86 test files, 2591 tests**.
+Current: **87 test files, 2653 tests**.
 
 ## Releasing (read this before publishing)
 
@@ -130,7 +130,7 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 | Cache headers             | `src/tool-handlers/cache.ts`                                          |
 | Provider routing          | `src/tool-handlers/provider-routing.ts`                               |
 | SSRF / fetch guards       | `src/tool-handlers/fetch-utils.ts`                                    |
-| Image pipeline            | `src/tool-handlers/image-utils.ts`, `src/tool-handlers/image-source.ts` |
+| Image pipeline            | `src/tool-handlers/image-utils.ts`, `src/tool-handlers/image-source.ts`, `src/tool-handlers/generate-image-input.ts` |
 | Video format validation   | `src/tool-handlers/video-utils.ts`                                    |
 | Audio utilities           | `src/tool-handlers/audio-utils.ts`                                    |
 | Structured JSON logger    | `src/logger.ts`                                                       |
