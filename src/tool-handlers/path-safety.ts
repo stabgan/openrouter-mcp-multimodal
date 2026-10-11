@@ -14,6 +14,27 @@ import { ErrorCode, toolError, toolErrorFrom, type ToolErrorResult } from '../er
  * so `../escape` fails without leaking ENOENT.
  */
 
+/**
+ * Maximum length for user-supplied file paths (bytes / chars).
+ *
+ * Every other user-supplied string that flows into outbound API requests,
+ * log entries, or error messages has a length ceiling (model: 256, prompt:
+ * 100 K, instructions: 10 K, etc.).  Path parameters (`image_path`,
+ * `audio_path`, `video_path`, `save_path`) across 7+ tool handlers were
+ * the remaining uncapped inputs.  Without this limit a multi-megabyte path
+ * string would:
+ *
+ *   1. Get embedded verbatim in `UnsafePathError` messages, creating
+ *      multi-megabyte Error objects.
+ *   2. Cause oversized string concatenation in `toolErrorFrom` before
+ *      `sanitizeErrorMessage` truncates the result.
+ *   3. Feed into `path.resolve()` and `fs.realpath()` for no benefit.
+ *
+ * 4 096 matches POSIX `PATH_MAX` on Linux and is generous for any real
+ * filesystem path on any platform (macOS PATH_MAX is 1 024).
+ */
+const MAX_PATH_LENGTH = 4096;
+
 /** Output root: OPENROUTER_OUTPUT_DIR, or cwd (with Windows system-dir fallback). */
 function getOutputRoot(): string {
   const override = process.env.OPENROUTER_OUTPUT_DIR;
@@ -82,6 +103,12 @@ export async function resolveSafeOutputPath(savePath: string): Promise<string> {
     const abs = path.resolve(savePath);
     await fs.mkdir(path.dirname(abs), { recursive: true });
     return abs;
+  }
+
+  if (savePath.length > MAX_PATH_LENGTH) {
+    throw new UnsafePathError(
+      `save_path exceeds maximum length ${MAX_PATH_LENGTH} (got ${savePath.length}).`,
+    );
   }
 
   if (pathHasNullByte(savePath)) {
@@ -160,6 +187,12 @@ export async function resolveSafeInputPath(inputPath: string): Promise<string> {
     return path.resolve(inputPath);
   }
 
+  if (inputPath.length > MAX_PATH_LENGTH) {
+    throw new UnsafePathError(
+      `input path exceeds maximum length ${MAX_PATH_LENGTH} (got ${inputPath.length}).`,
+    );
+  }
+
   if (pathHasNullByte(inputPath)) {
     throw new UnsafePathError('input path contains a null byte');
   }
@@ -174,8 +207,13 @@ export async function resolveSafeInputPath(inputPath: string): Promise<string> {
   const existingAncestor = await findExistingAncestor(abs);
   const ancestorReal = await fs.realpath(existingAncestor);
   if (!isInsideRoot(ancestorReal, rootReal)) {
+    // Truncate inputPath in the error message to prevent oversized Error
+    // objects when a multi-kilobyte path reaches this code path.  The path
+    // length is capped above, but defence-in-depth: downstream code
+    // (toolErrorFrom → base + err.message) concatenates before truncation.
+    const safePath = inputPath.length > 200 ? inputPath.slice(0, 200) + '…' : inputPath;
     throw new UnsafePathError(
-      `input path resolves outside OPENROUTER_INPUT_DIR: ${inputPath}. ` +
+      `input path resolves outside OPENROUTER_INPUT_DIR: ${safePath}. ` +
         'Set OPENROUTER_INPUT_DIR to a wider root or OPENROUTER_ALLOW_UNSAFE_PATHS=1 to disable this check.',
     );
   }
@@ -183,8 +221,9 @@ export async function resolveSafeInputPath(inputPath: string): Promise<string> {
   try {
     const canonical = await fs.realpath(abs);
     if (!isInsideRoot(canonical, rootReal)) {
+      const safePath = inputPath.length > 200 ? inputPath.slice(0, 200) + '…' : inputPath;
       throw new UnsafePathError(
-        `input path resolves outside OPENROUTER_INPUT_DIR: ${inputPath}. ` +
+        `input path resolves outside OPENROUTER_INPUT_DIR: ${safePath}. ` +
           'Set OPENROUTER_INPUT_DIR to a wider root or OPENROUTER_ALLOW_UNSAFE_PATHS=1 to disable this check.',
       );
     }
@@ -192,8 +231,9 @@ export async function resolveSafeInputPath(inputPath: string): Promise<string> {
   } catch (err) {
     if (err instanceof UnsafePathError) throw err;
     if (!isInsideRoot(abs, rootReal)) {
+      const safePath = inputPath.length > 200 ? inputPath.slice(0, 200) + '…' : inputPath;
       throw new UnsafePathError(
-        `input path resolves outside OPENROUTER_INPUT_DIR: ${inputPath}. ` +
+        `input path resolves outside OPENROUTER_INPUT_DIR: ${safePath}. ` +
           'Set OPENROUTER_INPUT_DIR to a wider root or OPENROUTER_ALLOW_UNSAFE_PATHS=1 to disable this check.',
       );
     }
