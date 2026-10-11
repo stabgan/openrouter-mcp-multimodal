@@ -138,7 +138,10 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
     ],
     notWhen: [
       'Fast models that respond within seconds → use chat_completion directly',
-      'You need streaming output → use chat_completion',
+      'You want the result returned in the same MCP response → use chat_completion (async adds polling overhead)',
+      'You need a structured yes/no, choice, or score decision with calibrated probabilities → use decide',
+      'You need vector embeddings for RAG or semantic search → use embed_text',
+      'You need to rerank documents by relevance to a query → use rerank_documents',
       'Messages array is empty',
     ],
     goodExamples: [
