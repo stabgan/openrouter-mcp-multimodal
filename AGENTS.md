@@ -13,6 +13,7 @@ Guidance for AI coding agents (Cursor, Claude Code, Copilot, Kiro, etc.) working
 
 ```
 src/index.ts                    ← MCP server entry, stdio transport, .env loading
+src/version.ts                  ← SERVER_VERSION + MCP_PROTOCOL_VERSION (must match package.json)
 src/tool-handlers.ts            ← Tool router: ListTools + CallTool dispatch
 src/tool-definitions.ts         ← Tool JSON schemas (inputSchema, outputSchema, annotations, icons)
 src/tool-descriptions.ts        ← TOOL_NAMES array + structured descriptions (use when / bad examples / fails when)
@@ -71,7 +72,7 @@ src/tts-defaults.ts             ← TTS default constants (model, voice, respons
 | `npm run test:all`             | unit + regression + integration                 | Pre-release gate                    |
 | `npm run ci`                   | lint + format + version sync + build + test:all | **The one command before shipping** |
 
-Current: **94 test files, 2824 tests**.
+Current: **97 test files, 2876 tests** (95 unit/mock + 1 regression + 1 integration).
 
 ## Releasing (read this before publishing)
 
