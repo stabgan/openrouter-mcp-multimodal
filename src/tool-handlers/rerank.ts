@@ -24,6 +24,15 @@ const MAX_DOCUMENTS = 1000;
  */
 const MAX_DOCUMENT_LENGTH = 100_000;
 const MAX_QUERY_LENGTH = 100_000;
+/**
+ * Aggregate character limit across the query and all documents in a single
+ * request.  Per-element limits alone allow 1 000 × 100 000 chars + 100 000
+ * query chars ≈ 100 MB of payload, which could cause memory exhaustion
+ * during JSON serialisation.  This cap limits the total to ~10 MB — generous
+ * for real-world rerank batches while closing the DoS vector.  Mirrors the
+ * `MAX_TOTAL_INPUT_CHARS` pattern in the `embed_text` handler.
+ */
+const MAX_TOTAL_INPUT_CHARS = 10_000_000;
 
 function isValidDocumentIndex(index: unknown, documentCount: number): index is number {
   return (
@@ -121,6 +130,15 @@ export async function handleRerankDocuments(
         `documents[${i}] exceeds max length ${MAX_DOCUMENT_LENGTH} (got ${documents[i]!.length}).`,
       );
     }
+  }
+  // Aggregate size guard — per-element limits alone allow 1 000 × 100 K chars
+  // ≈ 100 MB, which could cause memory exhaustion during JSON.stringify.
+  const totalChars = query.length + documents.reduce((sum, d) => sum + d.length, 0);
+  if (totalChars > MAX_TOTAL_INPUT_CHARS) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `Total input size (${totalChars} chars) exceeds max ${MAX_TOTAL_INPUT_CHARS}. Reduce the number or length of documents.`,
+    );
   }
   // Validate model type — MCP clients that ignore the JSON schema can send
   // numbers or booleans. Without this guard `model?.trim()` throws TypeError
