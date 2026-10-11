@@ -12,6 +12,7 @@ import {
   readProviderDefaults,
   mergeProviderOptions,
   buildProviderBody,
+  validateProviderOptions,
   type ProviderRoutingOptions,
 } from './provider-routing.js';
 
@@ -113,6 +114,9 @@ export async function handleSpeechToText(
 
   const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });
   if (cacheError) return cacheError;
+
+  const providerError = validateProviderOptions(provider);
+  if (providerError) return providerError;
 
   logger.audit('speech_to_text.start', {
     model: model?.trim() || DEFAULT_MODEL,

@@ -15,6 +15,7 @@ import {
   readProviderDefaults,
   mergeProviderOptions,
   buildProviderBody,
+  validateProviderOptions,
   type ProviderRoutingOptions,
 } from './provider-routing.js';
 
@@ -123,6 +124,9 @@ export async function handleGenerateAudio(
     prompt_preview: prompt.slice(0, 80),
     save_path: save_path ? 'provided' : 'none',
   });
+
+  const providerError = validateProviderOptions(provider);
+  if (providerError) return providerError;
 
   const savePathResult = await resolveOptionalOutputPath(save_path);
   if (isToolErrorResult(savePathResult)) return savePathResult;

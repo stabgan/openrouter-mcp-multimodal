@@ -23,6 +23,7 @@ import {
   readProviderDefaults,
   mergeProviderOptions,
   buildProviderBody,
+  validateProviderOptions,
   type ProviderRoutingOptions,
 } from './provider-routing.js';
 
@@ -85,6 +86,9 @@ export async function handleAnalyzeImage(
 
   const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });
   if (cacheError) return cacheError;
+
+  const providerError = validateProviderOptions(provider);
+  if (providerError) return providerError;
 
   let imageUrl: string;
   try {

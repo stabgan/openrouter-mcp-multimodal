@@ -1,6 +1,7 @@
 /**
  * OpenRouter provider routing — merges tool args over OPENROUTER_PROVIDER_* env defaults.
  */
+import { ErrorCode, toolError, type ToolErrorResult } from '../errors.js';
 import { logger } from '../logger.js';
 
 export type ProviderSort = 'price' | 'throughput' | 'latency';
@@ -23,6 +24,92 @@ export interface ProviderRoutingOptions {
   data_collection?: DataCollectionPolicy;
   /** Allow fallback to unlisted providers when preferred ones fail. */
   allow_fallbacks?: boolean;
+}
+
+/**
+ * Maximum serialized size for the provider routing object (bytes).
+ *
+ * Every other user-controlled complex object that flows into outbound API
+ * request bodies has a size ceiling:
+ *   - `MAX_STATE_BYTES` (100 KB) in the `decide` handler
+ *   - `MAX_RESPONSE_FORMAT_BYTES` (100 KB) in `chat-request`
+ *   - `MAX_TOTAL_INPUT_CHARS` (10 MB) in `embed_text` / `rerank`
+ *
+ * The `provider` parameter was the remaining uncapped one.  Without a limit
+ * a malicious MCP client can send multi-megabyte arrays in `order`, `ignore`,
+ * or `only`, causing memory exhaustion during `JSON.stringify` of the
+ * outbound request body.  100 KB is generous for any real routing config.
+ */
+const MAX_PROVIDER_BODY_BYTES = 100_000;
+
+/**
+ * Maximum number of entries in each provider routing array (`order`, `ignore`,
+ * `only`, `quantizations`).  Individual elements are unbounded strings, so
+ * a cap on count prevents attacker-controlled arrays from being arbitrarily
+ * long even within the overall byte ceiling.
+ */
+const MAX_PROVIDER_ARRAY_ENTRIES = 200;
+
+/** Keys that could cause prototype pollution when iterated with Object.entries/for-in. */
+const UNSAFE_PROVIDER_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+/**
+ * Validate user-supplied provider routing options before merging with env
+ * defaults.  Returns a `ToolErrorResult` on violation, or `null` when valid.
+ *
+ * Catches:
+ *   - non-object values (string, array, number, null)
+ *   - prototype-pollution keys
+ *   - oversized arrays in known routing fields
+ *   - total serialized size exceeding `MAX_PROVIDER_BODY_BYTES`
+ *
+ * Call this in every handler that accepts a `provider` parameter, before
+ * `mergeProviderOptions` / `buildProviderBody`.
+ */
+export function validateProviderOptions(provider: unknown): ToolErrorResult | null {
+  if (provider === undefined || provider === null) return null;
+
+  if (typeof provider !== 'object' || Array.isArray(provider)) {
+    return toolError(ErrorCode.INVALID_INPUT, 'provider must be a plain object.');
+  }
+
+  const obj = provider as Record<string, unknown>;
+
+  // Block prototype-pollution keys.
+  for (const key of Object.keys(obj)) {
+    if (UNSAFE_PROVIDER_KEYS.has(key)) {
+      return toolError(ErrorCode.INVALID_INPUT, `provider contains unsafe key "${key}".`);
+    }
+  }
+
+  // Cap array lengths for known routing fields.
+  const arrayFields = ['order', 'ignore', 'only', 'quantizations'] as const;
+  for (const field of arrayFields) {
+    const val = obj[field];
+    if (Array.isArray(val) && val.length > MAX_PROVIDER_ARRAY_ENTRIES) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `provider.${field} has ${val.length} entries — max ${MAX_PROVIDER_ARRAY_ENTRIES}.`,
+      );
+    }
+  }
+
+  // Cap total serialized size.
+  let serializedSize: number;
+  try {
+    serializedSize = JSON.stringify(obj).length;
+  } catch {
+    return toolError(ErrorCode.INVALID_INPUT, 'provider options are not serializable.');
+  }
+  if (serializedSize > MAX_PROVIDER_BODY_BYTES) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `provider options serialized size (${serializedSize} bytes) exceeds max ${MAX_PROVIDER_BODY_BYTES}. ` +
+        'Reduce the number of entries in order, ignore, only, or quantizations arrays.',
+    );
+  }
+
+  return null;
 }
 
 function parseCsv(raw: string | undefined): string[] | undefined {

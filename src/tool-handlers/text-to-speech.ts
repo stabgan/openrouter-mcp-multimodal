@@ -20,6 +20,7 @@ import {
   readProviderDefaults,
   mergeProviderOptions,
   buildProviderBody,
+  validateProviderOptions,
   type ProviderRoutingOptions,
 } from './provider-routing.js';
 
@@ -139,6 +140,9 @@ export async function handleTextToSpeech(
 
   const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });
   if (cacheError) return cacheError;
+
+  const providerError = validateProviderOptions(provider);
+  if (providerError) return providerError;
 
   const effectiveModel = model?.trim() || DEFAULT_TTS_MODEL;
   const effectiveVoice =

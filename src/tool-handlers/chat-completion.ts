@@ -33,6 +33,7 @@ import {
   validateSeed,
   validateSubagent,
 } from './chat-request.js';
+import { validateProviderOptions } from './provider-routing.js';
 
 export type ChatCompletionToolRequest = ChatToolRequest;
 
@@ -80,6 +81,9 @@ export async function handleChatCompletion(
       `model identifier exceeds max length ${MAX_MODEL_ID_LENGTH} (got ${model.length}).`,
     );
   }
+
+  const providerError = validateProviderOptions(provider);
+  if (providerError) return providerError;
 
   const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });
   if (cacheError) return cacheError;

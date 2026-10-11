@@ -27,6 +27,7 @@ import {
   readProviderDefaults,
   mergeProviderOptions,
   buildProviderBody,
+  validateProviderOptions,
   type ProviderRoutingOptions,
 } from './provider-routing.js';
 
@@ -179,6 +180,9 @@ export async function handleGenerateImageDedicated(
 
   const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });
   if (cacheError) return cacheError;
+
+  const providerError = validateProviderOptions(provider);
+  if (providerError) return providerError;
 
   const savePathResult = await resolveOptionalOutputPath(save_path);
   if (isToolErrorResult(savePathResult)) return savePathResult;

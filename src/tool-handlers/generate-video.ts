@@ -13,6 +13,7 @@ import {
   readProviderDefaults,
   mergeProviderOptions,
   buildProviderBody,
+  validateProviderOptions,
   type ProviderRoutingOptions,
 } from './provider-routing.js';
 
@@ -535,6 +536,9 @@ export async function handleGenerateVideo(
     reference_images: args.reference_images?.length ?? 0,
     save_path: args.save_path ? 'provided' : 'none',
   });
+
+  const providerError = validateProviderOptions(args.provider);
+  if (providerError) return providerError;
 
   const savePathResult = await resolveOptionalOutputPath(args.save_path);
   if (isToolErrorResult(savePathResult)) return savePathResult;
