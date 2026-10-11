@@ -232,20 +232,30 @@ export async function handleEmbedText(
   // all handlers that surface upstream usage data.
   const safeUsage = sanitizeUpstreamUsage(response.usage);
 
-  const summary = `Generated ${sanitizedEmbeddings.length} embedding(s) with ${first.embedding.length} dimensions using ${displayModel}.`;
+  // Use the sanitized dimension count — the raw upstream `first.embedding.length`
+  // may exceed `MAX_RESPONSE_EMBEDDING_DIMENSIONS` if the upstream returned
+  // oversized vectors.  The sanitized embeddings are correctly capped, but
+  // metadata must report the *actual* dimensions in the output — not the
+  // uncapped upstream value.  A downstream consumer that allocates arrays
+  // based on the reported `dimensions` count would otherwise allocate based
+  // on an inflated value, enabling memory amplification from a malformed
+  // upstream response.
+  const sanitizedDimensions = sanitizedEmbeddings[0]!.embedding.length;
+
+  const summary = `Generated ${sanitizedEmbeddings.length} embedding(s) with ${sanitizedDimensions} dimensions using ${displayModel}.`;
 
   return {
     content: [{ type: 'text' as const, text: summary }],
     structuredContent: {
       embeddings: sanitizedEmbeddings,
       model: displayModel,
-      dimensions: first.embedding.length,
+      dimensions: sanitizedDimensions,
     },
     _meta: {
       server_version: SERVER_VERSION,
       model: displayModel,
       embedding_count: sanitizedEmbeddings.length,
-      dimensions: first.embedding.length,
+      dimensions: sanitizedDimensions,
       ...(safeUsage ? { usage: safeUsage } : {}),
     },
   };

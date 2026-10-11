@@ -488,14 +488,28 @@ export async function handleDecide(
         sanitizedAnswers[name] = { type: 'score', score: safeScore };
         break;
       }
-      default:
+      default: {
         // Unknown answer type — include with only the `type` field so callers
         // can see what the upstream returned, but strip all other properties
         // to prevent unsanitized data from leaking into structuredContent.
         // The summary-building logic below will skip this entry since none
         // of the if/else-if branches match.
-        sanitizedAnswers[name] = { type: answer.type } as DecisionAnswer;
+        //
+        // Validate that `type` is a bounded string before including it.
+        // Known cases (noul, choice, score) are validated by the switch
+        // match, but the default receives any untrusted upstream value —
+        // non-string types cause type confusion in MCP clients, and
+        // multi-megabyte strings inflate the serialized response.
+        const rawType: unknown = answer.type;
+        const safeType =
+          typeof rawType === 'string'
+            ? rawType.length > MAX_QUESTION_NAME_LENGTH
+              ? rawType.slice(0, MAX_QUESTION_NAME_LENGTH)
+              : rawType
+            : 'unknown';
+        sanitizedAnswers[name] = { type: safeType } as DecisionAnswer;
         break;
+      }
     }
 
     if (answer.type === 'noul') {
