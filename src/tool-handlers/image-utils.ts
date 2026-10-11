@@ -40,7 +40,7 @@ export function getMaxRedirects(): number {
   return readEnvInt('OPENROUTER_IMAGE_MAX_REDIRECTS', DEFAULT_MAX_REDIRECTS, 0);
 }
 
-function getMaxDataUrlBytes(): number {
+export function getMaxDataUrlBytes(): number {
   return readEnvInt('OPENROUTER_IMAGE_MAX_DATA_URL_BYTES', DEFAULT_MAX_DATA_URL_BYTES, 1024);
 }
 
