@@ -447,7 +447,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
   text_to_speech: buildToolDescription({
     summary:
       "Convert text to speech via OpenRouter's dedicated TTS endpoint (POST /api/v1/audio/speech). " +
-      `Default: ${DEFAULT_TTS_MODEL} with ${DEFAULT_TTS_VOICE}; discover current models with GET /api/v1/models?output_modalities=speech. Output formats: mp3, opus, aac, flac, wav, pcm (default: ${DEFAULT_TTS_RESPONSE_FORMAT}). PCM output is auto-wrapped in a WAV container.`,
+      `Default: ${DEFAULT_TTS_MODEL} with ${DEFAULT_TTS_VOICE}; supports Deepgram, ElevenLabs, and OpenAI TTS providers — discover current models with GET /api/v1/models?output_modalities=speech. Output formats: mp3, opus, aac, flac, wav, pcm (default: ${DEFAULT_TTS_RESPONSE_FORMAT}). PCM output is auto-wrapped in a WAV container.`,
     useWhen: [
       'You need text-to-speech with specific voice control',
       'You want fast, dedicated TTS without chat overhead',
@@ -479,7 +479,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
   speech_to_text: buildToolDescription({
     summary:
       "Transcribe audio via OpenRouter's dedicated STT endpoint (POST /api/v1/audio/transcriptions). " +
-      'Faster and cheaper than chat completions for pure transcription. Models: Whisper-1, GPT-4o Transcribe, Voxtral. ' +
+      'Faster and cheaper than chat completions for pure transcription. Models: Whisper-1, GPT-4o Transcribe, Voxtral, ElevenLabs Scribe. ' +
       'Output is tagged `_meta.content_is_untrusted: true`.',
     useWhen: [
       'You need fast transcription of audio files',
