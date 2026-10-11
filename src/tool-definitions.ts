@@ -1165,6 +1165,31 @@ export const TOOL_DEFINITIONS = [
         answers: {
           type: 'object',
           description: 'Map of question names to answers with calibrated probabilities.',
+          additionalProperties: {
+            type: 'object',
+            properties: {
+              type: {
+                type: 'string',
+                enum: ['noul', 'choice', 'score'],
+                description: 'Question type matching the input.',
+              },
+              noul: {
+                type: 'number',
+                description: 'P(true) probability for noul (yes/no) questions.',
+              },
+              choice: {
+                type: 'object',
+                description: 'Per-option probabilities for choice questions.',
+                additionalProperties: { type: 'number' },
+              },
+              score: {
+                type: 'array',
+                items: { type: 'number' },
+                description: 'Per-level probabilities for score questions.',
+              },
+            },
+            required: ['type'],
+          },
         },
       },
     },
