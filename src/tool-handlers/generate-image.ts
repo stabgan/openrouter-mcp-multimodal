@@ -11,6 +11,7 @@ import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import { classifyUpstreamError, classifyResourceLoadError } from './openrouter-errors.js';
+import { sanitizeUpstreamUsage } from './sanitize-usage.js';
 import { buildBinaryToolResult } from './tool-result-payload.js';
 import { replaceExtension, writeOutputFile } from './path-utils.js';
 import {
@@ -296,15 +297,13 @@ function buildImageSuccessResult(
   usage: ChatCompletion['usage'],
   savePath?: string,
 ) {
-  const usageMeta = usage
-    ? {
-        usage: {
-          prompt_tokens: usage.prompt_tokens,
-          completion_tokens: usage.completion_tokens,
-          total_tokens: usage.total_tokens,
-        },
-      }
-    : {};
+  // Sanitize upstream usage — the OpenAI SDK types token counts as `number`,
+  // but at runtime the upstream could return non-finite values, prototype-
+  // pollution keys, or arbitrary extra properties.  Using the shared
+  // sanitizer matches the pattern in embed_text, decide, rerank,
+  // speech_to_text, and generate_image_dedicated.
+  const safeUsage = sanitizeUpstreamUsage(usage as unknown as Record<string, unknown>);
+  const usageMeta = safeUsage ? { usage: safeUsage } : {};
 
   return buildBinaryToolResult(
     { kind: 'image', buffer, mimeType: base64.mime },

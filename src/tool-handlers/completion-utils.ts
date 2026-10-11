@@ -3,6 +3,7 @@
  */
 import type { ChatCompletion } from 'openai/resources/chat/completions.js';
 import { ErrorCode, toolError, type ToolErrorResult } from '../errors.js';
+import { sanitizeUpstreamUsage } from './sanitize-usage.js';
 
 /** Default cap for text returned in tool content / _meta (chars). Set OPENROUTER_MAX_RESULT_TEXT_CHARS=0 to disable. */
 const DEFAULT_MAX_RESULT_TEXT_CHARS = 512_000;
@@ -153,11 +154,7 @@ export function detectReasoningCutoff(extracted: ExtractedText): ToolErrorResult
         finish_reason: extracted.finishReason,
         reasoning_preview: extracted.text.slice(0, 200),
         usage: extracted.usage
-          ? {
-              prompt_tokens: extracted.usage.prompt_tokens,
-              completion_tokens: extracted.usage.completion_tokens,
-              total_tokens: extracted.usage.total_tokens,
-            }
+          ? sanitizeUpstreamUsage(extracted.usage as unknown as Record<string, unknown>)
           : undefined,
       },
     );
@@ -227,17 +224,22 @@ export function classifyEmptyCompletion(extracted: ExtractedText, label: string)
   }
 }
 
+/**
+ * Sanitize usage from a ChatCompletion response before forwarding to MCP
+ * clients.  The OpenAI SDK types `usage` fields as `number`, but at
+ * runtime the upstream could return anything — including prototype-
+ * pollution keys, non-finite numbers, strings, or arbitrary extra
+ * properties.  Previously `toUsageMeta` manually picked three fields
+ * without validating their types; this delegates to the shared
+ * `sanitizeUpstreamUsage` allowlist for consistency with `embed_text`,
+ * `decide`, `rerank`, `speech_to_text`, and `generate_image_dedicated`.
+ */
 export function toUsageMeta(
   usage: ChatCompletion['usage'] | undefined,
 ): Record<string, unknown> | undefined {
   if (!usage) return undefined;
-  return {
-    usage: {
-      prompt_tokens: usage.prompt_tokens,
-      completion_tokens: usage.completion_tokens,
-      total_tokens: usage.total_tokens,
-    },
-  };
+  const safe = sanitizeUpstreamUsage(usage as unknown as Record<string, unknown>);
+  return safe ? { usage: safe } : undefined;
 }
 
 export interface BuildMetaOptions {

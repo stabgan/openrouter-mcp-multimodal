@@ -7,6 +7,7 @@ import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
+import { sanitizeUpstreamUsage } from './sanitize-usage.js';
 import { buildBinaryToolResult } from './tool-result-payload.js';
 import { replaceExtension, writeOutputFile } from './path-utils.js';
 import { createWavHeader, wrapPcmInWav, detectAudioFormat } from './audio-utils.js';
@@ -267,7 +268,14 @@ export async function handleGenerateAudio(
       model: model?.trim() || DEFAULT_MODEL,
     };
     if (finishReason) baseMeta.finish_reason = finishReason;
-    if (streamUsage) baseMeta.usage = streamUsage;
+    // Sanitize streaming usage — `streamUsage` is the raw upstream chunk
+    // object, which is untrusted.  Without sanitization it could contain
+    // prototype-pollution keys (__proto__, constructor, prototype),
+    // non-numeric values for token counts, or arbitrary extra properties
+    // that inflate the MCP response.  Every other handler uses
+    // `sanitizeUpstreamUsage`; streaming audio was the remaining gap.
+    const safeUsage = sanitizeUpstreamUsage(streamUsage as Record<string, unknown> | undefined);
+    if (safeUsage) baseMeta.usage = safeUsage;
 
     if (safeBase) {
       const fileExt = extname(safeBase).toLowerCase().slice(1);
