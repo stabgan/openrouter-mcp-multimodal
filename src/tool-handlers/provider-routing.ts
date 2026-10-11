@@ -124,6 +124,14 @@ export function mergeProviderOptions(
   overrides?: ProviderRoutingOptions,
 ): ProviderRoutingOptions {
   if (!overrides) return { ...defaults };
+  // Guard: reject non-object overrides.  MCP clients that ignore the JSON
+  // schema can send strings, arrays, or numbers as `provider`.  Without
+  // this check, `Object.entries()` on a string produces one entry per
+  // character — a multi-megabyte string exhausts memory during iteration
+  // and the subsequent JSON.stringify of the outbound API request.
+  if (typeof overrides !== 'object' || Array.isArray(overrides)) {
+    return { ...defaults };
+  }
   const out: ProviderRoutingOptions = { ...defaults };
   for (const [key, value] of Object.entries(overrides)) {
     if (value === undefined) continue;
