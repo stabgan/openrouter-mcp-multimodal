@@ -356,8 +356,10 @@ If still failing, use the full path from `where npx` as the command.
 | :----------------------------------- | :---------: | :---------------------: |
 | Text chat (300+ models)              |     ✅      |           ✅            |
 | Image analysis + generation          |     ✅      |         partial         |
-| Audio analysis + TTS                 |     ✅      |           ❌            |
+| Audio analysis + TTS + STT           |     ✅      |           ❌            |
 | Video analysis + generation          |     ✅      |           ❌            |
+| Vector embeddings (37+ models)       |     ✅      |           ❌            |
+| Structured decisions (System One)    |     ✅      |           ❌            |
 | Model search / validate / rerank     |     ✅      |           ❌            |
 | Path sandbox + SSRF protection       |     ✅      |          rare           |
 | MCP 2025 structured outputs          |     ✅      |          rare           |
