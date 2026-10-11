@@ -115,13 +115,38 @@ export function toolError(
   };
 }
 
+/**
+ * Maximum length for the `prefix` parameter before truncation.
+ *
+ * Several callers embed user-controlled values in the prefix (e.g.
+ * `image_path "${image_path}"`, `video_path "${video_path}"`).  These
+ * values have no early length cap — `image_path` and `video_path` can be
+ * 200 MB data URLs that pass the initial `typeof === 'string'` check and
+ * only fail inside `prepareImageUrl` / `prepareVideoData`.  Without this
+ * cap, the error path allocates ~3× the input size in temporary strings
+ * (prefix, `base`, `base + err.message`) before `sanitizeErrorMessage`
+ * truncates the result — a memory-exhaustion DoS vector.
+ *
+ * 256 chars is generous for every real-world prefix in the codebase (the
+ * longest is ~60 chars for a path with a reasonable URL) while eliminating
+ * multi-megabyte allocations from pathological inputs.
+ */
+const MAX_PREFIX_LENGTH = 256;
+
 export function toolErrorFrom(
   code: ErrorCode,
   err: unknown,
   prefix?: string,
   opts?: ToolErrorOptions,
 ): ToolErrorResult {
-  const base = prefix ? `${prefix}: ` : '';
+  // Pre-truncate the prefix to prevent temporary memory spikes when callers
+  // embed user-controlled values (file paths, data URLs) in the prefix
+  // string.  sanitizeErrorMessage truncates the *final* message, but the
+  // intermediate concatenation (`base + err.message`) allocates the
+  // full-length string first.
+  const safePrefix =
+    prefix && prefix.length > MAX_PREFIX_LENGTH ? prefix.slice(0, MAX_PREFIX_LENGTH) + '…' : prefix;
+  const base = safePrefix ? `${safePrefix}: ` : '';
   if (err instanceof Error)
     return toolError(code, sanitizeErrorMessage(base + err.message), undefined, opts);
   if (typeof err === 'string')
