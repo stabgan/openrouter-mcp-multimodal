@@ -77,7 +77,9 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
       'model suffixes (`:nitro` fastest, `:floor` cheapest, `:free` zero-cost, `:online` web search, ' +
       '`:exacto` tool accuracy), reasoning tokens, reasoning effort control (`reasoning_effort`), ' +
       'web search (`online: true`), structured output (`response_format`), response caching, ' +
-      'multi-model fusion (`fusion: true`), subagent delegation (`subagent: true`), and JSON response healing.',
+      'multi-model fusion (`fusion: true`), subagent delegation (`subagent: true`), JSON response healing, ' +
+      'standard sampling controls (`temperature`, `top_p`, `stop`, `frequency_penalty`, `presence_penalty`), ' +
+      'log probabilities (`logprobs`, `top_logprobs`), and deterministic output (`seed`).',
     useWhen: [
       'You need text generation, Q&A, summarization, or multi-turn dialogue',
       'You want web-grounded answers (`online: true`)',
