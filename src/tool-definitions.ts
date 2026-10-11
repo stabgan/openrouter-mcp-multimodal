@@ -1121,11 +1121,13 @@ export const TOOL_DEFINITIONS = [
               index: { type: 'integer' },
               embedding: { type: 'array', items: { type: 'number' } },
             },
+            required: ['index', 'embedding'],
           },
         },
         model: { type: 'string' },
         dimensions: { type: 'integer' },
       },
+      required: ['embeddings', 'model', 'dimensions'],
     },
   },
   {
@@ -1192,6 +1194,7 @@ export const TOOL_DEFINITIONS = [
           },
         },
       },
+      required: ['answers'],
     },
   },
   {
