@@ -11,6 +11,12 @@
  * accepts the richer shape (it just warns).
  */
 import { readFileSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
 
 const rawTools = JSON.parse(readFileSync('/tmp/tools-clean.json', 'utf8'));
 // Keep name, description, and inputSchema — these are what Smithery
@@ -31,14 +37,14 @@ const manifest = {
   manifest_version: '0.2',
   name: 'openrouter-mcp-multimodal',
   display_name: 'OpenRouter MCP Multimodal',
-  version: '4.5.3',
-  description: 'Chat with 300+ LLMs via OpenRouter. Analyze and generate images, audio, and video from MCP.',
+  version: pkg.version,
+  description: 'Chat with 300+ LLMs via OpenRouter. 21 tools: analyze and generate images, audio, and video. Embeddings, reranking, structured decisions, TTS/STT from MCP.',
   long_description:
-    'All-in-one MCP server for OpenRouter. Chat with 300+ LLMs (Claude, Gemini, GPT, Llama, Qwen, Grok). ' +
-    'Analyze images, audio, and video. Generate images, speech, music, and video (Veo 3.1, Kling v3.0, ' +
-    'Seedance, Wan). v4.5 adds response caching, reasoning token passthrough, web search, ' +
-    'rerank_documents, generate_video_from_image, health_check, audit logging for paid ops, ' +
-    'MCP 2025-06-18 structured outputs + progress notifications. Apache 2.0.',
+    'All-in-one MCP server for OpenRouter. 21 tools covering chat with 300+ LLMs (Claude, Gemini, GPT, Llama, Qwen, Grok), ' +
+    'analyze images/audio/video, generate images (chat + dedicated API), speech (TTS/STT with Deepgram, ElevenLabs, OpenAI), ' +
+    'music, and video (Veo 3.1, Kling v3.0, Seedance 2.5, Wan 2.7). Vector embeddings (37+ models), document reranking, ' +
+    'structured decisions (System One models), async completions, response caching, provider routing, web search, ' +
+    'multi-model fusion, structured output (JSON Schema), MCP 2025-11-25 structured outputs + tool icons + progress notifications. Apache 2.0.',
   author: { name: 'stabgan', url: 'https://github.com/stabgan' },
   repository: { type: 'git', url: 'https://github.com/stabgan/openrouter-mcp-multimodal.git' },
   homepage: 'https://github.com/stabgan/openrouter-mcp-multimodal',
@@ -90,12 +96,13 @@ const manifest = {
   keywords: [
     'openrouter', 'mcp', 'multimodal', 'claude', 'gemini', 'gpt',
     'vision', 'image-generation', 'video-generation', 'tts', 'stt',
-    'veo', 'kling', 'ai-agent', 'claude-desktop',
+    'veo', 'kling', 'ai-agent', 'claude-desktop', 'embeddings',
+    'reranking', 'decisions', 'deepgram', 'elevenlabs',
   ],
   license: 'Apache-2.0',
   compatibility: {
     platforms: ['darwin', 'win32', 'linux'],
-    runtimes: { node: '>=18.0.0' },
+    runtimes: { node: '>=22.0.0' },
   },
 };
 
