@@ -540,7 +540,7 @@ npm run build
 
 | Command                    | What it runs                                               |
 | :------------------------- | :--------------------------------------------------------- |
-| `npm test`                 | **1911** unit + mock tests (no API key, &lt;20s)           |
+| `npm test`                 | **1971** unit + mock tests (no API key, &lt;20s)           |
 | `npm run test:regression`  | Security + schema regression guards                        |
 | `npm run test:integration` | **17** live OpenRouter scenarios (**requires** `.env` key) |
 | `npm run test:e2e`         | Full MCP stdio smoke (`scripts/live-e2e.mjs`)              |
