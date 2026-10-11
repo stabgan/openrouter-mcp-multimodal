@@ -96,6 +96,67 @@ export function readIncludeReasoningDefault(): boolean {
  */
 const MAX_MESSAGES = 2000;
 
+/**
+ * Aggregate content size limit across all messages (characters).
+ *
+ * Per-message count limits alone allow 2 000 messages × unbounded content
+ * each — potentially multi-GB of payload that exhausts memory during
+ * `JSON.stringify` in the OpenAI SDK.  Every other array-accepting handler
+ * has an aggregate size cap:
+ *   - `embed_text`: `MAX_TOTAL_INPUT_CHARS` = 10 MB
+ *   - `rerank`: `MAX_TOTAL_INPUT_CHARS` = 10 MB
+ *   - `decide`: `MAX_QUESTIONS_BYTES` = 1 MB
+ *
+ * Chat messages can legitimately include inline multimodal content (data-URL
+ * images up to 20 MB each, base64 audio), so the ceiling is higher than
+ * text-only handlers.  50 MB covers the largest realistic conversation
+ * (several inline images + extensive text history) while preventing the
+ * multi-GB worst case.  Matches `MAX_JSON_RESPONSE_BYTES` (50 MiB) used
+ * for API response capping.
+ */
+const MAX_MESSAGES_TOTAL_CHARS = 50_000_000;
+
+/**
+ * Estimate the character count of a message's content without serialization.
+ *
+ * Inspects only the known large-payload fields (text strings, image URL
+ * strings, audio data strings) to avoid expensive `JSON.stringify` calls on
+ * content that can be tens of megabytes per part.  Structural overhead
+ * (role, keys, brackets) is negligible and safely ignored — the aggregate
+ * cap is generous enough that structural bytes never tip it.
+ */
+function estimateContentChars(content: unknown): number {
+  if (typeof content === 'string') return content.length;
+  if (!Array.isArray(content)) return 0;
+  let total = 0;
+  for (const part of content) {
+    if (typeof part === 'string') {
+      total += part.length;
+      continue;
+    }
+    if (!part || typeof part !== 'object') continue;
+    const p = part as Record<string, unknown>;
+    // Text content parts
+    if (typeof p.text === 'string') total += p.text.length;
+    // Image URL parts — can contain multi-MB data URLs
+    if (p.image_url && typeof p.image_url === 'object') {
+      const url = (p.image_url as Record<string, unknown>).url;
+      if (typeof url === 'string') total += url.length;
+    }
+    // Audio parts — can contain multi-MB base64 data
+    if (p.input_audio && typeof p.input_audio === 'object') {
+      const data = (p.input_audio as Record<string, unknown>).data;
+      if (typeof data === 'string') total += data.length;
+    }
+    // Video URL parts — can contain multi-MB data URLs
+    if (p.video_url && typeof p.video_url === 'object') {
+      const url = (p.video_url as Record<string, unknown>).url;
+      if (typeof url === 'string') total += url.length;
+    }
+  }
+  return total;
+}
+
 export function validateChatMessages(
   messages: ChatCompletionMessageParam[] | undefined,
 ): ToolErrorResult | null {
@@ -108,6 +169,7 @@ export function validateChatMessages(
       `Too many messages: ${messages.length} exceeds max ${MAX_MESSAGES}. Summarize earlier messages or split into multiple requests.`,
     );
   }
+  let totalContentChars = 0;
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
     // Null, undefined, or primitive entries crash on property access — reject
@@ -145,6 +207,18 @@ export function validateChatMessages(
         ErrorCode.INVALID_INPUT,
         `Message at index ${i} has invalid content type (expected string or array, got ${typeof msg.content}).`,
       );
+    }
+    // Accumulate content size for the aggregate cap — fail fast before
+    // processing all 2 000 messages if we're already over budget.
+    if ('content' in msg) {
+      totalContentChars += estimateContentChars(msg.content);
+      if (totalContentChars > MAX_MESSAGES_TOTAL_CHARS) {
+        return toolError(
+          ErrorCode.INVALID_INPUT,
+          `Messages total content size (~${totalContentChars} chars) exceeds max ${MAX_MESSAGES_TOTAL_CHARS}. ` +
+            'Summarize earlier messages, remove inline media, or split into multiple requests.',
+        );
+      }
     }
   }
   return null;
