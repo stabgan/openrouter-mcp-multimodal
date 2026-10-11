@@ -17,7 +17,7 @@ src/tool-handlers.ts            ← Tool router: ListTools + CallTool dispatch
 src/tool-definitions.ts         ← Tool JSON schemas (inputSchema, outputSchema, annotations, icons)
 src/tool-descriptions.ts        ← TOOL_NAMES array + structured descriptions (use when / bad examples / fails when)
 src/tool-icons.ts               ← SVG data URI icons for each tool (MCP 2025-11-25)
-src/tool-handlers/              ← One handler file per tool (handleChatCompletion, handleGenerateVideo, etc.)
+src/tool-handlers/              ← Handler files (some serve multiple tools, e.g. async-chat.ts → 2 tools, generate-video.ts → 3)
 src/openrouter-api.ts           ← Direct HTTP client for /videos, /images, /audio/speech, /audio/transcriptions, /rerank, /embeddings, /api/alpha/decisions
 src/openrouter-openai-client.ts ← OpenAI SDK configured for OpenRouter base URL
 src/errors.ts                   ← ErrorCode taxonomy (INVALID_INPUT, UNSAFE_PATH, UPSTREAM_*, etc.)
@@ -71,7 +71,7 @@ src/tts-defaults.ts             ← TTS default constants (model, voice, respons
 | `npm run test:all`             | unit + regression + integration                 | Pre-release gate                    |
 | `npm run ci`                   | lint + format + version sync + build + test:all | **The one command before shipping** |
 
-Current: **93 test files, 2813 tests**.
+Current: **94 test files, 2824 tests**.
 
 ## Releasing (read this before publishing)
 
@@ -122,6 +122,7 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 | Error taxonomy            | `src/errors.ts`                                                       |
 | Upstream error classifier | `src/tool-handlers/openrouter-errors.ts`                              |
 | Chat request building     | `src/tool-handlers/chat-request.ts`                                   |
+| Async chat jobs           | `src/tool-handlers/async-chat.ts`                                     |
 | Chat completion parsing   | `src/tool-handlers/completion-utils.ts`                               |
 | OpenAI withResponse       | `src/tool-handlers/openai-withresponse.ts`                            |
 | Binary result policy      | `src/tool-handlers/tool-result-payload.ts`                            |
