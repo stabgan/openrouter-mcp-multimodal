@@ -77,11 +77,28 @@ export function readIncludeReasoningDefault(): boolean {
   return raw === '1' || raw === 'true' || raw === 'yes';
 }
 
+/**
+ * Maximum number of messages in a single chat completion request. Every
+ * other array-accepting validator caps its input (embed_text: 2 048, rerank:
+ * 1 000, decide: 50, etc.). Without a ceiling here, a malicious MCP client
+ * can send millions of messages — exhausting memory during the validation
+ * loop, `buildChatCompletionBody`, and `JSON.stringify` for the outbound
+ * request. 2 000 is generous for any real conversation, including heavy
+ * multi-turn tool-call exchanges.
+ */
+const MAX_MESSAGES = 2000;
+
 export function validateChatMessages(
   messages: ChatCompletionMessageParam[] | undefined,
 ): ToolErrorResult | null {
   if (!Array.isArray(messages) || messages.length === 0) {
     return toolError(ErrorCode.INVALID_INPUT, 'Messages array cannot be empty.');
+  }
+  if (messages.length > MAX_MESSAGES) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `Too many messages: ${messages.length} exceeds max ${MAX_MESSAGES}. Summarize earlier messages or split into multiple requests.`,
+    );
   }
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
