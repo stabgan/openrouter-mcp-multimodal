@@ -47,7 +47,7 @@ Unlike text-only MCP servers, one install covers the **full multimodal surface**
 
 | Capability    | Tools                                                                                   | Highlights                                                                                                                                                                                                           |
 | :------------ | :-------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Chat**      | `chat_completion`, `start_chat_completion`, `get_chat_completion_status`                | 300+ models, `:nitro` / `:floor` / `:free` / `:online` / `:exacto` suffixes, provider routing, web search, response caching, reasoning tokens, async jobs, multi-model fusion, subagent delegation, response healing |
+| **Chat**      | `chat_completion`, `start_chat_completion`, `get_chat_completion_status`                | 300+ models, `:nitro` / `:floor` / `:free` / `:online` / `:exacto` suffixes, provider routing, web search, response caching, reasoning tokens, reasoning effort control, structured output (JSON Schema), async jobs, multi-model fusion, subagent delegation, response healing |
 | **Vision**    | `analyze_image`, `generate_image`, `generate_image_dedicated`                           | OCR, captioning, VQA, image generation with reference inputs, dedicated Image API with resolution/quality/format control                                                                                             |
 | **Audio**     | `analyze_audio`, `generate_audio`, `text_to_speech`, `speech_to_text`                   | Transcription, speech/music generation, dedicated TTS (Deepgram, ElevenLabs, OpenAI; free Deepgram default, voices, mp3/pcm), dedicated STT (Whisper, GPT-4o Transcribe, Voxtral, ElevenLabs Scribe)                 |
 | **Video**     | `analyze_video`, `generate_video`, `generate_video_from_image`, `get_video_status`      | Clip understanding, Veo 3.1 / Seedance 2.5 / Kling v3.0 / Wan 2.7 / Grok Imagine Video generation with progress notifications                                                                                        |
@@ -371,7 +371,7 @@ If still failing, use the full path from `where npx` as the command.
 
 | Tool                         | Purpose                                                                                |
 | :--------------------------- | :------------------------------------------------------------------------------------- |
-| `chat_completion`            | Text chat, web search, provider routing, caching, reasoning                            |
+| `chat_completion`            | Text chat, web search, provider routing, caching, reasoning, structured output         |
 | `start_chat_completion`      | Async background job for long-running reasoning models                                 |
 | `get_chat_completion_status` | Poll / retrieve async completion results                                               |
 | `analyze_image`              | Vision — local path, URL, or data URL + `question`                                     |
@@ -446,6 +446,34 @@ If you previously relied on **both** a saved file **and** inline media in the sa
   }
 }
 ```
+
+### Chat with structured output (JSON Schema)
+
+```json
+{
+  "tool": "chat_completion",
+  "arguments": {
+    "model": "openai/gpt-4o",
+    "messages": [{ "role": "user", "content": "Extract the name and age from: 'Alice is 30 years old.'" }],
+    "response_format": {
+      "type": "json_schema",
+      "json_schema": {
+        "name": "person",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "age": { "type": "integer" }
+          },
+          "required": ["name", "age"]
+        }
+      }
+    }
+  }
+}
+```
+
+> For simpler JSON without a schema, use `"response_format": { "type": "json_object" }`. Add `"response_healing": true` to auto-fix malformed JSON.
 
 ### Analyze an image
 
