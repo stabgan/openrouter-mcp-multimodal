@@ -22,7 +22,7 @@ Ship the **only lean, security-first MCP bridge** that covers the full OpenRoute
 - **Weekly npm downloads + Docker pulls** — distribution reach; measured on npmjs.com and Docker Hub
 - **Live E2E pass rate** (`scripts/live-e2e.mjs`) — end-to-end tool health against real OpenRouter; run on release
 - **Unit test count + CI green** — regression safety; GitHub Actions on every publish
-- **OpenRouter parity gap count** — documented missing platform features (structured JSON on chat, `/images` REST, embeddings); reviewed each release against OpenRouter docs
+- **OpenRouter parity gap count** — documented missing platform features; reviewed each release against OpenRouter docs. _Closed:_ structured JSON on chat, `/images` REST, embeddings, `/audio/speech` TTS, `/audio/transcriptions` STT, `/rerank`, `/alpha/decisions`. _Current gaps:_ `transforms` param (middle-out context windowing), file uploads API, streaming chat completions
 - **Security audit findings (HIGH+)** — target zero open HIGH/CRITICAL between releases; tracked in CHANGELOG audit sections
 
 ## Tracks

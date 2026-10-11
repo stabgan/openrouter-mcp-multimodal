@@ -25,15 +25,15 @@ src/errors.ts                   ← ErrorCode taxonomy (INVALID_INPUT, UNSAFE_PA
 
 ### Tools (21 total)
 
-| Category | Tools |
-| :------- | :---- |
-| **Chat** | `chat_completion`, `start_chat_completion`, `get_chat_completion_status` |
-| **Vision** | `analyze_image`, `generate_image`, `generate_image_dedicated` |
-| **Audio** | `analyze_audio`, `generate_audio`, `text_to_speech`, `speech_to_text` |
-| **Video** | `analyze_video`, `generate_video`, `generate_video_from_image`, `get_video_status` |
-| **Catalog** | `search_models`, `get_model_info`, `validate_model`, `rerank_documents`, `health_check` |
-| **Embedding** | `embed_text` |
-| **Decisions** | `decide` |
+| Category      | Tools                                                                                   |
+| :------------ | :-------------------------------------------------------------------------------------- |
+| **Chat**      | `chat_completion`, `start_chat_completion`, `get_chat_completion_status`                |
+| **Vision**    | `analyze_image`, `generate_image`, `generate_image_dedicated`                           |
+| **Audio**     | `analyze_audio`, `generate_audio`, `text_to_speech`, `speech_to_text`                   |
+| **Video**     | `analyze_video`, `generate_video`, `generate_video_from_image`, `get_video_status`      |
+| **Catalog**   | `search_models`, `get_model_info`, `validate_model`, `rerank_documents`, `health_check` |
+| **Embedding** | `embed_text`                                                                            |
+| **Decisions** | `decide`                                                                                |
 
 ### Key patterns
 
@@ -56,19 +56,19 @@ src/errors.ts                   ← ErrorCode taxonomy (INVALID_INPUT, UNSAFE_PA
 
 ## Testing
 
-| Command | What it runs | When to use |
-| :------ | :----------- | :---------- |
-| `npm test` | Unit tests (Vitest) | After any code change |
-| `npm run test:regression` | Regression suite | Before release |
-| `npm run test:integration` | Integration tests (may hit OpenRouter) | Before release, needs API key |
-| `npm run test:e2e` | Live E2E against real OpenRouter | Release validation |
-| `npm run test:smoke:npm` | Build → pack → install → boot | Verify npm package works |
-| `npm run test:smoke:docker` | Docker image boot test | Verify Docker image |
-| `npm run test:smoke:uvx:local` | uvx/pipx launcher test | Verify Python launcher |
-| `npm run test:all` | unit + regression + integration | Pre-release gate |
-| `npm run ci` | lint + format + version sync + build + test:all | **The one command before shipping** |
+| Command                        | What it runs                                    | When to use                         |
+| :----------------------------- | :---------------------------------------------- | :---------------------------------- |
+| `npm test`                     | Unit tests (Vitest)                             | After any code change               |
+| `npm run test:regression`      | Regression suite                                | Before release                      |
+| `npm run test:integration`     | Integration tests (may hit OpenRouter)          | Before release, needs API key       |
+| `npm run test:e2e`             | Live E2E against real OpenRouter                | Release validation                  |
+| `npm run test:smoke:npm`       | Build → pack → install → boot                   | Verify npm package works            |
+| `npm run test:smoke:docker`    | Docker image boot test                          | Verify Docker image                 |
+| `npm run test:smoke:uvx:local` | uvx/pipx launcher test                          | Verify Python launcher              |
+| `npm run test:all`             | unit + regression + integration                 | Pre-release gate                    |
+| `npm run ci`                   | lint + format + version sync + build + test:all | **The one command before shipping** |
 
-Current: **69 test files, 2029 tests**.
+Current: **70 test files, 2061 tests**.
 
 ## Releasing (read this before publishing)
 
@@ -76,11 +76,11 @@ Current: **69 test files, 2029 tests**.
 
 ### Short version
 
-| Action | Updates npm/PyPI? | Updates Docker `:latest`? |
-| :----- | :---------------- | :------------------------ |
-| Push to `main` | No | No |
-| Merge Release Please PR → tag `vX.Y.Z` | **Yes** | **Yes** |
-| Manual `git tag vX.Y.Z && git push origin vX.Y.Z` | **Yes** | **Yes** |
+| Action                                            | Updates npm/PyPI? | Updates Docker `:latest`? |
+| :------------------------------------------------ | :---------------- | :------------------------ |
+| Push to `main`                                    | No                | No                        |
+| Merge Release Please PR → tag `vX.Y.Z`            | **Yes**           | **Yes**                   |
+| Manual `git tag vX.Y.Z && git push origin vX.Y.Z` | **Yes**           | **Yes**                   |
 
 **Normal path:** land conventional commits on `main` → merge the Release Please PR → tag is created automatically → [`publish.yml`](.github/workflows/publish.yml) publishes everywhere.
 
@@ -107,29 +107,29 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 
 ## Repo map
 
-| Area | Location |
-| :--- | :------- |
-| MCP entry + handshake | `src/index.ts`, `src/version.ts` |
-| Tool router | `src/tool-handlers.ts` |
-| Tool JSON schemas + icons | `src/tool-definitions.ts`, `src/tool-icons.ts` |
-| Tool descriptions | `src/tool-descriptions.ts` |
-| Handler implementations | `src/tool-handlers/*.ts` |
-| OpenRouter HTTP client | `src/openrouter-api.ts` |
-| OpenAI SDK client | `src/openrouter-openai-client.ts` |
-| Error taxonomy | `src/errors.ts` |
-| Path sandbox | `src/tool-handlers/path-safety.ts`, `src/tool-handlers/path-utils.ts` |
-| Cache headers | `src/tool-handlers/cache.ts` |
-| Provider routing | `src/tool-handlers/provider-routing.ts` |
-| Tests | `src/__tests__/` |
-| Python uvx launcher | `python/mcp_server_openrouter_multimodal/` |
-| MCP registry manifest | `server.json` |
-| Security policy | `SECURITY.md` |
-| Strategy & vision | `STRATEGY.md` |
-| Domain glossary | `CONCEPTS.md` |
-| Smoke tests | `scripts/smoke-*.mjs` |
-| CI | `.github/workflows/ci.yml` |
-| Publish | `.github/workflows/publish.yml` |
-| Release automation | `.github/workflows/release-please.yml` |
+| Area                      | Location                                                              |
+| :------------------------ | :-------------------------------------------------------------------- |
+| MCP entry + handshake     | `src/index.ts`, `src/version.ts`                                      |
+| Tool router               | `src/tool-handlers.ts`                                                |
+| Tool JSON schemas + icons | `src/tool-definitions.ts`, `src/tool-icons.ts`                        |
+| Tool descriptions         | `src/tool-descriptions.ts`                                            |
+| Handler implementations   | `src/tool-handlers/*.ts`                                              |
+| OpenRouter HTTP client    | `src/openrouter-api.ts`                                               |
+| OpenAI SDK client         | `src/openrouter-openai-client.ts`                                     |
+| Error taxonomy            | `src/errors.ts`                                                       |
+| Path sandbox              | `src/tool-handlers/path-safety.ts`, `src/tool-handlers/path-utils.ts` |
+| Cache headers             | `src/tool-handlers/cache.ts`                                          |
+| Provider routing          | `src/tool-handlers/provider-routing.ts`                               |
+| Tests                     | `src/__tests__/`                                                      |
+| Python uvx launcher       | `python/mcp_server_openrouter_multimodal/`                            |
+| MCP registry manifest     | `server.json`                                                         |
+| Security policy           | `SECURITY.md`                                                         |
+| Strategy & vision         | `STRATEGY.md`                                                         |
+| Domain glossary           | `CONCEPTS.md`                                                         |
+| Smoke tests               | `scripts/smoke-*.mjs`                                                 |
+| CI                        | `.github/workflows/ci.yml`                                            |
+| Publish                   | `.github/workflows/publish.yml`                                       |
+| Release automation        | `.github/workflows/release-please.yml`                                |
 
 ## Adding a new tool
 

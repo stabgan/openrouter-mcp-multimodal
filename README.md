@@ -45,15 +45,15 @@
 
 Unlike text-only MCP servers, one install covers the **full multimodal surface**:
 
-| Capability  | Tools                                                                                   | Highlights                                                                                                                                                                        |
-| :---------- | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Chat**    | `chat_completion`, `start_chat_completion`, `get_chat_completion_status`                | 300+ models, `:nitro` / `:floor` / `:free` / `:online` / `:exacto` suffixes, provider routing, web search, response caching, reasoning tokens, async jobs, multi-model fusion, subagent delegation, response healing |
-| **Vision**  | `analyze_image`, `generate_image`, `generate_image_dedicated`                           | OCR, captioning, VQA, image generation with reference inputs, dedicated Image API with resolution/quality/format control                                                          |
-| **Audio**   | `analyze_audio`, `generate_audio`, `text_to_speech`, `speech_to_text`                   | Transcription, speech/music generation, dedicated TTS (free Deepgram default; model-specific voices, mp3/pcm), dedicated STT (Whisper/GPT-4o Transcribe)                                                   |
-| **Video**   | `analyze_video`, `generate_video`, `generate_video_from_image`, `get_video_status`      | Clip understanding, Veo 3.1 / Seedance 2.5 / Kling v3.0 / Wan 2.7 / Grok Imagine Video generation with progress notifications                                                                                       |
-| **Embedding** | `embed_text`                                                                            | 37+ embedding models (text-embedding-3-small/large, Nomic, Jina, Voyage, etc.)                                                                                                    |
-| **Decisions** | `decide`                                                                                | Structured yes/no, choice, or score decisions with calibrated probabilities (System One models)                                                                                    |
-| **Catalog** | `search_models`, `get_model_info`, `validate_model`, `rerank_documents`, `health_check` | Model discovery, validation, reranking, ops health                                                                                                                                |
+| Capability    | Tools                                                                                   | Highlights                                                                                                                                                                                                           |
+| :------------ | :-------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Chat**      | `chat_completion`, `start_chat_completion`, `get_chat_completion_status`                | 300+ models, `:nitro` / `:floor` / `:free` / `:online` / `:exacto` suffixes, provider routing, web search, response caching, reasoning tokens, async jobs, multi-model fusion, subagent delegation, response healing |
+| **Vision**    | `analyze_image`, `generate_image`, `generate_image_dedicated`                           | OCR, captioning, VQA, image generation with reference inputs, dedicated Image API with resolution/quality/format control                                                                                             |
+| **Audio**     | `analyze_audio`, `generate_audio`, `text_to_speech`, `speech_to_text`                   | Transcription, speech/music generation, dedicated TTS (free Deepgram default; model-specific voices, mp3/pcm), dedicated STT (Whisper/GPT-4o Transcribe)                                                             |
+| **Video**     | `analyze_video`, `generate_video`, `generate_video_from_image`, `get_video_status`      | Clip understanding, Veo 3.1 / Seedance 2.5 / Kling v3.0 / Wan 2.7 / Grok Imagine Video generation with progress notifications                                                                                        |
+| **Embedding** | `embed_text`                                                                            | 37+ embedding models (text-embedding-3-small/large, Nomic, Jina, Voyage, etc.)                                                                                                                                       |
+| **Decisions** | `decide`                                                                                | Structured yes/no, choice, or score decisions with calibrated probabilities (System One models)                                                                                                                      |
+| **Catalog**   | `search_models`, `get_model_info`, `validate_model`, `rerank_documents`, `health_check` | Model discovery, validation, reranking, ops health                                                                                                                                                                   |
 
 **Production hardening:** input/output path sandboxes (including analyze\_\* local files as of v4.5.2), SSRF guards, structured errors with `_meta.code`, MCP 2025-06-18 structured outputs, tool icons (2025-11-25), async video progress notifications, and **2000+** automated tests (unit, mock, regression, and live integration).
 
@@ -142,7 +142,7 @@ npx -y @stabgan/openrouter-mcp-multimodal
 }
 ```
 
-Pin a release: `"args": ["-y", "@stabgan/openrouter-mcp-multimodal@5.0.1"]`
+Pin a release: `"args": ["-y", "@stabgan/openrouter-mcp-multimodal@5.1.0"]`
 
 </details>
 
@@ -154,7 +154,7 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/) (includes 
 ```bash
 export OPENROUTER_API_KEY=sk-or-v1-...
 uvx mcp-server-openrouter-multimodal
-# pin npm version: OPENROUTER_MCP_NPM_VERSION=5.0.1 uvx mcp-server-openrouter-multimodal
+# pin npm version: OPENROUTER_MCP_NPM_VERSION=5.1.0 uvx mcp-server-openrouter-multimodal
 ```
 
 ```json
@@ -173,7 +173,7 @@ uvx mcp-server-openrouter-multimodal
 
 **pipx equivalent:** `pipx run mcp-server-openrouter-multimodal`
 
-Optional: `OPENROUTER_MCP_NPM_VERSION=5.0.1` pins the underlying npm package.
+Optional: `OPENROUTER_MCP_NPM_VERSION=5.1.0` pins the underlying npm package.
 
 </details>
 
@@ -254,7 +254,7 @@ Use `-i` (interactive stdio). Avoid `-t` (TTY corrupts MCP framing on some hosts
 
 ```bash
 docker run --rm -i -e OPENROUTER_API_KEY=sk-or-v1-... \
-  ghcr.io/stabgan/openrouter-mcp-multimodal:5.0.1
+  ghcr.io/stabgan/openrouter-mcp-multimodal:5.1.0
 ```
 
 ```json
@@ -268,7 +268,7 @@ docker run --rm -i -e OPENROUTER_API_KEY=sk-or-v1-... \
         "-i",
         "-e",
         "OPENROUTER_API_KEY=sk-or-v1-...",
-        "ghcr.io/stabgan/openrouter-mcp-multimodal:5.0.1"
+        "ghcr.io/stabgan/openrouter-mcp-multimodal:5.1.0"
       ]
     }
   }
@@ -367,47 +367,47 @@ If still failing, use the full path from `where npx` as the command.
 
 21 MCP tools. Each description includes **Use when**, **Good/Bad examples**, **Fails when**, and **Works with** so agents pick the right tool and recover from errors.
 
-| Tool                         | Purpose                                                                    |
-| :--------------------------- | :------------------------------------------------------------------------- |
-| `chat_completion`            | Text chat, web search, provider routing, caching, reasoning                |
-| `start_chat_completion`      | Async background job for long-running reasoning models                     |
-| `get_chat_completion_status` | Poll / retrieve async completion results                                   |
-| `analyze_image`              | Vision — local path, URL, or data URL + `question`                         |
-| `analyze_audio`              | Transcribe / analyze audio files                                           |
-| `analyze_video`              | Describe / Q&A over video files                                            |
-| `generate_image`             | Text-to-image via chat completions with reference images                   |
-| `generate_image_dedicated`   | Text-to-image via dedicated `/api/v1/images` (resolution, quality, format) |
-| `generate_audio`             | Text-to-speech / music via chat completions                                |
+| Tool                         | Purpose                                                                                |
+| :--------------------------- | :------------------------------------------------------------------------------------- |
+| `chat_completion`            | Text chat, web search, provider routing, caching, reasoning                            |
+| `start_chat_completion`      | Async background job for long-running reasoning models                                 |
+| `get_chat_completion_status` | Poll / retrieve async completion results                                               |
+| `analyze_image`              | Vision — local path, URL, or data URL + `question`                                     |
+| `analyze_audio`              | Transcribe / analyze audio files                                                       |
+| `analyze_video`              | Describe / Q&A over video files                                                        |
+| `generate_image`             | Text-to-image via chat completions with reference images                               |
+| `generate_image_dedicated`   | Text-to-image via dedicated `/api/v1/images` (resolution, quality, format)             |
+| `generate_audio`             | Text-to-speech / music via chat completions                                            |
 | `text_to_speech`             | Dedicated TTS (`/api/v1/audio/speech`) — free Deepgram default, voices, speed, mp3/pcm |
-| `speech_to_text`             | Dedicated STT (`/api/v1/audio/transcriptions`) — Whisper, GPT-4o           |
-| `generate_video`             | Text-to-video (async, resumable)                                           |
-| `generate_video_from_image`  | Image-to-video (narrower schema)                                           |
-| `get_video_status`           | Poll / resume video jobs                                                   |
-| `search_models`              | Paginated model catalog search                                             |
-| `get_model_info`             | Pricing, context, modalities                                               |
-| `validate_model`             | Cheap model ID existence check                                             |
-| `rerank_documents`           | Relevance ranking for RAG                                                  |
-| `embed_text`                 | Vector embeddings (37+ models: text-embedding-3-small/large, Nomic, etc.)  |
-| `decide`                     | Structured decisions with calibrated probabilities (System One models)      |
-| `health_check`               | API key + reachability probe                                               |
+| `speech_to_text`             | Dedicated STT (`/api/v1/audio/transcriptions`) — Whisper, GPT-4o                       |
+| `generate_video`             | Text-to-video (async, resumable)                                                       |
+| `generate_video_from_image`  | Image-to-video (narrower schema)                                                       |
+| `get_video_status`           | Poll / resume video jobs                                                               |
+| `search_models`              | Paginated model catalog search                                                         |
+| `get_model_info`             | Pricing, context, modalities                                                           |
+| `validate_model`             | Cheap model ID existence check                                                         |
+| `rerank_documents`           | Relevance ranking for RAG                                                              |
+| `embed_text`                 | Vector embeddings (37+ models: text-embedding-3-small/large, Nomic, etc.)              |
+| `decide`                     | Structured decisions with calibrated probabilities (System One models)                 |
+| `health_check`               | API key + reachability probe                                                           |
 
 Every error carries `_meta.code` from a closed taxonomy (13 codes). Switch on these for programmatic handling:
 
-| `_meta.code` | Meaning | Recovery |
-| :--- | :--- | :--- |
-| `INVALID_INPUT` | Bad or missing arguments | Check tool description for correct schema |
-| `INVALID_CREDENTIALS` | API key missing, invalid, or revoked | Regenerate at [openrouter.ai/keys](https://openrouter.ai/keys) |
-| `UNSAFE_PATH` | Local path escaped the input/output sandbox | Move files under `OPENROUTER_INPUT_DIR` / `OPENROUTER_OUTPUT_DIR` |
-| `UPSTREAM_HTTP` | Non-auth HTTP error from OpenRouter (4xx/5xx) | Check `_meta.details.status`; retry if transient |
-| `UPSTREAM_TIMEOUT` | Upstream did not respond in time | Retry, or use `start_chat_completion` for slow models |
-| `UPSTREAM_REFUSED` | Content policy, rate limit, or insufficient credits | Check `_meta.retry_after_seconds`; review prompt or add credits |
-| `UNSUPPORTED_FORMAT` | File is not a recognized media format | Verify file type matches tool expectations |
-| `RESOURCE_TOO_LARGE` | File exceeds fetch/inline size cap | Trim file or use `save_path` to skip inline |
-| `ZDR_INCOMPATIBLE` | Model/provider requires zero data retention | Use a ZDR-compatible provider or different model |
-| `MODEL_NOT_FOUND` | Model slug not in OpenRouter catalog | Run `validate_model` or `search_models` first |
-| `JOB_FAILED` | Async job (video/chat) failed on provider side | Check `_meta.details`; retry or change model |
-| `JOB_STILL_RUNNING` | Async job not yet complete (not an error) | Call `get_video_status` / `get_chat_completion_status` to poll |
-| `INTERNAL` | Unexpected server-side error | Report if reproducible |
+| `_meta.code`          | Meaning                                             | Recovery                                                          |
+| :-------------------- | :-------------------------------------------------- | :---------------------------------------------------------------- |
+| `INVALID_INPUT`       | Bad or missing arguments                            | Check tool description for correct schema                         |
+| `INVALID_CREDENTIALS` | API key missing, invalid, or revoked                | Regenerate at [openrouter.ai/keys](https://openrouter.ai/keys)    |
+| `UNSAFE_PATH`         | Local path escaped the input/output sandbox         | Move files under `OPENROUTER_INPUT_DIR` / `OPENROUTER_OUTPUT_DIR` |
+| `UPSTREAM_HTTP`       | Non-auth HTTP error from OpenRouter (4xx/5xx)       | Check `_meta.details.status`; retry if transient                  |
+| `UPSTREAM_TIMEOUT`    | Upstream did not respond in time                    | Retry, or use `start_chat_completion` for slow models             |
+| `UPSTREAM_REFUSED`    | Content policy, rate limit, or insufficient credits | Check `_meta.retry_after_seconds`; review prompt or add credits   |
+| `UNSUPPORTED_FORMAT`  | File is not a recognized media format               | Verify file type matches tool expectations                        |
+| `RESOURCE_TOO_LARGE`  | File exceeds fetch/inline size cap                  | Trim file or use `save_path` to skip inline                       |
+| `ZDR_INCOMPATIBLE`    | Model/provider requires zero data retention         | Use a ZDR-compatible provider or different model                  |
+| `MODEL_NOT_FOUND`     | Model slug not in OpenRouter catalog                | Run `validate_model` or `search_models` first                     |
+| `JOB_FAILED`          | Async job (video/chat) failed on provider side      | Check `_meta.details`; retry or change model                      |
+| `JOB_STILL_RUNNING`   | Async job not yet complete (not an error)           | Call `get_video_status` / `get_chat_completion_status` to poll    |
+| `INTERNAL`            | Unexpected server-side error                        | Report if reproducible                                            |
 
 Errors include `_meta.suggestions` with agent-oriented next steps when available.
 
@@ -510,17 +510,17 @@ Report vulnerabilities: **[SECURITY.md](./SECURITY.md)** (private disclosure —
 <details>
 <summary><strong>Environment variables</strong></summary>
 
-| Variable                            | Required | Default                               | Description                         |
-| :---------------------------------- | :------: | :------------------------------------ | :---------------------------------- |
-| `OPENROUTER_API_KEY`                | **Yes**  | —                                     | OpenRouter API key                  |
+| Variable                            | Required | Default                          | Description                         |
+| :---------------------------------- | :------: | :------------------------------- | :---------------------------------- |
+| `OPENROUTER_API_KEY`                | **Yes**  | —                                | OpenRouter API key                  |
 | `OPENROUTER_DEFAULT_MODEL`          |    No    | `google/gemma-4-26b-a4b-it:free` | Default when tools omit `model`     |
-| `OPENROUTER_OUTPUT_DIR`             |    No    | `cwd`                                 | Sandbox root for `save_path`        |
-| `OPENROUTER_INPUT_DIR`              |    No    | `OUTPUT_DIR` or `cwd`                 | Sandbox root for local input files  |
-| `OPENROUTER_INLINE_MAX_BYTES`       |    No    | `1048576` (image/audio)               | Global inline media ceiling         |
-| `OPENROUTER_IMAGE_INLINE_MAX_BYTES` |    No    | falls back to global                  | Per-kind inline ceiling             |
-| `OPENROUTER_AUDIO_INLINE_MAX_BYTES` |    No    | falls back to global                  | Per-kind inline ceiling             |
-| `OPENROUTER_VIDEO_INLINE_MAX_BYTES` |    No    | `10485760`                            | Video inline ceiling                |
-| `OPENROUTER_LOG_LEVEL`              |    No    | `info`                                | `error` / `warn` / `info` / `debug` |
+| `OPENROUTER_OUTPUT_DIR`             |    No    | `cwd`                            | Sandbox root for `save_path`        |
+| `OPENROUTER_INPUT_DIR`              |    No    | `OUTPUT_DIR` or `cwd`            | Sandbox root for local input files  |
+| `OPENROUTER_INLINE_MAX_BYTES`       |    No    | `1048576` (image/audio)          | Global inline media ceiling         |
+| `OPENROUTER_IMAGE_INLINE_MAX_BYTES` |    No    | falls back to global             | Per-kind inline ceiling             |
+| `OPENROUTER_AUDIO_INLINE_MAX_BYTES` |    No    | falls back to global             | Per-kind inline ceiling             |
+| `OPENROUTER_VIDEO_INLINE_MAX_BYTES` |    No    | `10485760`                       | Video inline ceiling                |
+| `OPENROUTER_LOG_LEVEL`              |    No    | `info`                           | `error` / `warn` / `info` / `debug` |
 
 See [`.env.example`](./.env.example) for the full list (provider routing, fetch limits, caching, video polling, async jobs, integration-test overrides).
 
@@ -540,7 +540,7 @@ npm run build
 
 | Command                    | What it runs                                               |
 | :------------------------- | :--------------------------------------------------------- |
-| `npm test`                 | **2029** unit + mock tests (no API key, &lt;20s)           |
+| `npm test`                 | **2061** unit + mock tests (no API key, &lt;20s)           |
 | `npm run test:regression`  | Security + schema regression guards                        |
 | `npm run test:integration` | **17** live OpenRouter scenarios (**requires** `.env` key) |
 | `npm run test:e2e`         | Full MCP stdio smoke (`scripts/live-e2e.mjs`)              |

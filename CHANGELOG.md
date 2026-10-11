@@ -2,6 +2,59 @@
 
 All notable changes to `@stabgan/openrouter-mcp-multimodal` are recorded here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.1.0] — 2026-10-07
+
+### Added
+
+- **`embed_text` tool** — generate vector embeddings via `POST /api/v1/embeddings` (37+ models, batch up to 2048, configurable dimensions)
+- **`decide` tool** — structured decisions via `POST /api/alpha/decisions` (System One models: noul/choice/score with calibrated probabilities)
+- **`fusion` parameter** on `chat_completion` — multi-model deliberation via `openrouter:fusion` server tool
+- **`subagent` parameter** on `chat_completion` — delegate subtasks to cheaper worker models
+- **`response_healing` parameter** — auto-fix malformed JSON responses (80%+ fewer defects)
+- **`web_blocked_domains` parameter** — filter domains from web search results
+- **`stop`, `top_p`, `frequency_penalty`, `presence_penalty`, `logprobs`, `top_logprobs`, `seed`, `reasoning_effort`, `response_format`** parameters on `chat_completion`
+- Tool icons for all 21 tools (MCP 2025-11-25 spec)
+- Server metadata (title, description, websiteUrl, icon) for MCP client discoverability
+- Sora deprecation warnings with alternative model suggestions
+- New video models in docs: Seedance 2.5, Kling v3.0, Grok Imagine Video
+- ElevenLabs TTS/STT models supported via existing audio tools
+
+### Fixed
+
+- **150+ bug fixes** from automated research (security, input validation, error classification, performance)
+- Video image inputs Zod validation error (frame_images/input_references format)
+- Windows EPERM on default output path (system directory detection)
+- body-parser CVE-2026-12590 security patch
+- MOV MIME type → video/quicktime (IANA standard)
+- NaN/Infinity guards on all numeric parameters
+- Video file size validation (OOM prevention)
+- SSRF hardening (6 IPv4 ranges, NAT64, IPv4-translatable, octal bypass)
+- Prototype pollution guards in provider routing and logger
+- Response body resource leaks in HTTP client
+- ModelCache preserves stale data on empty API responses
+- 0-byte file and empty HTTP response rejection
+- HTML error page guards on all media fetch paths
+
+### Security
+
+- Aggregate payload size limits on embed_text (10M chars), rerank (10M), decide (criteria/key caps)
+- Credential redaction expanded (12+ key patterns, URL query params, data URLs)
+- O_EXCL flag for temp file creation (symlink attack prevention)
+- Error message sanitization in all error paths
+- Auth header override protection
+
+### Performance
+
+- O(1) model lookup via Map index (was O(n))
+- Precomputed ListTools response
+- Cached sorted model array in ModelCache
+- Eliminated redundant Buffer.from copies and base64 round-trips
+
+### Tests
+
+- 1,022 → 2,061 tests (+1,039 new)
+- 52 → 70 test files
+
 ## [5.0.1] — 2026-09-05
 
 Patch release: dependency security updates and refreshed security policy documentation.
@@ -23,7 +76,7 @@ Major release: retired default models replaced, minimum Node.js raised to 22, Op
 - **Dedicated TTS request defaults were inconsistent with the API** — `mp3` is now sent explicitly when omitted, the default voice is only sent with the default model, and `response_format` accepts the endpoint's documented `mp3` and `pcm` values.
 - **Retired models in test and e2e fixtures** — the free-model helpers referenced `nvidia/nemotron-nano-12b-v2-vl:free` and `meta-llama/llama-3.2-3b-instruct:free`, both since removed from OpenRouter. Replaced with live-verified free models.
 - **`version:check` now covers `python/README.md` and `llms.txt`** — only `README.md` pins were validated before, so `llms.txt` silently kept `4.7.0` install pins through the 4.8.0 release. Docker Hub tags are now checked alongside GHCR tags.
-- **`npm run test:smoke:uvx:local` never tested the local build** — the script packed a tarball but did not set `MCP_UVX_LOCAL=1`, so it silently validated the last *published* release instead. It now runs against the local package, and refuses to fall back to a stale tarball.
+- **`npm run test:smoke:uvx:local` never tested the local build** — the script packed a tarball but did not set `MCP_UVX_LOCAL=1`, so it silently validated the last _published_ release instead. It now runs against the local package, and refuses to fall back to a stale tarball.
 
 ### BREAKING
 
