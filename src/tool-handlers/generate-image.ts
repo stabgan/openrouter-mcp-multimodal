@@ -48,6 +48,23 @@ const MAX_MODEL_ID_LENGTH = 256;
  */
 const MAX_PROMPT_LENGTH = 100_000;
 
+/**
+ * Maximum modalities entries.  Real values are a small set ("text", "image",
+ * "audio"); without a ceiling a malicious MCP client can send millions of
+ * entries, causing memory exhaustion during JSON.stringify of the outbound
+ * API request body.  10 is generous for any real combination.  Matches the
+ * bounding pattern applied to every other array parameter (messages: 2 000,
+ * texts: 2 048, documents: 1 000, reference_images: 50, etc.).
+ */
+const MAX_MODALITIES = 10;
+/**
+ * Per-modality string length limit.  Real modality identifiers are short
+ * keywords; without a ceiling a single multi-megabyte string inflates the
+ * serialized request body.  64 chars matches MAX_SHORT_PARAM_LENGTH in
+ * generate-video.
+ */
+const MAX_MODALITY_LENGTH = 64;
+
 const VALID_ASPECT_RATIOS = new Set<string>(IMAGE_ASPECT_RATIOS);
 
 const VALID_IMAGE_SIZES = new Set<string>(IMAGE_SIZES);
@@ -122,11 +139,22 @@ export async function handleGenerateImage(
     if (modalities.length === 0) {
       return toolError(ErrorCode.INVALID_INPUT, 'modalities must not be empty when provided.');
     }
-    if (modalities.some((m) => typeof m !== 'string' || !m.trim())) {
+    if (modalities.length > MAX_MODALITIES) {
       return toolError(
         ErrorCode.INVALID_INPUT,
-        'every modalities entry must be a non-empty string.',
+        `modalities has ${modalities.length} entries — max ${MAX_MODALITIES}.`,
       );
+    }
+    for (let i = 0; i < modalities.length; i++) {
+      if (typeof modalities[i] !== 'string' || !modalities[i]!.trim()) {
+        return toolError(ErrorCode.INVALID_INPUT, `modalities[${i}] must be a non-empty string.`);
+      }
+      if (modalities[i]!.length > MAX_MODALITY_LENGTH) {
+        return toolError(
+          ErrorCode.INVALID_INPUT,
+          `modalities[${i}] exceeds max length ${MAX_MODALITY_LENGTH} (got ${modalities[i]!.length}).`,
+        );
+      }
     }
   }
 
