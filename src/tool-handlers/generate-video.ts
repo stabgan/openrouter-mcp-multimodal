@@ -53,6 +53,15 @@ const MAX_MODEL_ID_LENGTH = 256;
  */
 const MAX_PROMPT_LENGTH = 100_000;
 
+/**
+ * Short parameter length limit for resolution and aspect_ratio strings.
+ * Real values are short (e.g. "1080p", "16:9"); without a ceiling a
+ * malicious client can inject a multi-megabyte string that inflates the
+ * serialized request body and log entries.  64 chars is generous for any
+ * real resolution or aspect ratio specification.
+ */
+const MAX_SHORT_PARAM_LENGTH = 64;
+
 function isValidVideoId(id: string): boolean {
   if (id.length > MAX_VIDEO_ID_LENGTH) return false;
   if (id.includes('\0')) return false;
@@ -433,8 +442,20 @@ export async function handleGenerateVideo(
   if (args.resolution !== undefined && typeof args.resolution !== 'string') {
     return toolError(ErrorCode.INVALID_INPUT, 'resolution must be a string.');
   }
+  if (typeof args.resolution === 'string' && args.resolution.length > MAX_SHORT_PARAM_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `resolution exceeds max length ${MAX_SHORT_PARAM_LENGTH} (got ${args.resolution.length}).`,
+    );
+  }
   if (args.aspect_ratio !== undefined && typeof args.aspect_ratio !== 'string') {
     return toolError(ErrorCode.INVALID_INPUT, 'aspect_ratio must be a string.');
+  }
+  if (typeof args.aspect_ratio === 'string' && args.aspect_ratio.length > MAX_SHORT_PARAM_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `aspect_ratio exceeds max length ${MAX_SHORT_PARAM_LENGTH} (got ${args.aspect_ratio.length}).`,
+    );
   }
 
   if (

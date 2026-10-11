@@ -33,6 +33,14 @@ const DEFAULT_MODEL = 'openai/whisper-1';
  */
 const MAX_MODEL_ID_LENGTH = 256;
 
+/**
+ * Language tag length limit.  ISO 639-1 codes are 2–3 characters; BCP 47
+ * tags with script and region subtags rarely exceed 35.  64 chars is generous
+ * for any real tag while preventing multi-megabyte strings from inflating
+ * the serialized request body and log entries.
+ */
+const MAX_LANGUAGE_LENGTH = 64;
+
 const VALID_RESPONSE_FORMATS = new Set<string>(STT_RESPONSE_FORMATS);
 
 function formatTranscriptionContent(
@@ -95,6 +103,12 @@ export async function handleSpeechToText(
 
   if (language !== undefined && typeof language !== 'string') {
     return toolError(ErrorCode.INVALID_INPUT, 'language must be a string.');
+  }
+  if (typeof language === 'string' && language.length > MAX_LANGUAGE_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `language exceeds max length ${MAX_LANGUAGE_LENGTH} (got ${language.length}).`,
+    );
   }
 
   const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });

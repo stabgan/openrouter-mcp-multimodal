@@ -190,6 +190,14 @@ const MAX_RESPONSE_FORMAT_BYTES = 100_000;
 
 const VALID_REASONING_EFFORTS = new Set(['low', 'medium', 'high']);
 
+/**
+ * Length limit for reasoning_effort strings.  Real values are short keywords
+ * (low, medium, high); without a ceiling a malicious MCP client can inject
+ * a multi-megabyte string that inflates the serialized request body and log
+ * entries.  64 chars allows for any future values OpenRouter may add.
+ */
+const MAX_REASONING_EFFORT_LENGTH = 64;
+
 export function validateReasoningEffort(
   reasoningEffort: string | undefined,
 ): ToolErrorResult | null {
@@ -198,6 +206,12 @@ export function validateReasoningEffort(
     return toolError(
       ErrorCode.INVALID_INPUT,
       `reasoning_effort must be a non-empty string. Common values: ${[...VALID_REASONING_EFFORTS].join(', ')}.`,
+    );
+  }
+  if (reasoningEffort.length > MAX_REASONING_EFFORT_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `reasoning_effort exceeds max length ${MAX_REASONING_EFFORT_LENGTH} (got ${reasoningEffort.length}). Common values: ${[...VALID_REASONING_EFFORTS].join(', ')}.`,
     );
   }
   return null;
