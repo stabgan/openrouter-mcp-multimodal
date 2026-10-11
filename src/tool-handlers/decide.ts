@@ -235,7 +235,12 @@ export async function handleDecide(
   }
 
   const answers = response.answers;
-  if (!answers || Object.keys(answers).length === 0) {
+  if (!answers || typeof answers !== 'object' || Array.isArray(answers)) {
+    return toolError(ErrorCode.INTERNAL, 'No answers returned from decisions API.', {
+      response_keys: Object.keys(response),
+    });
+  }
+  if (Object.keys(answers).length === 0) {
     return toolError(ErrorCode.INTERNAL, 'No answers returned from decisions API.', {
       response_keys: Object.keys(response),
     });
@@ -244,14 +249,28 @@ export async function handleDecide(
   // Build human-readable summary
   const lines: string[] = [];
   for (const [name, answer] of Object.entries(answers)) {
+    // Defensive: skip malformed answer entries that would cause TypeErrors.
+    if (!answer || typeof answer !== 'object') continue;
+
     if (answer.type === 'noul') {
-      const prob = answer.noul ?? 0;
+      const prob =
+        typeof answer.noul === 'number' && Number.isFinite(answer.noul) ? answer.noul : 0;
       lines.push(`${name}: ${prob >= 0.5 ? 'YES' : 'NO'} (P=${(prob * 100).toFixed(1)}%)`);
     } else if (answer.type === 'choice' && answer.choice) {
       const best = Object.entries(answer.choice).sort(([, a], [, b]) => b - a)[0];
       lines.push(`${name}: ${best?.[0] ?? '?'} (P=${((best?.[1] ?? 0) * 100).toFixed(1)}%)`);
-    } else if (answer.type === 'score' && answer.score) {
-      const maxIdx = answer.score.indexOf(Math.max(...answer.score));
+    } else if (answer.type === 'score' && Array.isArray(answer.score) && answer.score.length > 0) {
+      // Use a loop instead of Math.max(...arr) to avoid stack overflow on
+      // very large score arrays — the spread operator converts array
+      // elements into function arguments, which is capped by the engine.
+      let maxVal = -Infinity;
+      let maxIdx = 0;
+      for (let i = 0; i < answer.score.length; i++) {
+        if (typeof answer.score[i] === 'number' && answer.score[i]! > maxVal) {
+          maxVal = answer.score[i]!;
+          maxIdx = i;
+        }
+      }
       lines.push(
         `${name}: level ${maxIdx + 1}/${answer.score.length} (P=${((answer.score[maxIdx] ?? 0) * 100).toFixed(1)}%)`,
       );

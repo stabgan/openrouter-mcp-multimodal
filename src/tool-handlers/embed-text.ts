@@ -25,6 +25,15 @@ const MAX_TEXTS = 2048; // OpenAI's batch limit
  * but still prevent multi-megabyte payloads from a single element.
  */
 const MAX_TEXT_LENGTH = 100_000;
+/**
+ * Aggregate character limit across all texts in a single request.
+ * Per-text limits alone allow 2 048 × 100 000 chars ≈ 200 MB of payload,
+ * which could cause memory exhaustion during JSON serialisation.  This cap
+ * limits the total to ~10 MB of text — generous for real-world embedding
+ * batches while closing the DoS vector.  Mirrors the `MAX_STATE_BYTES`
+ * pattern in the `decide` handler.
+ */
+const MAX_TOTAL_INPUT_CHARS = 10_000_000;
 
 export async function handleEmbedText(
   request: { params: { arguments: EmbedTextRequest } },
@@ -48,6 +57,7 @@ export async function handleEmbedText(
       `Too many texts: ${inputArray.length} exceeds max ${MAX_TEXTS}.`,
     );
   }
+  let totalChars = 0;
   for (let i = 0; i < inputArray.length; i++) {
     if (typeof inputArray[i] !== 'string') {
       return toolError(ErrorCode.INVALID_INPUT, `texts[${i}] must be a string.`);
@@ -61,6 +71,13 @@ export async function handleEmbedText(
         `texts[${i}] exceeds max length ${MAX_TEXT_LENGTH} (got ${inputArray[i]!.length}).`,
       );
     }
+    totalChars += inputArray[i]!.length;
+  }
+  if (totalChars > MAX_TOTAL_INPUT_CHARS) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `Total input size (${totalChars} chars) exceeds max ${MAX_TOTAL_INPUT_CHARS}. Reduce the number or length of texts.`,
+    );
   }
 
   if (dimensions !== undefined) {
@@ -104,13 +121,23 @@ export async function handleEmbedText(
   }
 
   const embeddings = response.data ?? [];
-  if (!embeddings.length) {
+  if (!Array.isArray(embeddings) || !embeddings.length) {
     return toolError(ErrorCode.INTERNAL, 'No embeddings returned.', {
       response_keys: Object.keys(response),
     });
   }
 
-  const summary = `Generated ${embeddings.length} embedding(s) with ${embeddings[0]!.embedding.length} dimensions using ${response.model || effectiveModel}.`;
+  // Defensive: verify the first element has the expected shape before
+  // accessing `.embedding.length`.  A malformed upstream response would
+  // otherwise throw an unclassified TypeError.
+  const first = embeddings[0];
+  if (!first || !Array.isArray(first.embedding) || first.embedding.length === 0) {
+    return toolError(ErrorCode.INTERNAL, 'Embeddings response has unexpected shape.', {
+      first_element_keys: first ? Object.keys(first) : [],
+    });
+  }
+
+  const summary = `Generated ${embeddings.length} embedding(s) with ${first.embedding.length} dimensions using ${response.model || effectiveModel}.`;
 
   return {
     content: [{ type: 'text' as const, text: summary }],
@@ -120,13 +147,13 @@ export async function handleEmbedText(
         embedding: e.embedding,
       })),
       model: response.model || effectiveModel,
-      dimensions: embeddings[0]!.embedding.length,
+      dimensions: first.embedding.length,
     },
     _meta: {
       server_version: SERVER_VERSION,
       model: response.model || effectiveModel,
       embedding_count: embeddings.length,
-      dimensions: embeddings[0]!.embedding.length,
+      dimensions: first.embedding.length,
       ...(response.usage ? { usage: response.usage } : {}),
     },
   };
