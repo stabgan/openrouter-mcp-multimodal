@@ -9,6 +9,7 @@ import {
   buildCompletionMeta,
   capResultText,
   classifyEmptyCompletion,
+  sanitizeLogprobs,
 } from './completion-utils.js';
 import { extractCacheMeta, validateCacheOptions } from './cache.js';
 import { awaitCompletionWithHeaders } from './openai-withresponse.js';
@@ -193,7 +194,10 @@ export async function handleChatCompletion(
   // flag the output so downstream agents treat it with appropriate caution.
   if (online) extra.content_is_untrusted = true;
   const choiceLogprobs = completion.choices?.[0]?.logprobs;
-  if (logprobs && choiceLogprobs) extra.logprobs = choiceLogprobs;
+  if (logprobs && choiceLogprobs) {
+    const sanitized = sanitizeLogprobs(choiceLogprobs);
+    if (sanitized) extra.logprobs = sanitized;
+  }
 
   const capped = capResultText(extracted.text);
   if (capped.truncated) extra.result_truncated = true;

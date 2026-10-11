@@ -8,6 +8,189 @@ import { sanitizeUpstreamUsage } from './sanitize-usage.js';
 /** Default cap for text returned in tool content / _meta (chars). Set OPENROUTER_MAX_RESULT_TEXT_CHARS=0 to disable. */
 const DEFAULT_MAX_RESULT_TEXT_CHARS = 512_000;
 
+/** Keys that could cause prototype pollution when iterated with Object.entries/for-in. */
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+/**
+ * Maximum number of content entries in the sanitized logprobs output.
+ * A typical response has one entry per generated token; 10 000 covers
+ * the largest realistic completions while preventing memory exhaustion
+ * from a malformed upstream response with millions of entries that would
+ * inflate `JSON.stringify` of the MCP `_meta`.
+ */
+const MAX_LOGPROBS_CONTENT_ENTRIES = 10_000;
+
+/**
+ * Maximum number of `top_logprobs` entries per content token.  Input
+ * validation caps the user's `top_logprobs` request parameter at 20, but
+ * the upstream response is untrusted — a malformed response could return
+ * hundreds of entries per token, causing O(n²) amplification during
+ * sanitization and serialization.
+ */
+const MAX_TOP_LOGPROBS_PER_TOKEN = 20;
+
+/**
+ * Maximum length for individual token strings in logprobs.  Tokens are
+ * usually 1–20 characters; without a ceiling a malformed upstream could
+ * embed multi-megabyte strings that inflate the MCP response.  512 chars
+ * is generous for any real tokenizer output.
+ */
+const MAX_LOGPROBS_TOKEN_LENGTH = 512;
+
+/**
+ * Maximum number of byte values in a single `bytes` array.  Real tokens
+ * are short sequences of UTF-8 bytes (typically 1–20); without a cap a
+ * malformed upstream could return arrays with millions of elements.
+ */
+const MAX_LOGPROBS_BYTES_LENGTH = 64;
+
+interface SanitizedLogprobEntry {
+  token: string;
+  logprob: number;
+  bytes: number[] | null;
+}
+
+interface SanitizedLogprobContentEntry extends SanitizedLogprobEntry {
+  top_logprobs: SanitizedLogprobEntry[];
+}
+
+interface SanitizedLogprobs {
+  content: SanitizedLogprobContentEntry[] | null;
+  refusal: SanitizedLogprobContentEntry[] | null;
+}
+
+/**
+ * Sanitize a single logprob entry (token + logprob + bytes).  Returns
+ * `null` when the entry is malformed or contains unsafe data, so callers
+ * can filter it out rather than crashing.
+ */
+function sanitizeLogprobEntry(entry: unknown): SanitizedLogprobEntry | null {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null;
+  const e = entry as Record<string, unknown>;
+
+  // Strip prototype-pollution keys
+  for (const key of Object.keys(e)) {
+    if (UNSAFE_KEYS.has(key)) return null;
+  }
+
+  const token = e.token;
+  if (typeof token !== 'string') return null;
+  const safeToken =
+    token.length > MAX_LOGPROBS_TOKEN_LENGTH ? token.slice(0, MAX_LOGPROBS_TOKEN_LENGTH) : token;
+
+  const logprob = e.logprob;
+  if (typeof logprob !== 'number' || !Number.isFinite(logprob)) return null;
+
+  let safeBytes: number[] | null = null;
+  if (e.bytes !== null && e.bytes !== undefined) {
+    if (!Array.isArray(e.bytes)) return null;
+    const bounded =
+      e.bytes.length > MAX_LOGPROBS_BYTES_LENGTH
+        ? e.bytes.slice(0, MAX_LOGPROBS_BYTES_LENGTH)
+        : e.bytes;
+    safeBytes = [];
+    for (const b of bounded) {
+      if (typeof b !== 'number' || !Number.isInteger(b) || b < 0 || b > 255) continue;
+      safeBytes.push(b);
+    }
+  }
+
+  return { token: safeToken, logprob, bytes: safeBytes };
+}
+
+/**
+ * Sanitize a content/refusal entry array from the upstream logprobs
+ * response.  Each entry is reconstructed with only the expected fields,
+ * and nested `top_logprobs` arrays are individually validated.
+ */
+function sanitizeLogprobContentArray(raw: unknown): SanitizedLogprobContentEntry[] | null {
+  if (raw === null || raw === undefined) return null;
+  if (!Array.isArray(raw)) return null;
+
+  const bounded =
+    raw.length > MAX_LOGPROBS_CONTENT_ENTRIES ? raw.slice(0, MAX_LOGPROBS_CONTENT_ENTRIES) : raw;
+
+  const result: SanitizedLogprobContentEntry[] = [];
+  for (const item of bounded) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+
+    // Check for prototype-pollution keys at the content entry level
+    const record = item as Record<string, unknown>;
+    let hasUnsafe = false;
+    for (const key of Object.keys(record)) {
+      if (UNSAFE_KEYS.has(key)) {
+        hasUnsafe = true;
+        break;
+      }
+    }
+    if (hasUnsafe) continue;
+
+    const base = sanitizeLogprobEntry(item);
+    if (!base) continue;
+
+    // Sanitize nested top_logprobs
+    const topLogprobs: SanitizedLogprobEntry[] = [];
+    const rawTop = record.top_logprobs;
+    if (Array.isArray(rawTop)) {
+      const boundedTop =
+        rawTop.length > MAX_TOP_LOGPROBS_PER_TOKEN
+          ? rawTop.slice(0, MAX_TOP_LOGPROBS_PER_TOKEN)
+          : rawTop;
+      for (const topEntry of boundedTop) {
+        const sanitized = sanitizeLogprobEntry(topEntry);
+        if (sanitized) topLogprobs.push(sanitized);
+      }
+    }
+
+    result.push({ ...base, top_logprobs: topLogprobs });
+  }
+
+  return result.length > 0 ? result : null;
+}
+
+/**
+ * Sanitize the upstream `logprobs` object before forwarding to MCP `_meta`.
+ *
+ * The `logprobs` field in ChatCompletion responses is a deeply nested
+ * structure (content → top_logprobs → bytes arrays) that was previously
+ * forwarded raw — the only unsanitized upstream data in the entire
+ * codebase.  A malformed or compromised upstream could inject:
+ *
+ *   - Prototype-pollution keys (`__proto__`, `constructor`, `prototype`)
+ *     at any nesting level, exploitable by MCP clients that process
+ *     `_meta` with unsafe iteration patterns (for...in, lodash deep-merge).
+ *   - Thousands of content entries with large top_logprobs arrays,
+ *     causing O(n²) memory amplification during JSON.stringify.
+ *   - Non-finite logprob values (NaN, Infinity) that produce garbage
+ *     in downstream probability calculations.
+ *   - Non-string token values or non-integer bytes that cause type
+ *     confusion in MCP clients.
+ *   - Arbitrary extra properties beyond the expected fields.
+ *
+ * Returns a clean allowlist-reconstructed object with only the fields
+ * defined by the Logprobs type, or `undefined` if the input is invalid.
+ * Matches the sanitization pattern applied by `sanitizeUpstreamUsage`,
+ * the `embed_text` embedding sanitizer, and the `decide` answer sanitizer.
+ */
+export function sanitizeLogprobs(logprobs: unknown): SanitizedLogprobs | undefined {
+  if (!logprobs || typeof logprobs !== 'object' || Array.isArray(logprobs)) return undefined;
+
+  const raw = logprobs as Record<string, unknown>;
+
+  // Reject if top-level has prototype-pollution keys
+  for (const key of Object.keys(raw)) {
+    if (UNSAFE_KEYS.has(key)) return undefined;
+  }
+
+  const content = sanitizeLogprobContentArray(raw.content);
+  const refusal = sanitizeLogprobContentArray(raw.refusal);
+
+  // Return undefined when both arrays are empty — no useful data.
+  if (!content && !refusal) return undefined;
+
+  return { content, refusal };
+}
+
 export interface ExtractedText {
   text: string;
   /** True when `text` came from the reasoning trace (not a final answer). */
