@@ -220,12 +220,29 @@ export function validateReasoningEffort(
 }
 
 const MAX_STOP_SEQUENCES = 4;
+/**
+ * Per-sequence character limit for stop strings.  Real stop sequences are
+ * short tokens (e.g. "\n\n", "###", "END"); without a ceiling a malicious
+ * MCP client can send up to 4 multi-megabyte strings that inflate the
+ * serialized request body and log entries.  1 024 chars is generous for any
+ * real stop sequence while closing the DoS vector.  Matches the per-element
+ * bounding pattern applied by embed_text (MAX_TEXT_LENGTH), rerank
+ * (MAX_DOCUMENT_LENGTH), decide (MAX_CRITERIA_VALUE_LENGTH), and
+ * text_to_speech (MAX_INPUT_LENGTH).
+ */
+const MAX_STOP_LENGTH = 1024;
 
 export function validateStop(stop: string | string[] | undefined): ToolErrorResult | null {
   if (stop === undefined) return null;
   if (typeof stop === 'string') {
     if (stop.length === 0) {
       return toolError(ErrorCode.INVALID_INPUT, 'stop must be a non-empty string or array.');
+    }
+    if (stop.length > MAX_STOP_LENGTH) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `stop sequence exceeds max length ${MAX_STOP_LENGTH} (got ${stop.length}).`,
+      );
     }
     return null;
   }
@@ -241,6 +258,12 @@ export function validateStop(stop: string | string[] | undefined): ToolErrorResu
   for (let i = 0; i < stop.length; i++) {
     if (typeof stop[i] !== 'string' || stop[i]!.length === 0) {
       return toolError(ErrorCode.INVALID_INPUT, `stop[${i}] must be a non-empty string.`);
+    }
+    if (stop[i]!.length > MAX_STOP_LENGTH) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `stop[${i}] exceeds max length ${MAX_STOP_LENGTH} (got ${stop[i]!.length}).`,
+      );
     }
   }
   return null;
