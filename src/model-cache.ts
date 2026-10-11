@@ -26,32 +26,87 @@ export interface OpenRouterModelRecord {
 const UNSAFE_RECORD_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 /**
+ * Maximum recursion depth for model-record sanitization.  Model records
+ * have known nested shapes (`architecture`, `pricing`, `top_provider`)
+ * that are typically 2–3 levels deep.  The upstream response is untrusted
+ * and could contain pathologically deep nesting — cap at 8 to cover any
+ * real record shape while preventing stack overflow.  Matches the
+ * defence-in-depth depth-capping pattern used by `hasDeepUnsafeKey` (32)
+ * in the `decide` handler and `sanitizeCtx` (32) in the logger.
+ */
+const MAX_SANITIZE_DEPTH = 8;
+
+/**
+ * Recursively scan a value for prototype-pollution keys.  Returns `true`
+ * if any object in the tree (up to `MAX_SANITIZE_DEPTH`) contains a key
+ * in `UNSAFE_RECORD_KEYS`.  Used as the fast-path gate: when no unsafe
+ * keys exist anywhere in the record, `sanitizeModelRecordForOutput`
+ * returns the original reference without copying.
+ */
+function hasDeepUnsafeRecordKey(value: unknown, depth: number): boolean {
+  if (depth <= 0) return false;
+  if (value === null || value === undefined || typeof value !== 'object') return false;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      if (hasDeepUnsafeRecordKey(item, depth - 1)) return true;
+    }
+    return false;
+  }
+  const obj = value as Record<string, unknown>;
+  for (const key of Object.keys(obj)) {
+    if (UNSAFE_RECORD_KEYS.has(key)) return true;
+    if (hasDeepUnsafeRecordKey(obj[key], depth - 1)) return true;
+  }
+  return false;
+}
+
+/**
+ * Recursively strip prototype-pollution keys from a value.  Objects are
+ * shallow-copied with unsafe keys removed; arrays have their elements
+ * sanitized; primitives pass through unchanged.  Depth is capped to
+ * prevent stack overflow from pathologically deep upstream responses —
+ * values beyond the limit are replaced with `null`.
+ *
+ * Only called after `hasDeepUnsafeRecordKey` confirms the tree contains
+ * at least one unsafe key, so the copy is never wasted.
+ */
+function stripUnsafeKeys(value: unknown, depth: number): unknown {
+  if (depth <= 0) return null;
+  if (value === null || value === undefined || typeof value !== 'object') return value;
+  if (Array.isArray(value)) {
+    return value.map((item) => stripUnsafeKeys(item, depth - 1));
+  }
+  const obj = value as Record<string, unknown>;
+  const safe: Record<string, unknown> = {};
+  for (const [key, v] of Object.entries(obj)) {
+    if (UNSAFE_RECORD_KEYS.has(key)) continue;
+    safe[key] = stripUnsafeKeys(v, depth - 1);
+  }
+  return safe;
+}
+
+/**
  * Strip prototype-pollution keys from a model record before forwarding to
  * MCP clients via `buildStructuredResult`.  Called by `get_model_info` and
  * `search_models` at the output boundary — internal cache consumers
  * (matching, lookup) operate on the original records.
  *
- * Shallow-only: model records are flat objects with known nested shapes
- * (`architecture`, `pricing`, `top_provider`).  Deep recursion is
- * unnecessary and would add overhead to every search/info call.
+ * Recursively sanitizes nested objects (`architecture`, `pricing`,
+ * `top_provider`, and any other nested structures from the open index
+ * signature).  The upstream model catalog is fetched over HTTP and is
+ * untrusted — a compromised upstream could inject `__proto__` keys at
+ * any nesting level.  The previous shallow-only sanitization stripped
+ * unsafe keys at the top level but left nested objects unsanitized,
+ * allowing prototype-pollution keys to flow into `structuredContent`
+ * for MCP clients that process it with unsafe patterns (lodash
+ * deep-merge, Object.assign spread, for-in iteration).
+ *
+ * Fast path: when no unsafe keys exist anywhere in the record tree,
+ * returns the original reference without copying.
  */
 export function sanitizeModelRecordForOutput(record: OpenRouterModelRecord): OpenRouterModelRecord {
-  let needsCopy = false;
-  for (const key of Object.keys(record)) {
-    if (UNSAFE_RECORD_KEYS.has(key)) {
-      needsCopy = true;
-      break;
-    }
-  }
-  // Fast path: most records have no unsafe keys — skip the copy.
-  if (!needsCopy) return record;
-
-  const safe: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(record)) {
-    if (UNSAFE_RECORD_KEYS.has(key)) continue;
-    safe[key] = value;
-  }
-  return safe as OpenRouterModelRecord;
+  if (!hasDeepUnsafeRecordKey(record, MAX_SANITIZE_DEPTH)) return record;
+  return stripUnsafeKeys(record, MAX_SANITIZE_DEPTH) as OpenRouterModelRecord;
 }
 
 export interface ModelSearchParams {
