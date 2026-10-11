@@ -98,7 +98,13 @@ export async function handleAnalyzeAudio(
   try {
     audioData = await prepareAudioData(audio_path);
   } catch (err) {
-    return classifyResourceLoadError(err);
+    // Pre-truncate user-controlled value before embedding in the prefix
+    // string.  audio_path can be a 200 MB data URL — the template literal
+    // allocates the full string before toolErrorFrom's MAX_PREFIX_LENGTH
+    // truncation runs.  200 chars matches the convention in path-safety.ts
+    // and the identical guards in analyze-image.ts / analyze-video.ts.
+    const safePath = audio_path.length > 200 ? audio_path.slice(0, 200) + '…' : audio_path;
+    return classifyResourceLoadError(err, `audio_path "${safePath}"`);
   }
 
   const audioBlock: Record<string, unknown> = {
