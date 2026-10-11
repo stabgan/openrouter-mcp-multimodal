@@ -650,6 +650,20 @@ function headerValue(headers: IncomingMessage['headers'], name: string): string 
 }
 
 /**
+ * Maximum raw string length for data URL inputs.  Downstream callers cap
+ * *decoded* byte counts (images: 20 MB, audio: 25 MB, video: 100 MB),
+ * but the raw data URL string reaches `parseBase64DataUrl` first.
+ * Without an early length check, a multi-GB string causes O(n)
+ * `indexOf` and `replace` operations that exhaust CPU and memory before
+ * any downstream size guard runs.
+ *
+ * 200 MB (raw string chars) is ~1.5× the base64 encoding of the largest
+ * default decoded limit (video: 100 MB → ~134 MB encoded) — generous
+ * for every legitimate caller while preventing GB-scale DoS.
+ */
+const MAX_DATA_URL_STRING_LENGTH = 200_000_000;
+
+/**
  * Parse an RFC 2397 data URL into `{ mediaType, base64 }`. Accepts MIME
  * parameters (`data:audio/wav;charset=binary;base64,...`) and the bare
  * `data:;base64,...` form. Returns `null` for anything that is not a
@@ -663,6 +677,9 @@ function headerValue(headers: IncomingMessage['headers'], name: string): string 
  */
 export function parseBase64DataUrl(source: string): { mediaType: string; base64: string } | null {
   if (!source.startsWith('data:')) return null;
+  // Early rejection: prevent O(n) indexOf / replace from processing
+  // pathologically large strings before downstream byte-count checks run.
+  if (source.length > MAX_DATA_URL_STRING_LENGTH) return null;
   const comma = source.indexOf(',');
   if (comma < 0) return null;
   const prefix = source.slice(5, comma); // between "data:" and ","
