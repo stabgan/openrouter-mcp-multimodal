@@ -71,6 +71,61 @@ let jobCounter = 0;
 
 const DEFAULT_ASYNC_JOBS_MEMORY_MAX = 200;
 
+/**
+ * Maximum size for persisted job status files (bytes).  Job status JSON is
+ * typically under 10 KB; this ceiling prevents memory exhaustion from
+ * tampered or corrupted files placed in OPENROUTER_OUTPUT_DIR.  Matches
+ * the defense-in-depth pattern used by `readResponseBody`
+ * (`MAX_JSON_RESPONSE_BYTES`) and `SAFE_READ_TEXT_MAX_BYTES` in the API
+ * client for capping untrusted reads.  1 MiB is generous for any real
+ * job file while closing the DoS vector.
+ */
+const MAX_JOB_FILE_BYTES = 1_048_576;
+
+/** Keys that could cause prototype pollution when iterated via Object.entries/spread. */
+const UNSAFE_META_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+/**
+ * Sanitize the `meta` object from a disk-persisted job before it flows into
+ * MCP `_meta`.  In-memory jobs always have meta created by
+ * `buildCompletionMeta` (which sanitizes upstream usage), but disk data is
+ * untrusted — a tampered status.json could inject prototype-pollution keys,
+ * oversized strings, or deeply nested structures into the MCP response.
+ *
+ * Strategy: strip unsafe keys and cap string lengths; pass finite numbers,
+ * booleans, null, and one level of nested objects (for `usage` maps)
+ * through so legitimate meta fields are preserved.  Matches the allowlist
+ * sanitization pattern used by `sanitizeUpstreamUsage`, the `decide`
+ * handler's answer sanitizer, and `embed_text`'s embedding sanitizer.
+ */
+function sanitizePersistedMeta(meta: unknown): Record<string, unknown> {
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return {};
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(meta as Record<string, unknown>)) {
+    if (UNSAFE_META_KEYS.has(key)) continue;
+    if (typeof value === 'string') {
+      out[key] = value.length > 2048 ? value.slice(0, 2048) : value;
+    } else if (typeof value === 'number' && Number.isFinite(value)) {
+      out[key] = value;
+    } else if (typeof value === 'boolean' || value === null) {
+      out[key] = value;
+    } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      // One level of nesting for usage objects: { prompt_tokens: N, ... }
+      const nested: Record<string, unknown> = {};
+      for (const [nk, nv] of Object.entries(value as Record<string, unknown>)) {
+        if (UNSAFE_META_KEYS.has(nk)) continue;
+        if (typeof nv === 'number' && Number.isFinite(nv)) nested[nk] = nv;
+        else if (typeof nv === 'string') nested[nk] = nv.length > 2048 ? nv.slice(0, 2048) : nv;
+        else if (typeof nv === 'boolean' || nv === null) nested[nk] = nv;
+      }
+      if (Object.keys(nested).length > 0) out[key] = nested;
+    }
+    // Arrays and deeply nested structures are dropped — they are never
+    // produced by buildCompletionMeta and could inflate the MCP response.
+  }
+  return out;
+}
+
 function readAsyncJobsMemoryMax(): number {
   const raw = process.env.OPENROUTER_ASYNC_JOBS_MEMORY_MAX;
   if (raw === undefined || raw === '') return DEFAULT_ASYNC_JOBS_MEMORY_MAX;
@@ -159,8 +214,81 @@ export async function loadJobFromDisk(jobId: string): Promise<AsyncJob | null> {
   const statusPath = await resolveSafeJobStatusPath(dir, jobId);
   if (!statusPath) return null;
   try {
+    // Size-check before reading — defense-in-depth against oversized files
+    // placed by a local attacker with write access to OPENROUTER_OUTPUT_DIR.
+    // Matches the pattern used by `readResponseBody` for API responses.
+    const stat = await fs.stat(statusPath);
+    if (!stat.isFile() || stat.size > MAX_JOB_FILE_BYTES) return null;
     const raw = await fs.readFile(statusPath, 'utf8');
-    return JSON.parse(raw) as AsyncJob;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    // Structure validation — disk data is untrusted. Require the four
+    // mandatory AsyncJob fields to be present and correctly typed.  Without
+    // this, a tampered status.json with wrong field types would cause
+    // TypeErrors downstream (e.g. capResultText on a non-string) or inject
+    // oversized/wrong-type values into MCP responses.
+    if (
+      !parsed ||
+      typeof parsed !== 'object' ||
+      Array.isArray(parsed) ||
+      typeof parsed.id !== 'string' ||
+      typeof parsed.status !== 'string' ||
+      typeof parsed.createdAt !== 'string' ||
+      typeof parsed.model !== 'string'
+    ) {
+      return null;
+    }
+    // Cap model string — user-created jobs have model capped at 256 chars by
+    // input validation, but a tampered file could have a multi-megabyte value
+    // that inflates error details and _meta in the MCP response.
+    if (parsed.model.length > MAX_MODEL_ID_LENGTH) {
+      parsed.model = parsed.model.slice(0, MAX_MODEL_ID_LENGTH);
+    }
+    // Sanitize optional result — ensure text is a string and meta is cleaned
+    // of prototype-pollution keys and oversized values.
+    if (parsed.result !== undefined) {
+      const result = parsed.result as Record<string, unknown>;
+      if (!result || typeof result !== 'object' || typeof result.text !== 'string') {
+        parsed.result = undefined;
+      } else {
+        result.meta = sanitizePersistedMeta(result.meta);
+      }
+    }
+    // Sanitize optional error — must be a string.
+    if (parsed.error !== undefined && typeof parsed.error !== 'string') {
+      parsed.error = 'Job failed (corrupted status file).';
+    }
+    // Cap error string length to prevent oversized MCP responses.
+    if (typeof parsed.error === 'string' && parsed.error.length > 2048) {
+      parsed.error = parsed.error.slice(0, 2048);
+    }
+    // Validate error_code — must be a known ErrorCode value.
+    if (parsed.error_code !== undefined) {
+      const validCodes = new Set(Object.values(ErrorCode));
+      if (
+        typeof parsed.error_code !== 'string' ||
+        !validCodes.has(parsed.error_code as ErrorCode)
+      ) {
+        parsed.error_code = undefined;
+      }
+    }
+    // Validate error_suggestions — must be an array of strings.
+    if (parsed.error_suggestions !== undefined) {
+      if (
+        !Array.isArray(parsed.error_suggestions) ||
+        !parsed.error_suggestions.every((s: unknown) => typeof s === 'string')
+      ) {
+        parsed.error_suggestions = undefined;
+      }
+    }
+    // Validate retry_after_seconds — must be a finite number.
+    if (
+      parsed.retry_after_seconds !== undefined &&
+      (typeof parsed.retry_after_seconds !== 'number' ||
+        !Number.isFinite(parsed.retry_after_seconds))
+    ) {
+      parsed.retry_after_seconds = undefined;
+    }
+    return parsed as unknown as AsyncJob;
   } catch {
     return null;
   }
