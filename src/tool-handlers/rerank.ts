@@ -15,6 +15,15 @@ export interface RerankDocumentsRequest {
 
 const DEFAULT_MODEL = 'cohere/rerank-v3.5';
 const MAX_DOCUMENTS = 1000;
+/**
+ * Per-document and per-query character limits.  Rerank models process
+ * short-to-medium text passages; without a ceiling an attacker can send
+ * 1 000 multi-megabyte documents, causing memory exhaustion during
+ * `JSON.stringify` and the outbound HTTP request.  The 100 K limit
+ * matches `embed_text`'s per-element ceiling.
+ */
+const MAX_DOCUMENT_LENGTH = 100_000;
+const MAX_QUERY_LENGTH = 100_000;
 
 function isValidDocumentIndex(index: unknown, documentCount: number): index is number {
   return (
@@ -87,17 +96,31 @@ export async function handleRerankDocuments(
   if (typeof query !== 'string' || !query.trim()) {
     return toolError(ErrorCode.INVALID_INPUT, 'query is required.');
   }
+  if (query.length > MAX_QUERY_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `query exceeds max length ${MAX_QUERY_LENGTH} (got ${query.length}).`,
+    );
+  }
   if (!Array.isArray(documents) || documents.length === 0) {
     return toolError(ErrorCode.INVALID_INPUT, 'documents must be a non-empty array of strings.');
-  }
-  if (documents.some((d) => typeof d !== 'string' || !d.trim())) {
-    return toolError(ErrorCode.INVALID_INPUT, 'every document must be a non-empty string.');
   }
   if (documents.length > MAX_DOCUMENTS) {
     return toolError(
       ErrorCode.INVALID_INPUT,
       `documents has ${documents.length} entries — max ${MAX_DOCUMENTS}.`,
     );
+  }
+  for (let i = 0; i < documents.length; i++) {
+    if (typeof documents[i] !== 'string' || !documents[i]!.trim()) {
+      return toolError(ErrorCode.INVALID_INPUT, `documents[${i}] must be a non-empty string.`);
+    }
+    if (documents[i]!.length > MAX_DOCUMENT_LENGTH) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `documents[${i}] exceeds max length ${MAX_DOCUMENT_LENGTH} (got ${documents[i]!.length}).`,
+      );
+    }
   }
   // Validate model type — MCP clients that ignore the JSON schema can send
   // numbers or booleans. Without this guard `model?.trim()` throws TypeError
