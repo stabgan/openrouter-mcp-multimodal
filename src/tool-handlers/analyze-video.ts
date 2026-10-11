@@ -29,6 +29,13 @@ import {
 
 const FALLBACK_DEFAULT_MODEL = 'google/gemini-2.5-flash';
 
+/**
+ * Per-question character limit.  Prevents multi-megabyte payloads that would
+ * exhaust memory during JSON.stringify — matching the per-field limits used
+ * by text_to_speech (MAX_INPUT_LENGTH), embed_text, and rerank.
+ */
+const MAX_QUESTION_LENGTH = 100_000;
+
 export interface AnalyzeVideoToolRequest extends CacheOptions {
   video_path: string;
   question?: string;
@@ -56,6 +63,12 @@ export async function handleAnalyzeVideo(
 
   if (question !== undefined && typeof question !== 'string') {
     return toolError(ErrorCode.INVALID_INPUT, 'question must be a string.');
+  }
+  if (typeof question === 'string' && question.length > MAX_QUESTION_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `question exceeds max length ${MAX_QUESTION_LENGTH} (got ${question.length}).`,
+    );
   }
 
   const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });

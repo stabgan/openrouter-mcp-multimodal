@@ -38,6 +38,14 @@ const MAX_CONSECUTIVE_POLL_FAILURES = 5;
  */
 const MAX_VIDEO_ID_LENGTH = 256;
 
+/**
+ * Per-prompt character limit.  Video generation prompts are short; this
+ * ceiling prevents multi-megabyte payloads that would exhaust memory during
+ * JSON.stringify — matching the MAX_INPUT_LENGTH / MAX_TEXT_LENGTH pattern
+ * used by text_to_speech, embed_text, and rerank.
+ */
+const MAX_PROMPT_LENGTH = 100_000;
+
 function isValidVideoId(id: string): boolean {
   if (id.length > MAX_VIDEO_ID_LENGTH) return false;
   if (id.includes('\0')) return false;
@@ -397,6 +405,12 @@ export async function handleGenerateVideo(
   const args = request.params.arguments ?? ({} as GenerateVideoToolRequest);
   if (typeof args.prompt !== 'string' || !args.prompt.trim()) {
     return toolError(ErrorCode.INVALID_INPUT, 'prompt is required.');
+  }
+  if (args.prompt.length > MAX_PROMPT_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `prompt exceeds max length ${MAX_PROMPT_LENGTH} (got ${args.prompt.length}).`,
+    );
   }
 
   if (args.model !== undefined && typeof args.model !== 'string') {

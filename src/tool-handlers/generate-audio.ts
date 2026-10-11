@@ -35,6 +35,13 @@ const DEFAULT_VOICE = 'alloy';
 const DEFAULT_FORMAT = 'pcm16';
 const DEFAULT_AUDIO_GEN_MAX_BYTES = 50 * 1024 * 1024; // 50 MiB — matches SPEECH_MAX_BYTES
 
+/**
+ * Per-prompt character limit.  Prevents multi-megabyte payloads that would
+ * exhaust memory during JSON.stringify — matching the MAX_INPUT_LENGTH /
+ * MAX_TEXT_LENGTH pattern used by text_to_speech, embed_text, and rerank.
+ */
+const MAX_PROMPT_LENGTH = 100_000;
+
 function getAudioGenMaxBytes(): number {
   return readEnvInt('OPENROUTER_AUDIO_GEN_MAX_BYTES', DEFAULT_AUDIO_GEN_MAX_BYTES, 1024);
 }
@@ -59,6 +66,12 @@ export async function handleGenerateAudio(
 
   if (typeof prompt !== 'string' || !prompt.trim()) {
     return toolError(ErrorCode.INVALID_INPUT, 'prompt is required.');
+  }
+  if (prompt.length > MAX_PROMPT_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `prompt exceeds max length ${MAX_PROMPT_LENGTH} (got ${prompt.length}).`,
+    );
   }
 
   if (model !== undefined && typeof model !== 'string') {

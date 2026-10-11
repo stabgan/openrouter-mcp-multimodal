@@ -34,6 +34,13 @@ export interface GenerateImageToolRequest {
 
 const DEFAULT_MODEL = 'google/gemini-2.5-flash-image';
 
+/**
+ * Per-prompt character limit.  Prevents multi-megabyte payloads that would
+ * exhaust memory during JSON.stringify — matching the MAX_INPUT_LENGTH /
+ * MAX_TEXT_LENGTH pattern used by text_to_speech, embed_text, and rerank.
+ */
+const MAX_PROMPT_LENGTH = 100_000;
+
 const VALID_ASPECT_RATIOS = new Set<string>(IMAGE_ASPECT_RATIOS);
 
 const VALID_IMAGE_SIZES = new Set<string>(IMAGE_SIZES);
@@ -56,6 +63,12 @@ export async function handleGenerateImage(
 
   if (typeof prompt !== 'string' || !prompt.trim()) {
     return toolError(ErrorCode.INVALID_INPUT, 'prompt is required.');
+  }
+  if (prompt.length > MAX_PROMPT_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `prompt exceeds max length ${MAX_PROMPT_LENGTH} (got ${prompt.length}).`,
+    );
   }
 
   if (model !== undefined && typeof model !== 'string') {
