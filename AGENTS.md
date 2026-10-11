@@ -72,7 +72,7 @@ src/tts-defaults.ts             ← TTS default constants (model, voice, respons
 | `npm run test:all`             | unit + regression + integration                 | Pre-release gate                    |
 | `npm run ci`                   | lint + format + version sync + build + test:all | **The one command before shipping** |
 
-Current: **103 test files, 3020 tests** (101 unit/mock + 1 regression + 1 integration).
+Current: **106 test files, 3108 tests** (104 unit/mock + 1 regression + 1 integration).
 
 ## Releasing (read this before publishing)
 
