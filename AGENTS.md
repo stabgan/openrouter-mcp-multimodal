@@ -128,6 +128,7 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 | OpenAI withResponse       | `src/tool-handlers/openai-withresponse.ts`                            |
 | Binary result policy      | `src/tool-handlers/tool-result-payload.ts`                            |
 | Structured output helper  | `src/tool-handlers/structured-output.ts`                              |
+| Usage sanitization        | `src/tool-handlers/sanitize-usage.ts`                                 |
 | Path sandbox              | `src/tool-handlers/path-safety.ts`, `src/tool-handlers/path-utils.ts` |
 | Cache headers             | `src/tool-handlers/cache.ts`                                          |
 | Provider routing          | `src/tool-handlers/provider-routing.ts`                               |
