@@ -106,6 +106,16 @@ export async function handleGenerateImage(
     );
   }
 
+  // Type checks for enum parameters — reject non-string values before they
+  // reach the audit log or Set validation.  Matches the pattern used by
+  // generate_video, generate_image_dedicated, and all other handlers.
+  if (aspect_ratio !== undefined && typeof aspect_ratio !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'aspect_ratio must be a string.');
+  }
+  if (image_size !== undefined && typeof image_size !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'image_size must be a string.');
+  }
+
   logger.audit('generate_image.start', {
     model: model?.trim() || DEFAULT_MODEL,
     prompt_preview: prompt.slice(0, 80),

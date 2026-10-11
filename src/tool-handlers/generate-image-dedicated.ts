@@ -114,6 +114,25 @@ export async function handleGenerateImageDedicated(
     );
   }
 
+  // Type checks for enum parameters — reject non-string values before they
+  // reach the audit log or Set validation.  MCP clients that ignore the JSON
+  // schema can send numbers, booleans, or objects; without these guards the
+  // value flows through `sanitizeCtx` in the logger and produces a confusing
+  // "not supported" error from the Set check instead of a clear type error.
+  // Matches the pattern used by generate_video and all other handlers.
+  if (aspect_ratio !== undefined && typeof aspect_ratio !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'aspect_ratio must be a string.');
+  }
+  if (resolution !== undefined && typeof resolution !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'resolution must be a string.');
+  }
+  if (quality !== undefined && typeof quality !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'quality must be a string.');
+  }
+  if (output_format !== undefined && typeof output_format !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'output_format must be a string.');
+  }
+
   logger.audit('generate_image_dedicated.start', {
     model: model?.trim() || DEFAULT_MODEL,
     prompt_preview: prompt.slice(0, 80),
