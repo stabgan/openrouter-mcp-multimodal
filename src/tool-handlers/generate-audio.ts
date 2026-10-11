@@ -8,6 +8,7 @@ import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
 import { sanitizeUpstreamUsage } from './sanitize-usage.js';
+import { capResultText } from './completion-utils.js';
 import { buildBinaryToolResult } from './tool-result-payload.js';
 import { replaceExtension, writeOutputFile } from './path-utils.js';
 import { createWavHeader, wrapPcmInWav, detectAudioFormat } from './audio-utils.js';
@@ -69,6 +70,32 @@ const MAX_VOICE_LENGTH = 256;
  * generate-video.ts and generate-image.ts.
  */
 const MAX_FORMAT_LENGTH = 64;
+
+/**
+ * Maximum accumulated transcript/content text during streaming (characters).
+ *
+ * The streaming loop collects `delta.audio.transcript` and `delta.content`
+ * strings from the upstream response.  Audio data is bounded by
+ * `OPENROUTER_AUDIO_GEN_MAX_BYTES`, but transcript and plain-text content
+ * had no cap — a malformed or compromised upstream could send millions of
+ * small chunks that accumulate into a multi-megabyte string, causing memory
+ * exhaustion during `join('')` and oversized MCP responses.
+ *
+ * 512 000 chars matches `DEFAULT_MAX_RESULT_TEXT_CHARS` used by
+ * `capResultText` in `completion-utils.ts` — generous for any real
+ * transcript while closing the DoS vector.
+ */
+const MAX_STREAMING_TEXT_CHARS = 512_000;
+
+/**
+ * Maximum length for upstream `finish_reason` strings in `_meta`.
+ *
+ * Real values are short keywords ("stop", "length", "content_filter");
+ * without a ceiling a malformed upstream could return a multi-megabyte
+ * string that inflates the MCP response.  64 chars matches
+ * `MAX_SHORT_PARAM_LENGTH` used by generate-video and other handlers.
+ */
+const MAX_FINISH_REASON_LENGTH = 64;
 
 function getAudioGenMaxBytes(): number {
   return readEnvInt('OPENROUTER_AUDIO_GEN_MAX_BYTES', DEFAULT_AUDIO_GEN_MAX_BYTES, 1024);
@@ -198,6 +225,8 @@ export async function handleGenerateAudio(
     const maxBytes = getAudioGenMaxBytes();
     let finishReason: string | undefined;
     let streamUsage: Record<string, unknown> | undefined;
+    let transcriptTotalChars = 0;
+    let contentTotalChars = 0;
 
     for await (const chunk of stream) {
       const typedChunk = chunk as {
@@ -215,7 +244,11 @@ export async function handleGenerateAudio(
 
       const delta = choice?.delta;
       if (delta && typeof delta.content === 'string') {
-        contentChunks.push(delta.content);
+        // Cap accumulated content text — matches the transcript cap below.
+        if (contentTotalChars < MAX_STREAMING_TEXT_CHARS) {
+          contentChunks.push(delta.content);
+          contentTotalChars += delta.content.length;
+        }
       }
       if (delta && typeof delta === 'object' && delta.audio) {
         const a = delta.audio as { data?: unknown; transcript?: unknown };
@@ -230,7 +263,17 @@ export async function handleGenerateAudio(
           }
           audioChunks.push(a.data);
         }
-        if (typeof a.transcript === 'string') transcriptChunks.push(a.transcript);
+        if (typeof a.transcript === 'string') {
+          // Cap accumulated transcript text — a malformed upstream could
+          // send millions of small transcript chunks that join into a
+          // multi-megabyte string, causing memory exhaustion and an
+          // oversized MCP response.  Audio data is bounded by maxBytes;
+          // transcript was the remaining unbounded accumulation.
+          if (transcriptTotalChars < MAX_STREAMING_TEXT_CHARS) {
+            transcriptChunks.push(a.transcript);
+            transcriptTotalChars += a.transcript.length;
+          }
+        }
       }
     }
 
@@ -283,7 +326,15 @@ export async function handleGenerateAudio(
       server_version: SERVER_VERSION,
       model: model?.trim() || DEFAULT_MODEL,
     };
-    if (finishReason) baseMeta.finish_reason = finishReason;
+    // Sanitize upstream finish_reason — cap length to prevent a malformed
+    // upstream from inflating the MCP response with a multi-megabyte string.
+    // Real values are short keywords ("stop", "length", "content_filter").
+    if (typeof finishReason === 'string' && finishReason.length > 0) {
+      baseMeta.finish_reason =
+        finishReason.length > MAX_FINISH_REASON_LENGTH
+          ? finishReason.slice(0, MAX_FINISH_REASON_LENGTH)
+          : finishReason;
+    }
     // Sanitize streaming usage — `streamUsage` is the raw upstream chunk
     // object, which is untrusted.  Without sanitization it could contain
     // prototype-pollution keys (__proto__, constructor, prototype),
@@ -308,9 +359,15 @@ export async function handleGenerateAudio(
         actualSavePath !== safeBase
           ? ` (detected ${detected.ext.toUpperCase()}, saved as ${actualSavePath})`
           : '';
-      const result = transcript
-        ? `Audio saved to: ${actualSavePath}${formatNote}\nTranscript: ${transcript}`
+      // Cap transcript text in the summary — the transcript accumulates
+      // from untrusted upstream stream chunks and could be hundreds of KB.
+      // Mirrors the capResultText pattern used by chat_completion,
+      // analyze_image, analyze_audio, and analyze_video for completion text.
+      const cappedTranscript = transcript ? capResultText(transcript) : undefined;
+      const result = cappedTranscript
+        ? `Audio saved to: ${actualSavePath}${formatNote}\nTranscript: ${cappedTranscript.text}`
         : `Audio saved to: ${actualSavePath}${formatNote}`;
+      if (cappedTranscript?.truncated) baseMeta.transcript_truncated = true;
 
       return buildBinaryToolResult(
         { kind: 'audio', buffer: audioBuffer, mimeType: detected.mimeType },
@@ -322,10 +379,14 @@ export async function handleGenerateAudio(
       );
     }
 
+    // Cap transcript for inline response too.
+    const cappedInlineTranscript = transcript ? capResultText(transcript) : undefined;
+    if (cappedInlineTranscript?.truncated) baseMeta.transcript_truncated = true;
+
     return buildBinaryToolResult(
       { kind: 'audio', buffer: audioBuffer, mimeType: detected.mimeType },
       {
-        prefixText: transcript || 'Audio generated successfully.',
+        prefixText: cappedInlineTranscript?.text || 'Audio generated successfully.',
         meta: baseMeta,
       },
     );
