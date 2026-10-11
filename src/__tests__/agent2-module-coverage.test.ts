@@ -401,8 +401,8 @@ describe('handleDecide — mixed valid and malformed answers', () => {
   });
 });
 
-describe('handleDecide — structuredContent always passes through raw answers', () => {
-  it('includes all answers in structuredContent even if malformed', async () => {
+describe('handleDecide — structuredContent sanitizes upstream answers', () => {
+  it('strips malformed answer entries from structuredContent', async () => {
     const answers = {
       q1: { type: 'noul', noul: 0.5 },
       q2: null,
@@ -413,7 +413,9 @@ describe('handleDecide — structuredContent always passes through raw answers',
       client,
     )) as SuccessResult;
 
-    // structuredContent passes through the raw answers object
-    expect(r.structuredContent.answers).toEqual(answers);
+    // structuredContent filters out null/malformed entries for safety
+    expect(r.structuredContent.answers).toEqual({
+      q1: { type: 'noul', noul: 0.5 },
+    });
   });
 });

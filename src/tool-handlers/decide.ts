@@ -11,6 +11,7 @@
  */
 import type {
   OpenRouterAPIClient,
+  DecisionAnswer,
   DecisionQuestion,
   DecisionsResponse,
 } from '../openrouter-api.js';
@@ -359,11 +360,35 @@ export async function handleDecide(
     });
   }
 
+  // Sanitize upstream response — strip prototype-pollution keys and
+  // malformed entries before forwarding to MCP clients.  Input validation
+  // rejects __proto__/constructor/prototype in user-supplied question names,
+  // but the upstream API response is untrusted.  Forwarding poisoned keys
+  // via structuredContent risks pollution in clients that use unsafe
+  // iteration patterns (for...in, lodash deep-merge, Object.assign spread).
+  // Also strip choice-level keys to close the same vector inside answer
+  // payloads (e.g. `{ choice: { __proto__: 0.9, a: 0.1 } }`).
+  const sanitizedAnswers: Record<string, DecisionAnswer> = {};
+
   // Build human-readable summary
   const lines: string[] = [];
   for (const [name, answer] of Object.entries(answers)) {
+    // Skip prototype-pollution keys from the upstream response.
+    if (UNSAFE_KEYS.has(name)) continue;
     // Defensive: skip malformed answer entries that would cause TypeErrors.
     if (!answer || typeof answer !== 'object') continue;
+
+    // Deep-sanitize choice maps — strip unsafe keys from per-option probs.
+    if (answer.type === 'choice' && answer.choice && typeof answer.choice === 'object') {
+      const safeChoice: Record<string, number> = {};
+      for (const [ck, cv] of Object.entries(answer.choice)) {
+        if (UNSAFE_KEYS.has(ck)) continue;
+        safeChoice[ck] = cv;
+      }
+      sanitizedAnswers[name] = { ...answer, choice: safeChoice };
+    } else {
+      sanitizedAnswers[name] = answer;
+    }
 
     if (answer.type === 'noul') {
       const prob =
@@ -374,7 +399,7 @@ export async function handleDecide(
       // Without this, non-finite values produce "NaN%" in user-visible text.
       // Matches the defensive typeof+isFinite check applied to noul above.
       const entries = Object.entries(answer.choice)
-        .filter(([, v]) => typeof v === 'number' && Number.isFinite(v))
+        .filter(([k, v]) => !UNSAFE_KEYS.has(k) && typeof v === 'number' && Number.isFinite(v))
         .sort(([, a], [, b]) => b - a);
       const best = entries[0];
       lines.push(`${name}: ${best?.[0] ?? '?'} (P=${((best?.[1] ?? 0) * 100).toFixed(1)}%)`);
@@ -402,7 +427,7 @@ export async function handleDecide(
 
   return {
     content: [{ type: 'text' as const, text: lines.join('\n') }],
-    structuredContent: { answers },
+    structuredContent: { answers: sanitizedAnswers },
     _meta: {
       server_version: SERVER_VERSION,
       model: effectiveModel,
