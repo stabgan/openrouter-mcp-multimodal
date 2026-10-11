@@ -10,6 +10,7 @@ import { ErrorCode, toolError } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
+import { sanitizeUpstreamUsage } from './sanitize-usage.js';
 
 export interface EmbedTextRequest {
   texts: string | string[];
@@ -195,9 +196,9 @@ export async function handleEmbedText(
   // Sanitize usage — only forward known numeric fields.  The raw upstream
   // `response.usage` object is untrusted and could contain prototype-
   // pollution keys or arbitrarily large nested structures that inflate the
-  // MCP response.  Matches the allowlist pattern applied to answers in the
-  // `decide` handler and scores in the `rerank` handler.
-  const safeUsage = sanitizeEmbeddingUsage(response.usage);
+  // MCP response.  Uses the shared sanitizer applied consistently across
+  // all handlers that surface upstream usage data.
+  const safeUsage = sanitizeUpstreamUsage(response.usage);
 
   const summary = `Generated ${sanitizedEmbeddings.length} embedding(s) with ${first.embedding.length} dimensions using ${displayModel}.`;
 
@@ -216,32 +217,4 @@ export async function handleEmbedText(
       ...(safeUsage ? { usage: safeUsage } : {}),
     },
   };
-}
-
-/**
- * Allowlist-sanitize the upstream `usage` object for embedding responses.
- *
- * The raw `response.usage` from the untrusted upstream API could contain:
- *   - Prototype-pollution keys (`__proto__`, `constructor`, `prototype`)
- *   - Non-numeric values for token counts (strings, objects, NaN)
- *   - Arbitrary extra properties that inflate the MCP response
- *
- * Only forward the fields defined in the `EmbeddingsResponse.usage` type
- * (`prompt_tokens`, `total_tokens`, `cost`) after validating each is a
- * finite number.  This mirrors the allowlist approach applied to decision
- * answers and rerank scores.
- */
-function sanitizeEmbeddingUsage(
-  usage: EmbeddingsResponse['usage'],
-): Record<string, number> | undefined {
-  if (!usage || typeof usage !== 'object' || Array.isArray(usage)) return undefined;
-  const safe: Record<string, number> = {};
-  const numericKeys = ['prompt_tokens', 'total_tokens', 'cost'] as const;
-  for (const key of numericKeys) {
-    const val = usage[key];
-    if (typeof val === 'number' && Number.isFinite(val)) {
-      safe[key] = val;
-    }
-  }
-  return Object.keys(safe).length > 0 ? safe : undefined;
 }

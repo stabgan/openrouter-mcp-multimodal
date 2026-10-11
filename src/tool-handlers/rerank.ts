@@ -1,6 +1,7 @@
 import type { OpenRouterAPIClient, RerankResponse } from '../openrouter-api.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
+import { sanitizeUpstreamUsage } from './sanitize-usage.js';
 import { buildStructuredResult } from './structured-output.js';
 import { capResultText } from './completion-utils.js';
 
@@ -98,7 +99,8 @@ function normalizeRerankResults(
     );
   }
 
-  return buildStructuredResult(payload, response.usage ? { usage: response.usage } : {});
+  const safeUsage = sanitizeUpstreamUsage(response.usage);
+  return buildStructuredResult(payload, safeUsage ? { usage: safeUsage } : {});
 }
 
 export async function handleRerankDocuments(

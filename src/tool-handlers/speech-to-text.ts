@@ -6,6 +6,7 @@ import { ErrorCode, toolError } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import { classifyUpstreamError, classifyResourceLoadError } from './openrouter-errors.js';
+import { sanitizeUpstreamUsage } from './sanitize-usage.js';
 import { capResultText } from './completion-utils.js';
 import { type CacheOptions, buildCacheHeaders, validateCacheOptions } from './cache.js';
 import {
@@ -185,7 +186,8 @@ export async function handleSpeechToText(
   };
   if (response.language) baseMeta.language = response.language;
   if (response.duration) baseMeta.duration_seconds = response.duration;
-  if (response.usage) baseMeta.usage = response.usage;
+  const safeUsage = sanitizeUpstreamUsage(response.usage);
+  if (safeUsage) baseMeta.usage = safeUsage;
 
   const capped = capResultText(text);
   if (capped.truncated) baseMeta.result_truncated = true;

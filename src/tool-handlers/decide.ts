@@ -19,6 +19,7 @@ import { ErrorCode, toolError } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
+import { sanitizeUpstreamUsage } from './sanitize-usage.js';
 
 export interface DecideRequest {
   questions: Record<string, DecisionQuestion>;
@@ -483,7 +484,7 @@ export async function handleDecide(
       server_version: SERVER_VERSION,
       model: effectiveModel,
       question_count: questionNames.length,
-      ...(response.usage ? { usage: response.usage } : {}),
+      ...(response.usage ? { usage: sanitizeUpstreamUsage(response.usage) } : {}),
     },
   };
 }

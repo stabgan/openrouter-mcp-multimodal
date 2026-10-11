@@ -12,6 +12,7 @@ import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { SERVER_VERSION } from '../version.js';
 import { logger } from '../logger.js';
 import { classifyUpstreamError, classifyResourceLoadError } from './openrouter-errors.js';
+import { sanitizeUpstreamUsage } from './sanitize-usage.js';
 import { buildBinaryToolResult } from './tool-result-payload.js';
 import { fetchHttpResource } from './fetch-utils.js';
 import {
@@ -271,7 +272,8 @@ export async function handleGenerateImageDedicated(
   if (images.length > 1) {
     baseMeta.images_note = 'Only images[0] is saved or inlined; request n=1 for a single image.';
   }
-  if (response.usage) baseMeta.usage = response.usage;
+  const safeUsage = sanitizeUpstreamUsage(response.usage);
+  if (safeUsage) baseMeta.usage = safeUsage;
   if (firstImage.revised_prompt) baseMeta.revised_prompt = firstImage.revised_prompt;
 
   if (safeSavePath) {
