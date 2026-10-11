@@ -360,14 +360,20 @@ export async function handleDecide(
     });
   }
 
-  // Sanitize upstream response — strip prototype-pollution keys and
-  // malformed entries before forwarding to MCP clients.  Input validation
-  // rejects __proto__/constructor/prototype in user-supplied question names,
-  // but the upstream API response is untrusted.  Forwarding poisoned keys
-  // via structuredContent risks pollution in clients that use unsafe
-  // iteration patterns (for...in, lodash deep-merge, Object.assign spread).
-  // Also strip choice-level keys to close the same vector inside answer
-  // payloads (e.g. `{ choice: { __proto__: 0.9, a: 0.1 } }`).
+  // Sanitize upstream response — allowlist expected fields on every answer
+  // type before forwarding to MCP clients.  Input validation rejects
+  // __proto__/constructor/prototype in user-supplied question names, but the
+  // upstream API response is untrusted.  The previous approach used spread
+  // (`{ ...answer, choice: safeChoice }`) for choice types and passed
+  // noul/score answers through entirely — any extra properties from the
+  // upstream (including prototype-pollution keys like `__proto__`,
+  // `constructor`, or `prototype`) would leak into structuredContent.  MCP
+  // clients that process structuredContent with unsafe iteration patterns
+  // (for...in, lodash deep-merge, Object.assign spread) could be exploited.
+  //
+  // The allowlist approach reconstructs each answer with only the fields
+  // defined by the DecisionAnswer type, closing this vector for ALL answer
+  // types — not just choice.
   const sanitizedAnswers: Record<string, DecisionAnswer> = {};
 
   // Build human-readable summary
@@ -378,16 +384,38 @@ export async function handleDecide(
     // Defensive: skip malformed answer entries that would cause TypeErrors.
     if (!answer || typeof answer !== 'object') continue;
 
-    // Deep-sanitize choice maps — strip unsafe keys from per-option probs.
-    if (answer.type === 'choice' && answer.choice && typeof answer.choice === 'object') {
-      const safeChoice: Record<string, number> = {};
-      for (const [ck, cv] of Object.entries(answer.choice)) {
-        if (UNSAFE_KEYS.has(ck)) continue;
-        safeChoice[ck] = cv;
+    // Reconstruct each answer with only the expected fields for its type.
+    // This prevents any unexpected upstream properties (including
+    // prototype-pollution keys) from flowing into structuredContent.
+    switch (answer.type) {
+      case 'noul': {
+        sanitizedAnswers[name] = { type: 'noul', noul: answer.noul };
+        break;
       }
-      sanitizedAnswers[name] = { ...answer, choice: safeChoice };
-    } else {
-      sanitizedAnswers[name] = answer;
+      case 'choice': {
+        // Deep-sanitize choice maps — strip unsafe keys from per-option probs.
+        const safeChoice: Record<string, number> = {};
+        if (answer.choice && typeof answer.choice === 'object') {
+          for (const [ck, cv] of Object.entries(answer.choice)) {
+            if (UNSAFE_KEYS.has(ck)) continue;
+            safeChoice[ck] = cv;
+          }
+        }
+        sanitizedAnswers[name] = { type: 'choice', choice: safeChoice };
+        break;
+      }
+      case 'score': {
+        sanitizedAnswers[name] = { type: 'score', score: answer.score };
+        break;
+      }
+      default:
+        // Unknown answer type — include with only the `type` field so callers
+        // can see what the upstream returned, but strip all other properties
+        // to prevent unsanitized data from leaking into structuredContent.
+        // The summary-building logic below will skip this entry since none
+        // of the if/else-if branches match.
+        sanitizedAnswers[name] = { type: answer.type } as DecisionAnswer;
+        break;
     }
 
     if (answer.type === 'noul') {
