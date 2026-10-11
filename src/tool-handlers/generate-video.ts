@@ -396,7 +396,21 @@ async function finalizeCompletedJob(
   // uses `sanitizeUpstreamUsage`; generate_video was the remaining gap.
   const safeUsage = sanitizeUpstreamUsage(status.usage);
   if (safeUsage) baseMeta.usage = safeUsage;
-  if (status.unsigned_urls) baseMeta.unsigned_urls = status.unsigned_urls;
+  // Sanitize unsigned_urls — the upstream response is untrusted.  Without
+  // bounds, a malformed upstream could return an array with millions of
+  // entries, each a multi-megabyte string, causing memory exhaustion during
+  // JSON.stringify of the MCP response.  Cap array length to a generous 10
+  // (real responses have 1–2 URLs) and per-URL length to 2 048 (real
+  // signed/unsigned CDN URLs are well under 1 KB).
+  if (Array.isArray(status.unsigned_urls) && status.unsigned_urls.length > 0) {
+    const MAX_UNSIGNED_URLS = 10;
+    const MAX_URL_LENGTH = 2048;
+    const safeUrls = status.unsigned_urls
+      .slice(0, MAX_UNSIGNED_URLS)
+      .filter((u): u is string => typeof u === 'string' && u.length > 0)
+      .map((u) => (u.length > MAX_URL_LENGTH ? u.slice(0, MAX_URL_LENGTH) : u));
+    if (safeUrls.length > 0) baseMeta.unsigned_urls = safeUrls;
+  }
 
   if (savePath) {
     const finalPath = extname(savePath) === `.${ext}` ? savePath : replaceExtension(savePath, ext);
@@ -623,6 +637,22 @@ export async function handleGenerateVideo(
     return toolError(ErrorCode.JOB_FAILED, errorMsg, details);
   }
   if (outcome.kind === 'timeout') {
+    // Sanitize upstream polling_url — the envelope is from the untrusted
+    // upstream and could contain a multi-megabyte string.  Real polling URLs
+    // are well under 256 chars; cap at 2048 matching the unsigned_urls cap.
+    const rawPollingUrl =
+      envelope.polling_url ?? `https://openrouter.ai/api/v1/videos/${envelope.id}`;
+    const safePollingUrl =
+      typeof rawPollingUrl === 'string' && rawPollingUrl.length <= 2048
+        ? rawPollingUrl
+        : `https://openrouter.ai/api/v1/videos/${envelope.id}`;
+    // Sanitize last_status — upstream string without a length cap.
+    const safeLastStatus =
+      typeof outcome.last?.status === 'string'
+        ? outcome.last.status.length > 64
+          ? outcome.last.status.slice(0, 64)
+          : outcome.last.status
+        : undefined;
     return {
       content: [
         {
@@ -635,8 +665,8 @@ export async function handleGenerateVideo(
         server_version: SERVER_VERSION,
         code: ErrorCode.JOB_STILL_RUNNING,
         video_id: envelope.id,
-        polling_url: envelope.polling_url ?? `https://openrouter.ai/api/v1/videos/${envelope.id}`,
-        last_status: outcome.last?.status,
+        polling_url: safePollingUrl,
+        ...(safeLastStatus !== undefined ? { last_status: safeLastStatus } : {}),
       },
     };
   }
@@ -676,12 +706,26 @@ export async function handleGetVideoStatus(
   if (status.status === 'completed') {
     return safeFinalizeCompletedJob(apiClient, status, safeSavePath);
   }
+  // Sanitize upstream fields before forwarding into the MCP response.
+  // `status.status` is a string from the untrusted upstream — cap its length
+  // to prevent a multi-megabyte value from inflating the MCP response.
+  // `status.progress` could be NaN, Infinity, or a non-number.
+  const safeStatus =
+    typeof status.status === 'string'
+      ? status.status.length > 64
+        ? status.status.slice(0, 64)
+        : status.status
+      : 'unknown';
+  const safeProgress =
+    typeof status.progress === 'number' && Number.isFinite(status.progress)
+      ? status.progress
+      : undefined;
   return {
     content: [
       {
         type: 'text' as const,
-        text: `Video ${id} status: ${status.status}${
-          typeof status.progress === 'number' ? ` (progress=${status.progress})` : ''
+        text: `Video ${id} status: ${safeStatus}${
+          safeProgress !== undefined ? ` (progress=${safeProgress})` : ''
         }`,
       },
     ],
@@ -690,8 +734,8 @@ export async function handleGetVideoStatus(
       server_version: SERVER_VERSION,
       code: ErrorCode.JOB_STILL_RUNNING,
       video_id: id,
-      last_status: status.status,
-      progress: status.progress,
+      last_status: safeStatus,
+      ...(safeProgress !== undefined ? { progress: safeProgress } : {}),
     },
   };
 }

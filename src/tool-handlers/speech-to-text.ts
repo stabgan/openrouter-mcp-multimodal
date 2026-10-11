@@ -184,8 +184,21 @@ export async function handleSpeechToText(
     model: model?.trim() || DEFAULT_MODEL,
     content_is_untrusted: true,
   };
-  if (response.language) baseMeta.language = response.language;
-  if (response.duration) baseMeta.duration_seconds = response.duration;
+  // Sanitize upstream metadata — the response is untrusted.  `language` and
+  // `duration` were forwarded raw; a malformed upstream could return a
+  // multi-megabyte string for `language` or NaN/Infinity for `duration`,
+  // inflating the MCP response or causing type confusion in consumers.
+  if (typeof response.language === 'string' && response.language.length > 0) {
+    // Real language codes are 2–35 chars (BCP 47); cap at 64 matching the
+    // MAX_LANGUAGE_LENGTH ceiling for user input.
+    baseMeta.language =
+      response.language.length > MAX_LANGUAGE_LENGTH
+        ? response.language.slice(0, MAX_LANGUAGE_LENGTH)
+        : response.language;
+  }
+  if (typeof response.duration === 'number' && Number.isFinite(response.duration)) {
+    baseMeta.duration_seconds = response.duration;
+  }
   const safeUsage = sanitizeUpstreamUsage(response.usage);
   if (safeUsage) baseMeta.usage = safeUsage;
 

@@ -308,7 +308,19 @@ export async function handleGenerateImageDedicated(
   }
   const safeUsage = sanitizeUpstreamUsage(response.usage);
   if (safeUsage) baseMeta.usage = safeUsage;
-  if (firstImage.revised_prompt) baseMeta.revised_prompt = firstImage.revised_prompt;
+  // Sanitize revised_prompt — the upstream response is untrusted and could
+  // return a multi-megabyte string that inflates the MCP response.  Real
+  // revised prompts are under 4 KB; cap at 10 000 matching the per-field
+  // ceiling used by decide (MAX_INSTRUCTIONS_LENGTH) and TTS
+  // (MAX_INSTRUCTIONS_LENGTH).  Mirrors the response-model sanitization
+  // already applied in embed_text and rerank handlers.
+  if (typeof firstImage.revised_prompt === 'string' && firstImage.revised_prompt.length > 0) {
+    const MAX_REVISED_PROMPT_LENGTH = 10_000;
+    baseMeta.revised_prompt =
+      firstImage.revised_prompt.length > MAX_REVISED_PROMPT_LENGTH
+        ? firstImage.revised_prompt.slice(0, MAX_REVISED_PROMPT_LENGTH)
+        : firstImage.revised_prompt;
+  }
 
   if (safeSavePath) {
     // Correct the file extension to match the actual image format — mirrors
@@ -418,9 +430,21 @@ export async function handleGenerateImageDedicated(
   }
 
   if (firstImage.url) {
+    // Sanitize upstream URL — cap length to prevent a multi-megabyte string
+    // from inflating the MCP response.  Real image URLs are well under 2 KB.
+    const MAX_IMAGE_URL_LENGTH = 2048;
+    const safeUrl =
+      typeof firstImage.url === 'string' && firstImage.url.length <= MAX_IMAGE_URL_LENGTH
+        ? firstImage.url
+        : typeof firstImage.url === 'string'
+          ? firstImage.url.slice(0, MAX_IMAGE_URL_LENGTH)
+          : '';
+    if (!safeUrl) {
+      return toolError(ErrorCode.UPSTREAM_REFUSED, 'Model returned no usable image data.');
+    }
     return {
-      content: [{ type: 'text' as const, text: `Image generated. URL: ${firstImage.url}` }],
-      _meta: { ...baseMeta, image_url: firstImage.url },
+      content: [{ type: 'text' as const, text: `Image generated. URL: ${safeUrl}` }],
+      _meta: { ...baseMeta, image_url: safeUrl },
     };
   }
 
