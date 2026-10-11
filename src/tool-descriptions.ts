@@ -645,7 +645,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
       'MODEL_NOT_FOUND: reranker slug invalid',
       'UPSTREAM_HTTP: provider error',
     ],
-    worksWith: ['search_models', 'chat_completion', 'embed_text'],
+    worksWith: ['search_models', 'chat_completion', 'embed_text', 'decide'],
   }),
 
   embed_text: buildToolDescription({
@@ -677,7 +677,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
       'MODEL_NOT_FOUND: invalid embedding model',
       'UPSTREAM_REFUSED: credits exhausted',
     ],
-    worksWith: ['rerank_documents', 'chat_completion'],
+    worksWith: ['rerank_documents', 'chat_completion', 'decide'],
   }),
 
   decide: buildToolDescription({
