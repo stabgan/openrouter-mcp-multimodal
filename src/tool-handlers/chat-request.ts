@@ -179,12 +179,14 @@ export function validateMaxTokens(max_tokens: number | undefined): ToolErrorResu
 const VALID_RESPONSE_FORMAT_TYPES = new Set(['text', 'json_object', 'json_schema']);
 
 /**
- * Maximum serialized size for `response_format.json_schema` (bytes).
+ * Maximum serialized size for the entire `response_format` object (bytes).
  * Every other user-controlled complex object that gets serialized into outbound
  * API requests has a size cap (`MAX_STATE_BYTES` in `decide`, `MAX_TOTAL_INPUT_CHARS`
  * in `embed_text`/`rerank`). Without this limit, a malicious MCP client can inject
- * a multi-megabyte JSON schema that exhausts memory during `JSON.stringify` of the
- * outbound request body. 100 KB is generous for any real JSON schema.
+ * arbitrary extra properties on `response_format` (for any type, not just
+ * `json_schema`) that bypass field-level checks and exhaust memory during
+ * `JSON.stringify` of the outbound request body. 100 KB is generous for any
+ * real response format including a full JSON schema.
  */
 const MAX_RESPONSE_FORMAT_BYTES = 100_000;
 
@@ -363,6 +365,27 @@ export function validateResponseFormat(
       `response_format.type '${responseFormat.type}' is not supported. Valid values: ${[...VALID_RESPONSE_FORMAT_TYPES].join(', ')}.`,
     );
   }
+  // Cap total serialized size for ALL non-text types.
+  // `buildChatCompletionBody` filters out type: "text", so only json_object
+  // and json_schema are serialized into the outbound request body.
+  // Previously only json_schema's `json_schema` field was size-checked —
+  // json_object had no size cap, and arbitrary extra properties on any type
+  // could bypass the field-level check (e.g. a 50 MB unknown key alongside
+  // a 10 KB json_schema).
+  if (responseFormat.type !== 'text') {
+    let formatSize: number;
+    try {
+      formatSize = JSON.stringify(responseFormat).length;
+    } catch {
+      return toolError(ErrorCode.INVALID_INPUT, 'response_format is not serializable.');
+    }
+    if (formatSize > MAX_RESPONSE_FORMAT_BYTES) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `response_format serialized size (${formatSize} bytes) exceeds max ${MAX_RESPONSE_FORMAT_BYTES}. Simplify the response format.`,
+      );
+    }
+  }
   if (responseFormat.type === 'json_schema') {
     const schema = responseFormat.json_schema;
     if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
@@ -385,22 +408,8 @@ export function validateResponseFormat(
         'response_format.json_schema.schema must be a JSON Schema object.',
       );
     }
-    // Cap serialized size to prevent memory exhaustion during JSON.stringify
-    // of the outbound request body. Mirrors MAX_STATE_BYTES in the `decide`
-    // handler — every user-controlled complex object that gets serialized
-    // needs a ceiling.
-    let schemaSize: number;
-    try {
-      schemaSize = JSON.stringify(schema).length;
-    } catch {
-      return toolError(ErrorCode.INVALID_INPUT, 'response_format.json_schema is not serializable.');
-    }
-    if (schemaSize > MAX_RESPONSE_FORMAT_BYTES) {
-      return toolError(
-        ErrorCode.INVALID_INPUT,
-        `response_format.json_schema serialized size (${schemaSize} bytes) exceeds max ${MAX_RESPONSE_FORMAT_BYTES}. Simplify the schema.`,
-      );
-    }
+    // Per-field size check is no longer needed — the overall check above
+    // already caps the entire response_format object (including json_schema).
   }
   return null;
 }
