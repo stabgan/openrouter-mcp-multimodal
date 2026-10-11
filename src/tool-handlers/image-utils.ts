@@ -273,7 +273,21 @@ export async function fetchImageWithMime(
 }
 
 export async function prepareImageUrl(source: string): Promise<string> {
-  if (source.startsWith('data:')) return source;
+  if (source.startsWith('data:')) {
+    // Validate data URL structure, MIME, and size — every other data URL
+    // code path (fetchImage, resolveImageUrl, fetchImageWithMime) runs
+    // these checks, but prepareImageUrl was the remaining gap.  Without
+    // validation, a malicious MCP client can send a multi-hundred-megabyte
+    // malformed data URL that gets embedded unvalidated in the outbound
+    // API request body — causing memory exhaustion during JSON.stringify
+    // and an oversized HTTP request.
+    const parsed = parseBase64DataUrl(source);
+    if (!parsed) throw new Error('Invalid image data URL');
+    const approxBytes = Math.ceil((parsed.base64.length * 3) / 4);
+    if (approxBytes > getMaxDataUrlBytes()) throw new Error('Data URL too large');
+    if (approxBytes === 0) throw new Error('Image data URL has empty payload (0 bytes)');
+    return source;
+  }
 
   const buffer = await fetchImage(source);
   const { base64, mime } = await optimizeImage(buffer);
