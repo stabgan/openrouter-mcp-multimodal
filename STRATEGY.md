@@ -1,17 +1,17 @@
 ---
 name: OpenRouter MCP Multimodal
-last_updated: 2026-07-02
+last_updated: 2026-10-11
 ---
 
 # OpenRouter MCP Multimodal Strategy
 
 ## Target problem
 
-Developers using MCP clients (Cursor, Claude Desktop, VS Code, etc.) need multimodal AI — chat, vision, audio, video, and generation — without wiring a separate SDK, auth layer, and security sandbox for every modality. OpenRouter exposes 300+ models behind one API, but MCP agents still lack a single, hardened server that maps those capabilities to well-typed tools with predictable errors and safe file handling.
+Developers using MCP clients (Cursor, Claude Desktop, VS Code, etc.) need multimodal AI — chat, vision, audio, video, embeddings, and structured decisions — without wiring a separate SDK, auth layer, and security sandbox for every modality. OpenRouter exposes 300+ models behind one API, but MCP agents still lack a single, hardened server that maps those capabilities to well-typed tools with predictable errors and safe file handling.
 
 ## Our approach
 
-Ship the **only lean, security-first MCP bridge** that covers the full OpenRouter multimodal surface in one package: strict path sandboxes and SSRF guards before any paid call, MCP 2025 structured outputs on catalog tools, and parity with OpenRouter platform features (caching, routing, rerank, async video) as they land — so agents get reliable tools instead of a growing pile of one-off integrations.
+Ship the **only lean, security-first MCP bridge** that covers the full OpenRouter multimodal surface in one package: strict path sandboxes and SSRF guards before any paid call, MCP 2025 structured outputs on catalog tools, and parity with OpenRouter platform features (caching, routing, rerank, embeddings, decisions, async video) as they land — so agents get reliable tools instead of a growing pile of one-off integrations.
 
 ## Who it's for
 
@@ -29,7 +29,7 @@ Ship the **only lean, security-first MCP bridge** that covers the full OpenRoute
 
 ### OpenRouter platform parity
 
-Keep tool schemas and handlers aligned with OpenRouter docs as features ship: dedicated image API, structured outputs on `chat_completion`, web-search plugin evolution, video model catalog changes.
+Keep tool schemas and handlers aligned with OpenRouter docs as features ship: dedicated image API, structured outputs on `chat_completion`, web-search plugin evolution, video model catalog changes, embeddings endpoint, decisions (System One) endpoint.
 
 _Why it serves the approach:_ Agents only trust us if calling a tool maps 1:1 to what OpenRouter actually supports today.
 
@@ -55,11 +55,10 @@ _Why it serves the approach:_ Most users install via `npx`; release confidence c
 
 - Hosted web UI or chat frontend — we are a stdio MCP server, not a product surface
 - Streaming `chat_completion` — deferred; adds client complexity with limited MCP benefit today
-- Embeddings API — out of scope until a clear agent workflow demands it
 - Building our own model router — OpenRouter already routes; we expose their knobs
 
 ## Marketing
 
-**One-liner:** One MCP server — text, image, audio, and video analysis and generation across 300+ OpenRouter models, with security sandboxes built in.
+**One-liner:** One MCP server — text, image, audio, video, embeddings, and structured decisions across 300+ OpenRouter models, with security sandboxes built in.
 
-**Key message:** Install with `npx`, paste your OpenRouter key, and your agent gets 19 hardened tools. No other MCP package covers generation and analysis for every modality in a single dependency.
+**Key message:** Install with `npx`, paste your OpenRouter key, and your agent gets 21 hardened tools. No other MCP package covers generation, analysis, embeddings, and decisions for every modality in a single dependency.
