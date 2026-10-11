@@ -96,17 +96,31 @@ function hasUnsafeKey(obj: Record<string, unknown>): string | null {
 const MAX_STATE_NESTING_DEPTH = 32;
 
 /**
+ * Sentinel returned by `hasDeepUnsafeKey` when nesting exceeds
+ * `MAX_STATE_NESTING_DEPTH`.  The caller checks for this value to
+ * produce a descriptive error message distinct from a specific unsafe key.
+ */
+const DEPTH_EXCEEDED_SENTINEL = '__DEPTH_EXCEEDED__';
+
+/**
  * Recursively check for prototype-pollution keys in arbitrarily nested
  * objects and arrays.  `hasUnsafeKey` only inspects the top level; this
  * variant walks the full tree so that `{ nested: { __proto__: {} } }`
  * is rejected.  Depth is capped to prevent stack overflow from
  * adversarially deep structures.
  *
+ * **Fail-closed**: when nesting exceeds `MAX_STATE_NESTING_DEPTH`, the
+ * function returns `DEPTH_EXCEEDED_SENTINEL` to reject the input rather
+ * than returning `null` (safe).  The previous fail-open behavior allowed
+ * a `__proto__` key at depth 33+ to bypass prototype-pollution detection —
+ * easily achievable within the 100 KB `MAX_STATE_BYTES` ceiling (each
+ * nesting level costs ~6 bytes of JSON overhead).
+ *
  * Used for the `state` parameter which accepts arbitrary JSON — the only
  * user-supplied deeply-nested object without recursive key validation.
  */
 function hasDeepUnsafeKey(value: unknown, depth = 0): string | null {
-  if (depth > MAX_STATE_NESTING_DEPTH) return null;
+  if (depth > MAX_STATE_NESTING_DEPTH) return DEPTH_EXCEEDED_SENTINEL;
   if (!value || typeof value !== 'object') return null;
   if (Array.isArray(value)) {
     for (const item of value) {
@@ -314,6 +328,12 @@ export async function handleDecide(
     }
     const unsafeSKey = hasDeepUnsafeKey(state);
     if (unsafeSKey) {
+      if (unsafeSKey === DEPTH_EXCEEDED_SENTINEL) {
+        return toolError(
+          ErrorCode.INVALID_INPUT,
+          `state exceeds maximum nesting depth (${MAX_STATE_NESTING_DEPTH}). Flatten the structure or reduce nesting.`,
+        );
+      }
       return toolError(ErrorCode.INVALID_INPUT, `state contains unsafe key "${unsafeSKey}".`);
     }
     let stateSize: number;

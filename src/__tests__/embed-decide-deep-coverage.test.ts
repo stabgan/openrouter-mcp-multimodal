@@ -629,7 +629,7 @@ describe('handleDecide — deep unsafe key scanning in arrays', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('handleDecide — state nesting depth cap', () => {
-  it('stops scanning at depth > 32 (unsafe key at depth 33 is ignored)', async () => {
+  it('stops scanning at depth > 32 (rejects — fail-closed)', async () => {
     // Build object nested 33 levels deep with __proto__ at the bottom
     let obj: Record<string, unknown> = Object.create(null);
     obj['__proto__'] = 'attack'; // at depth 33
@@ -640,14 +640,16 @@ describe('handleDecide — state nesting depth cap', () => {
     const client = mockDecideClient({
       answers: { q1: { type: 'noul', noul: 0.5 } },
     });
-    // At depth > 32, hasDeepUnsafeKey returns null without scanning
-    // so this should pass validation
+    // Fail-closed: when nesting exceeds MAX_STATE_NESTING_DEPTH (32),
+    // the scanner rejects the input rather than allowing unsafe keys.
     const r = await handleDecide(
       decideReq({ questions: { q1: noulQuestion() }, state: obj }),
       client,
     );
-    // Should not error — depth cap stops scanning
-    expect((r as ErrorResult).isError).toBeUndefined();
+    // Should error — fail-closed rejects excessive nesting
+    expect((r as ErrorResult).isError).toBe(true);
+    expect((r as ErrorResult)._meta.code).toBe('INVALID_INPUT');
+    expect((r as ErrorResult).content[0].text).toContain('nesting depth');
   });
 
   it('detects unsafe key at exactly depth 32 (within limit)', async () => {

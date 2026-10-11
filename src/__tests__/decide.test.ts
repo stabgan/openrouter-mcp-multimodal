@@ -936,7 +936,8 @@ describe('handleDecide', () => {
     )) as ErrorResult;
     expect(r.isError).toBe(true);
     expect(r._meta.code).toBe('INVALID_INPUT');
-    expect(r.content[0].text).toContain('not serializable');
+    // Circular reference causes the depth limit to fire (fail-closed)
+    expect(r.content[0].text).toContain('nesting depth');
   });
 
   // ── Response edge cases: answers shape ─────────────────────────────

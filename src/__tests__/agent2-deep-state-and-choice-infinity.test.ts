@@ -172,27 +172,26 @@ describe('handleDecide — hasDeepUnsafeKey depth limit', () => {
 
   it('does NOT catch unsafe key beyond depth 32 (33 wrapper levels)', async () => {
     // 33 wrapper objects + leaf → depth reaches 33 when processing the leaf.
-    // 33 > 32 is true, so the function returns null without checking keys.
-    // This is intentional: the depth cap prevents stack overflow on
-    // adversarially deep structures.
+    // Fail-closed: when nesting exceeds MAX_STATE_NESTING_DEPTH (32), the
+    // scanner rejects the input rather than allowing unsafe keys to slip through.
     const leaf = Object.create(null);
     leaf['__proto__'] = 'attack';
     leaf['ok'] = true;
     const state = buildNestedState(33, leaf);
-    // The state is valid JSON and under the size limit, so it passes
-    // validation because the depth cap prevents scanning that deep.
     const client = mockApiClient({
       answers: { q1: { type: 'noul', noul: 0.6 } },
     });
     const r = (await handleDecide(
       req({ questions: { q1: noulQuestion() }, state }),
       client,
-    )) as SuccessResult;
-    // The request succeeds because the unsafe key is too deep to detect.
-    expect(r.structuredContent.answers).toBeDefined();
+    )) as ErrorResult;
+    // The request is rejected because nesting depth exceeds the limit.
+    expect(r.isError).toBe(true);
+    expect(r._meta.code).toBe('INVALID_INPUT');
+    expect(r.content[0].text).toContain('nesting depth');
   });
 
-  it('accepts deeply nested safe state (40 levels, no unsafe keys)', async () => {
+  it('rejects deeply nested safe state (40 levels, exceeds depth limit)', async () => {
     const leaf = { value: 'deep but safe' };
     const state = buildNestedState(40, leaf);
     const client = mockApiClient({
@@ -201,8 +200,11 @@ describe('handleDecide — hasDeepUnsafeKey depth limit', () => {
     const r = (await handleDecide(
       req({ questions: { q1: noulQuestion() }, state }),
       client,
-    )) as SuccessResult;
-    expect(r.structuredContent.answers).toBeDefined();
+    )) as ErrorResult;
+    // Fail-closed: even safe-key objects are rejected when nesting exceeds the limit.
+    expect(r.isError).toBe(true);
+    expect(r._meta.code).toBe('INVALID_INPUT');
+    expect(r.content[0].text).toContain('nesting depth');
   });
 });
 

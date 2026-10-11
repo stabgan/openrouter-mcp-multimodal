@@ -824,7 +824,7 @@ describe('handleDecide — deep nesting depth limit in state', () => {
     expect(r.structuredContent.answers).toBeDefined();
   });
 
-  it('does not detect unsafe keys beyond depth 32 (depth cap prevents stack overflow)', async () => {
+  it('does not detect unsafe keys beyond depth 32 (fail-closed rejects excessive nesting)', async () => {
     // Build a deeply nested object with __proto__ beyond depth 32
     const inner = Object.create(null);
     inner['__proto__'] = 'attack';
@@ -834,15 +834,17 @@ describe('handleDecide — deep nesting depth limit in state', () => {
       state = { inner: state };
     }
     // 34 nesting levels × ~10 chars per level ≈ 340 chars — well under 100KB.
-    // At depth > 32 the scanner stops — the unsafe key will NOT be detected
-    // and the request will proceed to the API call
+    // Fail-closed: at depth > 32 the scanner rejects the input rather than
+    // allowing unsafe keys to slip through.
     const client = mockDecideClient({
       answers: { q1: { type: 'noul', noul: 0.5 } },
     });
     const r = (await handleDecide(
       decideReq({ questions: { q1: noulQuestion() }, state }),
       client,
-    )) as DecideSuccess;
-    expect(r.structuredContent.answers).toBeDefined();
+    )) as ErrorResult;
+    expect(r.isError).toBe(true);
+    expect(r._meta.code).toBe('INVALID_INPUT');
+    expect(r.content[0].text).toContain('nesting depth');
   });
 });

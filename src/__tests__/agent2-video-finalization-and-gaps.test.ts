@@ -596,7 +596,7 @@ describe('handleDecide — model at boundary length', () => {
 });
 
 describe('handleDecide — deeply nested safe state', () => {
-  it('passes deeply nested state with no unsafe keys (scanning stops at depth 32)', async () => {
+  it('rejects deeply nested state exceeding depth limit (fail-closed)', async () => {
     // Build a chain of 40 nested objects — beyond the MAX_STATE_NESTING_DEPTH of 32
     let state: Record<string, unknown> = { leaf: 'value' };
     for (let i = 0; i < 40; i++) {
@@ -611,8 +611,11 @@ describe('handleDecide — deeply nested safe state', () => {
         state,
       }),
       client,
-    )) as SuccessResult;
-    expect(r.structuredContent).toBeDefined();
+    )) as ErrorResult;
+    // Fail-closed: state nesting beyond 32 levels is rejected even without unsafe keys
+    expect(r.isError).toBe(true);
+    expect(r._meta.code).toBe('INVALID_INPUT');
+    expect(r.content[0].text).toContain('nesting depth');
   });
 });
 

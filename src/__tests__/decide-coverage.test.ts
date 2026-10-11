@@ -271,7 +271,7 @@ describe('handleDecide — state validation', () => {
     expect(r.structuredContent.answers).toBeDefined();
   });
 
-  it('rejects non-serializable state (circular reference)', async () => {
+  it('rejects non-serializable state (circular reference caught by depth limit)', async () => {
     const circular: Record<string, unknown> = { a: 'value' };
     circular.self = circular;
     const r = (await handleDecide(
@@ -280,7 +280,8 @@ describe('handleDecide — state validation', () => {
     )) as ErrorResult;
     expect(r.isError).toBe(true);
     expect(r._meta.code).toBe('INVALID_INPUT');
-    expect(r.content[0].text).toContain('not serializable');
+    // Circular reference causes the depth limit to fire (fail-closed)
+    expect(r.content[0].text).toContain('nesting depth');
   });
 
   it('accepts valid state object and passes it to API', async () => {
