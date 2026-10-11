@@ -53,9 +53,20 @@ function normalizeRerankResults(
   returnDocuments: boolean,
   modelFallback: string,
 ): ReturnType<typeof buildStructuredResult> | ReturnType<typeof toolError> {
-  const invalid = (response.results ?? []).find(
-    (r) => !isValidDocumentIndex(r.index, documents.length),
-  );
+  // Cap the number of result entries processed to the number of documents
+  // we sent.  The upstream should return at most `documents.length` results
+  // (or fewer when top_n is specified), but the response is untrusted — a
+  // malformed or compromised upstream could return millions of entries
+  // within the 50 MiB JSON response cap (~2 M minimal result objects),
+  // causing O(n) memory amplification during `.find()`, `.map()`, and
+  // `JSON.stringify` of structuredContent.  Matches the defence-in-depth
+  // pattern applied to embed_text (embedding count cap at inputArray.length)
+  // and decide (answer count cap at questionNames.length).
+  const rawResults = response.results ?? [];
+  const results =
+    rawResults.length > documents.length ? rawResults.slice(0, documents.length) : rawResults;
+
+  const invalid = results.find((r) => !isValidDocumentIndex(r.index, documents.length));
   if (invalid) {
     return toolError(
       ErrorCode.INTERNAL,
@@ -63,7 +74,7 @@ function normalizeRerankResults(
     );
   }
 
-  const normalized = (response.results ?? []).map((r) => {
+  const normalized = results.map((r) => {
     // Guard against non-finite scores from the upstream API. `typeof NaN === 'number'`
     // is true, so a bare typeof check would pass NaN/Infinity through to the MCP
     // response — unusable for downstream consumers. Fall through: score → relevance_score → 0.
