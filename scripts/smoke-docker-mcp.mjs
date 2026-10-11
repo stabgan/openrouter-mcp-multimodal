@@ -9,7 +9,7 @@ import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const { version: PKG_VERSION } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
-const EXPECTED_TOOLS = 19;
+const EXPECTED_TOOLS = 21;
 const IMAGE = process.env.MCP_DOCKER_IMAGE || `openrouter-mcp-multimodal:${PKG_VERSION}-test`;
 const smokeApiKey = process.env.OPENROUTER_API_KEY || 'sk-or-v1-smoke-placeholder';
 

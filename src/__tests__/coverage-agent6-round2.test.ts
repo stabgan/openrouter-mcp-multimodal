@@ -912,9 +912,7 @@ describe('buildChatCompletionBody — extended params', () => {
       online: true,
       web_blocked_domains: ['example.com', 'spam.org'],
     });
-    expect(body.plugins).toEqual([
-      { id: 'web', blocked_domains: ['example.com', 'spam.org'] },
-    ]);
+    expect(body.plugins).toEqual([{ id: 'web', blocked_domains: ['example.com', 'spam.org'] }]);
   });
 
   it('omits tools key when none enabled', () => {
@@ -953,9 +951,7 @@ describe('readToolPayload', () => {
   });
 
   it('throws on invalid JSON in content text', () => {
-    expect(() =>
-      readToolPayload({ content: [{ type: 'text', text: 'not json' }] }),
-    ).toThrow();
+    expect(() => readToolPayload({ content: [{ type: 'text', text: 'not json' }] })).toThrow();
   });
 });
 

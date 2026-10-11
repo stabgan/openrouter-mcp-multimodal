@@ -23,7 +23,7 @@ src/openrouter-openai-client.ts ← OpenAI SDK configured for OpenRouter base UR
 src/errors.ts                   ← ErrorCode taxonomy (INVALID_INPUT, UNSAFE_PATH, UPSTREAM_*, etc.)
 ```
 
-### Tools (19 total)
+### Tools (21 total)
 
 | Category | Tools |
 | :------- | :---- |
@@ -32,6 +32,8 @@ src/errors.ts                   ← ErrorCode taxonomy (INVALID_INPUT, UNSAFE_PA
 | **Audio** | `analyze_audio`, `generate_audio`, `text_to_speech`, `speech_to_text` |
 | **Video** | `analyze_video`, `generate_video`, `generate_video_from_image`, `get_video_status` |
 | **Catalog** | `search_models`, `get_model_info`, `validate_model`, `rerank_documents`, `health_check` |
+| **Embedding** | `embed_text` |
+| **Decisions** | `decide` |
 
 ### Key patterns
 
@@ -66,7 +68,7 @@ src/errors.ts                   ← ErrorCode taxonomy (INVALID_INPUT, UNSAFE_PA
 | `npm run test:all` | unit + regression + integration | Pre-release gate |
 | `npm run ci` | lint + format + version sync + build + test:all | **The one command before shipping** |
 
-Current: **55 test files, 1283 tests**.
+Current: **59 test files, 1607 tests**.
 
 ## Releasing (read this before publishing)
 

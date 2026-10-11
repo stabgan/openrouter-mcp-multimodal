@@ -11,7 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const { version: PKG_VERSION } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
-const EXPECTED_TOOLS = 19;
+const EXPECTED_TOOLS = 21;
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 

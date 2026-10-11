@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>The MCP server for multimodal AI agents.</strong><br/>
-  One install · 19 tools · 300+ OpenRouter models · text, vision, audio &amp; video — analysis and generation.
+  One install · 21 tools · 300+ OpenRouter models · text, vision, audio &amp; video — analysis and generation.
 </p>
 
 <p align="center">
@@ -51,9 +51,11 @@ Unlike text-only MCP servers, one install covers the **full multimodal surface**
 | **Vision**  | `analyze_image`, `generate_image`, `generate_image_dedicated`                           | OCR, captioning, VQA, image generation with reference inputs, dedicated Image API with resolution/quality/format control                                                          |
 | **Audio**   | `analyze_audio`, `generate_audio`, `text_to_speech`, `speech_to_text`                   | Transcription, speech/music generation, dedicated TTS (free Deepgram default; model-specific voices, mp3/pcm), dedicated STT (Whisper/GPT-4o Transcribe)                                                   |
 | **Video**   | `analyze_video`, `generate_video`, `generate_video_from_image`, `get_video_status`      | Clip understanding, Veo 3.1 / Seedance 2.5 / Kling v3.0 / Wan 2.7 / Grok Imagine Video generation with progress notifications                                                                                       |
+| **Embedding** | `embed_text`                                                                            | 37+ embedding models (text-embedding-3-small/large, Nomic, Jina, Voyage, etc.)                                                                                                    |
+| **Decisions** | `decide`                                                                                | Structured yes/no, choice, or score decisions with calibrated probabilities (System One models)                                                                                    |
 | **Catalog** | `search_models`, `get_model_info`, `validate_model`, `rerank_documents`, `health_check` | Model discovery, validation, reranking, ops health                                                                                                                                |
 
-**Production hardening:** input/output path sandboxes (including analyze\_\* local files as of v4.5.2), SSRF guards, structured errors with `_meta.code`, MCP 2025-06-18 structured outputs, tool icons (2025-11-25), async video progress notifications, and **1300+** automated tests (unit, mock, regression, and live integration).
+**Production hardening:** input/output path sandboxes (including analyze\_\* local files as of v4.5.2), SSRF guards, structured errors with `_meta.code`, MCP 2025-06-18 structured outputs, tool icons (2025-11-25), async video progress notifications, and **1500+** automated tests (unit, mock, regression, and live integration).
 
 ## Quick start
 
@@ -363,7 +365,7 @@ If still failing, use the full path from `where npx` as the command.
 
 ## Tools
 
-19 MCP tools. Each description includes **Use when**, **Good/Bad examples**, **Fails when**, and **Works with** so agents pick the right tool and recover from errors.
+21 MCP tools. Each description includes **Use when**, **Good/Bad examples**, **Fails when**, and **Works with** so agents pick the right tool and recover from errors.
 
 | Tool                         | Purpose                                                                    |
 | :--------------------------- | :------------------------------------------------------------------------- |
@@ -385,6 +387,8 @@ If still failing, use the full path from `where npx` as the command.
 | `get_model_info`             | Pricing, context, modalities                                               |
 | `validate_model`             | Cheap model ID existence check                                             |
 | `rerank_documents`           | Relevance ranking for RAG                                                  |
+| `embed_text`                 | Vector embeddings (37+ models: text-embedding-3-small/large, Nomic, etc.)  |
+| `decide`                     | Structured decisions with calibrated probabilities (System One models)      |
 | `health_check`               | API key + reachability probe                                               |
 
 Every error carries `_meta.code` from a closed taxonomy (13 codes). Switch on these for programmatic handling:
@@ -536,7 +540,7 @@ npm run build
 
 | Command                    | What it runs                                               |
 | :------------------------- | :--------------------------------------------------------- |
-| `npm test`                 | **1283** unit + mock tests (no API key, &lt;20s)           |
+| `npm test`                 | **1607** unit + mock tests (no API key, &lt;20s)           |
 | `npm run test:regression`  | Security + schema regression guards                        |
 | `npm run test:integration` | **17** live OpenRouter scenarios (**requires** `.env` key) |
 | `npm run test:e2e`         | Full MCP stdio smoke (`scripts/live-e2e.mjs`)              |

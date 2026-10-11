@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 const { version: PKG_VERSION } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
-const EXPECTED_TOOLS = 19;
+const EXPECTED_TOOLS = 21;
 
 function resolveTarball() {
   const exact = path.join(repoRoot, `stabgan-openrouter-mcp-multimodal-${PKG_VERSION}.tgz`);

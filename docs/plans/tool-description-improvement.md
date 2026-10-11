@@ -154,7 +154,7 @@ Priority order for schema enrichment:
 |-------|-------------|--------|
 | **A** | `src/tool-descriptions.ts` + template builder | In progress |
 | **B** | Wire into `tool-handlers.ts`; enrich top 5 param descriptions | In progress |
-| **C** | `tool-descriptions.test.ts` — section presence, all 19 tools | In progress |
+| **C** | `tool-descriptions.test.ts` — section presence, all 21 tools | In progress |
 | **D** | Agent eval (manual): weak model tool-pick accuracy on 20 prompts | Planned |
 | **E** | README "Tool guide" table linking to descriptions | Planned |
 

@@ -1,6 +1,6 @@
 # @stabgan/openrouter-mcp-multimodal (v5.0.1)
 
-> MCP server — 19 tools, 300+ OpenRouter models. Text chat, vision/audio/video analysis, image/audio/video generation, model catalog, rerank, health check. Node.js 22+ (Docker uses Node 24).
+> MCP server — 21 tools, 300+ OpenRouter models. Text chat, vision/audio/video analysis, image/audio/video generation, embeddings, structured decisions, model catalog, rerank, health check. Node.js 22+ (Docker uses Node 24).
 
 Get a free API key: https://openrouter.ai/keys
 
@@ -17,7 +17,7 @@ Full matrix: https://github.com/stabgan/openrouter-mcp-multimodal#install
 
 Required env: `OPENROUTER_API_KEY`. Optional sandboxes: `OPENROUTER_INPUT_DIR`, `OPENROUTER_OUTPUT_DIR`.
 
-## Tools (19)
+## Tools (21)
 
 - `chat_completion` — sync chat, web search, provider routing, caching, reasoning
 - `start_chat_completion` — async background chat job
@@ -37,6 +37,8 @@ Required env: `OPENROUTER_API_KEY`. Optional sandboxes: `OPENROUTER_INPUT_DIR`, 
 - `get_model_info` — pricing, context, modalities
 - `validate_model` — cheap model ID check
 - `rerank_documents` — OpenRouter `/rerank`
+- `embed_text` — vector embeddings via `/api/v1/embeddings` (37+ models: text-embedding-3-small/large, Nomic, Jina, Voyage)
+- `decide` — structured decisions via `/api/alpha/decisions` (System One models: noul, choice, score question types)
 - `health_check` — API key + reachability probe
 
 Errors: `_meta.code` — `INVALID_INPUT`, `UNSAFE_PATH`, `UPSTREAM_HTTP`, `UPSTREAM_TIMEOUT`, `MODEL_NOT_FOUND`, `JOB_STILL_RUNNING`, etc.
