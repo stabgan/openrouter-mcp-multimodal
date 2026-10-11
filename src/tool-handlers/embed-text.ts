@@ -134,12 +134,25 @@ export async function handleEmbedText(
     return classifyUpstreamError(err, 'embed_text');
   }
 
-  const embeddings = response.data ?? [];
-  if (!Array.isArray(embeddings) || !embeddings.length) {
+  const rawEmbeddings = response.data ?? [];
+  if (!Array.isArray(rawEmbeddings) || !rawEmbeddings.length) {
     return toolError(ErrorCode.INTERNAL, 'No embeddings returned.', {
       response_keys: Object.keys(response),
     });
   }
+
+  // Cap the number of embedding objects processed to the number of texts
+  // we sent.  The upstream should return exactly `inputArray.length`
+  // embeddings, but the response is untrusted — a malformed or
+  // compromised upstream could return arbitrarily many objects, each with
+  // thousands of dimensions, causing memory exhaustion during the
+  // sanitization map and an oversized MCP response.  Matches the
+  // defence-in-depth pattern: user inputs are bounded (MAX_TEXTS) and
+  // upstream response counts are bounded to match.
+  const embeddings =
+    rawEmbeddings.length > inputArray.length
+      ? rawEmbeddings.slice(0, inputArray.length)
+      : rawEmbeddings;
 
   // Defensive: verify the first element has the expected shape before
   // accessing `.embedding.length`.  A malformed upstream response would

@@ -379,11 +379,27 @@ export async function handleDecide(
 
   // Build human-readable summary
   const lines: string[] = [];
+  // Cap the number of answers processed to the number of questions we sent.
+  // The upstream should return exactly `questionNames.length` answers, but
+  // the response is untrusted — a malformed or compromised upstream could
+  // return thousands of entries, causing memory exhaustion during
+  // sanitisation and an oversized MCP response.  Also cap answer key
+  // lengths to MAX_QUESTION_NAME_LENGTH — user-supplied question names are
+  // already bounded, but upstream response keys are not.  Matches the
+  // defence-in-depth pattern applied to embed_text (embedding count cap)
+  // and rerank (result index validation).
+  let processedAnswers = 0;
   for (const [name, answer] of Object.entries(answers)) {
+    if (processedAnswers >= questionNames.length) break;
     // Skip prototype-pollution keys from the upstream response.
     if (UNSAFE_KEYS.has(name)) continue;
+    // Skip answer keys that exceed the length cap applied to user-supplied
+    // question names.  The upstream should echo the same names, so this
+    // only triggers for malformed responses.
+    if (name.length > MAX_QUESTION_NAME_LENGTH) continue;
     // Defensive: skip malformed answer entries that would cause TypeErrors.
     if (!answer || typeof answer !== 'object') continue;
+    processedAnswers++;
 
     // Reconstruct each answer with only the expected fields for its type.
     // This prevents any unexpected upstream properties (including
