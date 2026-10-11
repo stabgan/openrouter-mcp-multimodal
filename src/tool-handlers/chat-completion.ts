@@ -31,6 +31,7 @@ import {
   validatePenalty,
   validateLogprobs,
   validateSeed,
+  validateSubagent,
 } from './chat-request.js';
 
 export type ChatCompletionToolRequest = ChatToolRequest;
@@ -115,6 +116,9 @@ export async function handleChatCompletion(
 
   const seedError = validateSeed(seed);
   if (seedError) return seedError;
+
+  const subagentError = validateSubagent(subagent);
+  if (subagentError) return subagentError;
 
   const wantsReasoning = include_reasoning ?? readIncludeReasoningDefault();
 

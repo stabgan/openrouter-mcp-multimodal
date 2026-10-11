@@ -283,6 +283,46 @@ export function validateSeed(seed: number | undefined): ToolErrorResult | null {
   return null;
 }
 
+/**
+ * Validate the `subagent` parameter.
+ *
+ * `subagent` is the only chat parameter where user-controlled data (the
+ * `model` field) flows into the outbound API request body yet had no
+ * runtime validation — unlike every other parameter which has a dedicated
+ * validator.  Without this check, a malicious MCP client can inject:
+ *   - a non-string model value (number, nested object, array) that
+ *     produces confusing upstream errors or inflates the request body;
+ *   - an absurdly long model string that exceeds MAX_MODEL_ID_LENGTH,
+ *     bypassing the cap enforced on the top-level `model` parameter.
+ */
+export function validateSubagent(
+  subagent: boolean | { model?: string } | undefined,
+): ToolErrorResult | null {
+  if (subagent === undefined) return null;
+  // Boolean form: true enables subagent, false is a no-op.
+  if (typeof subagent === 'boolean') return null;
+  // Object form: { model?: string } — delegates to a specific worker model.
+  if (typeof subagent !== 'object' || subagent === null || Array.isArray(subagent)) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      'subagent must be a boolean or an object with an optional "model" field.',
+    );
+  }
+  const obj = subagent as Record<string, unknown>;
+  if ('model' in obj && obj.model !== undefined) {
+    if (typeof obj.model !== 'string' || !obj.model.trim()) {
+      return toolError(ErrorCode.INVALID_INPUT, 'subagent.model must be a non-empty string.');
+    }
+    if (obj.model.length > MAX_MODEL_ID_LENGTH) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `subagent.model exceeds max length ${MAX_MODEL_ID_LENGTH} (got ${obj.model.length}).`,
+      );
+    }
+  }
+  return null;
+}
+
 export function validateResponseFormat(
   responseFormat: { type: string; [key: string]: unknown } | undefined,
 ): ToolErrorResult | null {

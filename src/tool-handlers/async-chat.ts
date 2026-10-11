@@ -36,6 +36,7 @@ import {
   validatePenalty,
   validateLogprobs,
   validateSeed,
+  validateSubagent,
 } from './chat-request.js';
 
 export type StartChatCompletionRequest = ChatToolRequest;
@@ -262,6 +263,9 @@ export async function handleStartChatCompletion(
 
   const seedError = validateSeed(seed);
   if (seedError) return seedError;
+
+  const subagentError = validateSubagent(subagent);
+  if (subagentError) return subagentError;
 
   const effectiveModel = model?.trim() || defaultModel || DEFAULT_CHAT_MODEL;
   const jobId = generateJobId();
