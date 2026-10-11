@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
-import { ErrorCode, toolErrorFrom, type ToolErrorResult } from '../errors.js';
+import { ErrorCode, toolError, toolErrorFrom, type ToolErrorResult } from '../errors.js';
 
 /**
  * Path sandboxes for MCP caller-supplied input/output paths.
@@ -214,6 +214,17 @@ export async function resolveOptionalOutputPath(
   savePath: string | undefined,
 ): Promise<OptionalOutputPath | ToolErrorResult> {
   if (!savePath) return { path: null };
+  // Reject non-string truthy values — MCP clients that ignore the JSON
+  // schema can send numbers, booleans, objects, or arrays.  Without this
+  // guard, non-strings are silently coerced by `path.resolve()`, producing
+  // confusing file names ("42", "true", "[object Object]") or throwing an
+  // unclassified TypeError from `pathHasNullByte` (`.includes()` on a
+  // non-string).  In unsafe mode the coercion succeeds silently, creating
+  // files with bizarre names.  Matches the explicit `typeof` checks on
+  // every other user-supplied parameter across all 21 tool handlers.
+  if (typeof savePath !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'save_path must be a string.');
+  }
   try {
     return { path: await resolveSafeOutputPath(savePath) };
   } catch (err) {
