@@ -50,6 +50,30 @@ Per-request or env-level control over which OpenRouter providers handle a call. 
 
 SVG data-URI icons for each tool, registered in `tool-icons.ts` (MCP 2025-11-25 spec). Icons are embedded directly in tool definitions so MCP clients can display them without additional fetches. Must stay in sync with `TOOL_NAMES`.
 
+## Multi-model fusion
+
+`fusion: true` on `chat_completion` enables `openrouter:fusion` — multiple models answer in parallel and an analyst model synthesizes a consensus response. Higher quality but ~2–5× latency. Useful for critical decisions where a single model's judgment is insufficient.
+
+## Subagent delegation
+
+`subagent: true` (or `{ model: "..." }`) on `chat_completion` enables `openrouter:subagent` — the primary model can delegate subtasks to a smaller, cheaper worker model mid-generation. Reduces cost on busywork without sacrificing quality on the main task.
+
+## Response healing
+
+`response_healing: true` on `chat_completion` enables `openrouter:response_healing` — auto-fixes malformed JSON output (missing brackets, trailing commas, markdown wrappers). Reduces JSON defect rates by 80%+. Complementary to `response_format: { "type": "json_object" }`.
+
+## Reasoning effort
+
+`reasoning_effort` param on `chat_completion` controls reasoning depth for thinking models (DeepSeek R1, Gemini Thinking, Claude Opus). Common values: `low`, `medium`, `high`. Works alongside `include_reasoning: true` which surfaces the chain-of-thought trace on `_meta.reasoning`.
+
+## Web search (online)
+
+`online: true` on `chat_completion` enables OpenRouter's Exa-backed web-search plugin ($4 / 1000 results). `web_max_results` caps the result count (default 5). `web_blocked_domains` excludes specific sites. Equivalent to appending `:online` suffix to the model slug.
+
+## Structured output
+
+`response_format` on `chat_completion` controls output structure: `{ "type": "json_object" }` for freeform JSON, `{ "type": "json_schema", "json_schema": { ... } }` for schema-constrained output. MCP 2025-11-25 `outputSchema` on catalog tools (search_models, validate_model, etc.) provides typed responses for programmatic use.
+
 ## SSRF guard
 
 All outbound URL fetches in `fetch-utils.ts` block private/reserved IPv4 ranges (loopback, link-local, RFC 1918, CGNAT) before connecting. Prevents server-side request forgery when callers pass attacker-controlled URLs to analyze tools.
