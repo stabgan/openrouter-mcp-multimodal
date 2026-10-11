@@ -55,7 +55,7 @@ Unlike text-only MCP servers, one install covers the **full multimodal surface**
 | **Decisions** | `decide`                                                                                | Structured yes/no, choice, or score decisions with calibrated probabilities (System One models)                                                                                                                      |
 | **Catalog**   | `search_models`, `get_model_info`, `validate_model`, `rerank_documents`, `health_check` | Model discovery, validation, reranking, ops health                                                                                                                                                                   |
 
-**Production hardening:** input/output path sandboxes (including analyze\_\* local files as of v4.5.2), SSRF guards, structured errors with `_meta.code`, MCP 2025-11-25 structured outputs + tool icons, async video progress notifications, and **3452** automated tests (unit, mock, regression, and live integration).
+**Production hardening:** input/output path sandboxes (including analyze\_\* local files as of v4.5.2), SSRF guards, structured errors with `_meta.code`, MCP 2025-11-25 structured outputs + tool icons, async video progress notifications, and **3475** automated tests (unit, mock, regression, and live integration).
 
 ## Quick start
 
