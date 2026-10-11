@@ -39,6 +39,17 @@ const MAX_STATE_BYTES = 100_000;
  */
 const MAX_MODEL_ID_LENGTH = 256;
 /**
+ * Maximum serialized size for the entire `questions` object (bytes).
+ * Per-field limits alone allow 50 questions × (10 K instructions + 100 ×
+ * (256 key + 10 K value) criteria + unbounded extra keys) — potentially
+ * hundreds of megabytes.  This aggregate cap mirrors the pattern used by
+ * `MAX_STATE_BYTES` (100 KB), `MAX_PROVIDER_BODY_BYTES` (100 KB), and
+ * `MAX_RESPONSE_FORMAT_BYTES` (100 KB).  1 MB is generous for any real
+ * decision request while preventing memory exhaustion during JSON.stringify
+ * of the outbound API body.
+ */
+const MAX_QUESTIONS_BYTES = 1_000_000;
+/**
  * Maximum criteria entries per question (choice/noul objects). Without a cap
  * an attacker can submit 50 questions × unlimited criteria × unlimited
  * string length, causing memory exhaustion during JSON.stringify.
@@ -154,6 +165,17 @@ export async function handleDecide(
     if (!q || typeof q !== 'object') {
       return toolError(ErrorCode.INVALID_INPUT, `questions.${name} must be an object.`);
     }
+    // Block prototype-pollution keys on individual question objects.
+    // The top-level `questions` keys are checked above, and `criteria` keys
+    // are checked below, but question objects themselves could carry unsafe
+    // keys that flow through to the outbound API request body.
+    const unsafeQObjKey = hasUnsafeKey(q as unknown as Record<string, unknown>);
+    if (unsafeQObjKey) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `questions.${name} contains unsafe key "${unsafeQObjKey}".`,
+      );
+    }
     if (!VALID_QUESTION_TYPES.has(q.type)) {
       return toolError(
         ErrorCode.INVALID_INPUT,
@@ -252,6 +274,24 @@ export async function handleDecide(
         }
       }
     }
+  }
+
+  // Aggregate size guard — per-field limits alone allow 50 questions ×
+  // (10 K instructions + 100 × (256 key + 10 K value) criteria + unbounded
+  // extra keys), which could exhaust memory during JSON.stringify of the
+  // outbound API request body. This cap mirrors MAX_STATE_BYTES for the
+  // state parameter and MAX_PROVIDER_BODY_BYTES for provider routing.
+  let questionsSize: number;
+  try {
+    questionsSize = JSON.stringify(questions).length;
+  } catch {
+    return toolError(ErrorCode.INVALID_INPUT, 'questions object is not serializable.');
+  }
+  if (questionsSize > MAX_QUESTIONS_BYTES) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `questions serialized size (${questionsSize} bytes) exceeds max ${MAX_QUESTIONS_BYTES}. Reduce the number of questions or criteria.`,
+    );
   }
 
   if (model !== undefined && (typeof model !== 'string' || !model.trim())) {
