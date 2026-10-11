@@ -876,7 +876,7 @@ export const TOOL_DEFINITIONS = [
         model: {
           type: 'string',
           description:
-            'STT model. Default: openai/whisper-1. Also: openai/gpt-4o-transcribe, openai/gpt-4o-mini-transcribe.',
+            'STT model. Default: openai/whisper-1. Also: openai/gpt-4o-transcribe, openai/gpt-4o-mini-transcribe, mistralai/mistral-small-transcribe (Voxtral), elevenlabs/scribe-v1 (ElevenLabs Scribe). Discover current models with GET /api/v1/models?output_modalities=text&input_modalities=audio.',
         },
         language: {
           type: 'string',
