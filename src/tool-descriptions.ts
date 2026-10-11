@@ -614,6 +614,8 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
     ],
     notWhen: [
       'You need to fetch documents from the web → chat_completion with online or external retrieval first',
+      'You need vector representations for RAG/search, not ranking → embed_text',
+      'You need a structured yes/no, choice, or score decision → decide',
       'documents is empty or contains non-strings',
     ],
     goodExamples: [
@@ -630,7 +632,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
       'MODEL_NOT_FOUND: reranker slug invalid',
       'UPSTREAM_HTTP: provider error',
     ],
-    worksWith: ['search_models', 'chat_completion'],
+    worksWith: ['search_models', 'chat_completion', 'embed_text'],
   }),
 
   embed_text: buildToolDescription({
@@ -645,6 +647,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
     notWhen: [
       'You want text generation → chat_completion',
       'You want to rank documents by relevance → rerank_documents',
+      'You need structured yes/no, choice, or score decisions → decide',
       'Input texts are empty',
     ],
     goodExamples: [
@@ -679,6 +682,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
       'You want text generation → chat_completion',
       'You want multi-model consensus → chat_completion with fusion: true',
       'You want embeddings → embed_text',
+      'You want to rank documents by relevance → rerank_documents',
     ],
     goodExamples: [
       '`{ "questions": { "is_bug": { "type": "noul", "instructions": "Is this a bug?", "criteria": { "true": "Bug described", "false": "Feature request" } } }, "state": { "ticket": "..." } }`',
@@ -693,7 +697,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
       'MODEL_NOT_FOUND: invalid decision model',
       'UPSTREAM_REFUSED: credits exhausted',
     ],
-    worksWith: ['chat_completion', 'embed_text'],
+    worksWith: ['chat_completion', 'embed_text', 'rerank_documents'],
   }),
 
   health_check: buildToolDescription({
