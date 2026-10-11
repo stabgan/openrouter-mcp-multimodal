@@ -516,6 +516,18 @@ export async function handleGenerateVideo(
     }
   }
 
+  // Validate frame image types — these flow into resolveImageBase64() which
+  // calls .trim() on the value.  Without this guard a non-string truthy value
+  // (e.g. first_frame_image: 42) causes an unclassified TypeError instead of
+  // a clean INVALID_INPUT.  Matches the typeof checks applied to every other
+  // string parameter in the handler (model, resolution, aspect_ratio, etc.).
+  if (args.first_frame_image !== undefined && typeof args.first_frame_image !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'first_frame_image must be a string.');
+  }
+  if (args.last_frame_image !== undefined && typeof args.last_frame_image !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'last_frame_image must be a string.');
+  }
+
   const model =
     args.model?.trim() || process.env.OPENROUTER_DEFAULT_VIDEO_GEN_MODEL || FALLBACK_MODEL;
 
