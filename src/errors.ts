@@ -93,6 +93,15 @@ export function toolError(
   details?: Record<string, unknown>,
   opts?: ToolErrorOptions,
 ): ToolErrorResult {
+  // Cap message length to prevent DoS via user-controlled data interpolated
+  // into error messages by callers. Several handlers include raw request
+  // values (response_format, aspect_ratio, question type, etc.) in messages
+  // before any length check — a 10 MB input produces a 10 MB MCP response.
+  // This ceiling closes all current and future amplification vectors.
+  const bounded =
+    message.length > MAX_SANITIZED_ERROR_LENGTH
+      ? message.slice(0, MAX_SANITIZED_ERROR_LENGTH) + '…'
+      : message;
   const meta: ToolErrorMeta = { code };
   if (details !== undefined) meta.details = details;
   if (opts?.suggestions && opts.suggestions.length > 0) meta.suggestions = opts.suggestions;
@@ -100,7 +109,7 @@ export function toolError(
     meta.retry_after_seconds = opts.retry_after_seconds;
   }
   return {
-    content: [{ type: 'text', text: message }],
+    content: [{ type: 'text', text: bounded }],
     isError: true,
     _meta: meta,
   };
