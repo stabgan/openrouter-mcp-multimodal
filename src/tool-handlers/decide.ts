@@ -45,6 +45,20 @@ const MAX_SCORE_LEVELS = 100;
  * per-field ceiling applied to instructions — criteria values had no limit.
  */
 const MAX_CRITERIA_VALUE_LENGTH = 10_000;
+/**
+ * Maximum character length for question name keys.  Values, instructions,
+ * and criteria descriptions are all capped, but *keys* were unbounded —
+ * 50 questions × unlimited-length name ≈ arbitrary memory during
+ * JSON.stringify of the outbound API request.  256 chars is generous for
+ * any real identifier.
+ */
+const MAX_QUESTION_NAME_LENGTH = 256;
+/**
+ * Maximum character length for criteria object keys (noul / choice types).
+ * Same rationale as MAX_QUESTION_NAME_LENGTH — criteria values are capped
+ * at MAX_CRITERIA_VALUE_LENGTH but keys had no limit.
+ */
+const MAX_CRITERIA_KEY_LENGTH = 256;
 /** Keys that could cause prototype pollution when iterated with Object.entries/for-in. */
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
@@ -89,6 +103,12 @@ export async function handleDecide(
   }
 
   for (const name of questionNames) {
+    if (name.length > MAX_QUESTION_NAME_LENGTH) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `Question name "${name.slice(0, 40)}…" exceeds max length ${MAX_QUESTION_NAME_LENGTH} (got ${name.length}).`,
+      );
+    }
     const q = questions[name]!;
     if (!q || typeof q !== 'object') {
       return toolError(ErrorCode.INVALID_INPUT, `questions.${name} must be an object.`);
@@ -171,6 +191,12 @@ export async function handleDecide(
       }
       // Validate each criteria value is a string description within size limits.
       for (const [ck, cv] of Object.entries(q.criteria as Record<string, unknown>)) {
+        if (ck.length > MAX_CRITERIA_KEY_LENGTH) {
+          return toolError(
+            ErrorCode.INVALID_INPUT,
+            `questions.${name}.criteria key "${ck.slice(0, 40)}…" exceeds max length ${MAX_CRITERIA_KEY_LENGTH} (got ${ck.length}).`,
+          );
+        }
         if (typeof cv !== 'string') {
           return toolError(
             ErrorCode.INVALID_INPUT,
