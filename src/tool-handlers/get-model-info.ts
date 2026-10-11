@@ -1,4 +1,4 @@
-import { ModelCache } from '../model-cache.js';
+import { ModelCache, sanitizeModelRecordForOutput } from '../model-cache.js';
 import { OpenRouterAPIClient } from '../openrouter-api.js';
 import { ErrorCode, toolError } from '../errors.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
@@ -56,5 +56,5 @@ export async function handleGetModelInfo(
     });
   }
 
-  return buildStructuredResult(info);
+  return buildStructuredResult(sanitizeModelRecordForOutput(info));
 }

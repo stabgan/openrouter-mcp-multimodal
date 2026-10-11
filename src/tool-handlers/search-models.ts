@@ -1,4 +1,10 @@
-import { ModelCache, clampLimit, clampOffset, MAX_SEARCH_LIMIT } from '../model-cache.js';
+import {
+  ModelCache,
+  clampLimit,
+  clampOffset,
+  MAX_SEARCH_LIMIT,
+  sanitizeModelRecordForOutput,
+} from '../model-cache.js';
 import { OpenRouterAPIClient } from '../openrouter-api.js';
 import { ErrorCode, toolError, toolErrorFrom } from '../errors.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
@@ -119,7 +125,7 @@ export async function handleSearchModels(
     const hasMore = nextOffset < total;
 
     return buildStructuredResult({
-      results: page,
+      results: page.map(sanitizeModelRecordForOutput),
       offset,
       limit,
       total,

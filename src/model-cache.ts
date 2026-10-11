@@ -6,6 +6,54 @@ export interface OpenRouterModelRecord {
   [key: string]: unknown;
 }
 
+/**
+ * Keys that could cause prototype pollution when iterated with
+ * Object.entries/for-in, Object.assign, or lodash deep-merge.
+ *
+ * Model catalog records arrive from the upstream OpenRouter API with an open
+ * index signature (`[key: string]: unknown`).  Every other handler in the
+ * codebase sanitizes upstream data before forwarding to MCP clients (embed_text
+ * strips unsafe keys from embeddings, decide from answers, rerank from results,
+ * and logger from log context).  Model records were the remaining gap — they
+ * flowed through `buildStructuredResult` unsanitized.
+ *
+ * While JSON.parse in V8 creates `__proto__` as a regular own property (not
+ * actual prototype mutation), MCP clients that process `structuredContent`
+ * with unsafe patterns (lodash deep-merge, Object.assign spread, for-in
+ * iteration) could be exploited by a compromised upstream response that
+ * includes these keys.  Defence-in-depth: strip them at the output boundary.
+ */
+const UNSAFE_RECORD_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+/**
+ * Strip prototype-pollution keys from a model record before forwarding to
+ * MCP clients via `buildStructuredResult`.  Called by `get_model_info` and
+ * `search_models` at the output boundary — internal cache consumers
+ * (matching, lookup) operate on the original records.
+ *
+ * Shallow-only: model records are flat objects with known nested shapes
+ * (`architecture`, `pricing`, `top_provider`).  Deep recursion is
+ * unnecessary and would add overhead to every search/info call.
+ */
+export function sanitizeModelRecordForOutput(record: OpenRouterModelRecord): OpenRouterModelRecord {
+  let needsCopy = false;
+  for (const key of Object.keys(record)) {
+    if (UNSAFE_RECORD_KEYS.has(key)) {
+      needsCopy = true;
+      break;
+    }
+  }
+  // Fast path: most records have no unsafe keys — skip the copy.
+  if (!needsCopy) return record;
+
+  const safe: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(record)) {
+    if (UNSAFE_RECORD_KEYS.has(key)) continue;
+    safe[key] = value;
+  }
+  return safe as OpenRouterModelRecord;
+}
+
 export interface ModelSearchParams {
   query?: string;
   provider?: string;
