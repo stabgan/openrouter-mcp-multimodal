@@ -124,11 +124,17 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
     summary:
       'Start a chat completion as an async background job. Returns a job_id immediately without waiting ' +
       'for the model to respond. Use `get_chat_completion_status` to poll for results. Designed for ' +
-      'reasoning models or any request that may exceed MCP timeout limits (~60s).',
+      'reasoning models or any request that may exceed MCP timeout limits (~60s). ' +
+      'Accepts the full chat_completion parameter set: provider routing, model suffixes, ' +
+      'web search (`online`, `web_blocked_domains`), structured output (`response_format`), ' +
+      'multi-model fusion (`fusion`), subagent delegation (`subagent`), response healing, ' +
+      'reasoning effort control, and all sampling controls (`temperature`, `top_p`, `stop`, ' +
+      '`frequency_penalty`, `presence_penalty`, `logprobs`, `seed`).',
     useWhen: [
       'Using a reasoning model that may take >60 seconds (DeepSeek R1, Claude Opus, etc.)',
       'Connected through a remote MCP bridge with short timeouts',
       'You want to fire-and-forget a completion and check back later',
+      'You need async web search, fusion, or structured output on a slow model',
     ],
     notWhen: [
       'Fast models that respond within seconds → use chat_completion directly',
@@ -138,6 +144,8 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
     goodExamples: [
       '`{ "messages": [{ "role": "user", "content": "Prove the Riemann hypothesis" }], "model": "deepseek/r1" }`',
       '`{ "messages": [...], "include_reasoning": true }` for long chain-of-thought',
+      '`{ "messages": [...], "model": "openai/o3", "online": true, "reasoning_effort": "high" }` async web-grounded reasoning',
+      '`{ "messages": [...], "fusion": true, "response_format": { "type": "json_object" } }` async multi-model JSON',
     ],
     badExamples: [
       '`{ "messages": [] }` → INVALID_INPUT',
