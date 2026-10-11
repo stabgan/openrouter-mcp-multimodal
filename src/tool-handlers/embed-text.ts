@@ -150,24 +150,98 @@ export async function handleEmbedText(
     });
   }
 
-  const summary = `Generated ${embeddings.length} embedding(s) with ${first.embedding.length} dimensions using ${response.model || effectiveModel}.`;
+  // Sanitize upstream response — allowlist expected fields on every
+  // embedding element before forwarding to MCP clients.  Input validation
+  // rejects malformed user input, but the upstream API response is
+  // untrusted.  The previous selective map `{ index: e.index, embedding:
+  // e.embedding }` picked the right keys but did not validate their
+  // *types*:
+  //
+  //   - `index` was forwarded without checking it is a non-negative
+  //     integer — a string, NaN, or negative value would cause type
+  //     confusion in downstream consumers that use it for array indexing.
+  //   - `embedding` elements were forwarded without checking they are
+  //     finite numbers — NaN or Infinity values silently produce garbage
+  //     results in dot-product / cosine-similarity calculations, and
+  //     non-number elements (strings, objects, null) cause TypeErrors.
+  //   - `response.model` was forwarded without a length cap — a
+  //     malformed upstream response with a multi-megabyte model string
+  //     would inflate both the text summary and structuredContent.
+  //
+  // This sanitization mirrors the allowlist approach in the `decide`
+  // handler, which validates every field type before including it in
+  // structuredContent.
+  const sanitizedEmbeddings = embeddings.map((e, i) => {
+    const safeIndex =
+      typeof e.index === 'number' && Number.isInteger(e.index) && e.index >= 0 ? e.index : i;
+    const rawEmbedding = Array.isArray(e.embedding) ? e.embedding : [];
+    const safeEmbedding = rawEmbedding.map((v: unknown) =>
+      typeof v === 'number' && Number.isFinite(v) ? v : 0,
+    );
+    return { index: safeIndex, embedding: safeEmbedding };
+  });
+
+  // Cap upstream model string — user-supplied model IDs are capped at
+  // MAX_MODEL_ID_LENGTH above, but the upstream response echoes a model
+  // string that could differ (or be absurdly long in a malformed
+  // response).  Cap it to the same ceiling used for input validation.
+  const responseModel = response.model;
+  const safeResponseModel =
+    typeof responseModel === 'string' && responseModel.length <= MAX_MODEL_ID_LENGTH
+      ? responseModel
+      : undefined;
+  const displayModel = safeResponseModel || effectiveModel;
+
+  // Sanitize usage — only forward known numeric fields.  The raw upstream
+  // `response.usage` object is untrusted and could contain prototype-
+  // pollution keys or arbitrarily large nested structures that inflate the
+  // MCP response.  Matches the allowlist pattern applied to answers in the
+  // `decide` handler and scores in the `rerank` handler.
+  const safeUsage = sanitizeEmbeddingUsage(response.usage);
+
+  const summary = `Generated ${sanitizedEmbeddings.length} embedding(s) with ${first.embedding.length} dimensions using ${displayModel}.`;
 
   return {
     content: [{ type: 'text' as const, text: summary }],
     structuredContent: {
-      embeddings: embeddings.map((e) => ({
-        index: e.index,
-        embedding: e.embedding,
-      })),
-      model: response.model || effectiveModel,
+      embeddings: sanitizedEmbeddings,
+      model: displayModel,
       dimensions: first.embedding.length,
     },
     _meta: {
       server_version: SERVER_VERSION,
-      model: response.model || effectiveModel,
-      embedding_count: embeddings.length,
+      model: displayModel,
+      embedding_count: sanitizedEmbeddings.length,
       dimensions: first.embedding.length,
-      ...(response.usage ? { usage: response.usage } : {}),
+      ...(safeUsage ? { usage: safeUsage } : {}),
     },
   };
+}
+
+/**
+ * Allowlist-sanitize the upstream `usage` object for embedding responses.
+ *
+ * The raw `response.usage` from the untrusted upstream API could contain:
+ *   - Prototype-pollution keys (`__proto__`, `constructor`, `prototype`)
+ *   - Non-numeric values for token counts (strings, objects, NaN)
+ *   - Arbitrary extra properties that inflate the MCP response
+ *
+ * Only forward the fields defined in the `EmbeddingsResponse.usage` type
+ * (`prompt_tokens`, `total_tokens`, `cost`) after validating each is a
+ * finite number.  This mirrors the allowlist approach applied to decision
+ * answers and rerank scores.
+ */
+function sanitizeEmbeddingUsage(
+  usage: EmbeddingsResponse['usage'],
+): Record<string, number> | undefined {
+  if (!usage || typeof usage !== 'object' || Array.isArray(usage)) return undefined;
+  const safe: Record<string, number> = {};
+  const numericKeys = ['prompt_tokens', 'total_tokens', 'cost'] as const;
+  for (const key of numericKeys) {
+    const val = usage[key];
+    if (typeof val === 'number' && Number.isFinite(val)) {
+      safe[key] = val;
+    }
+  }
+  return Object.keys(safe).length > 0 ? safe : undefined;
 }
