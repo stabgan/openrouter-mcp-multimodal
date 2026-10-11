@@ -72,6 +72,12 @@ export async function handleEmbedText(
     ) {
       return toolError(ErrorCode.INVALID_INPUT, 'dimensions must be a positive integer.');
     }
+    if (dimensions > 65536) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `dimensions ${dimensions} exceeds max 65536. No known embedding model supports more.`,
+      );
+    }
   }
 
   if (model !== undefined && (typeof model !== 'string' || !model.trim())) {

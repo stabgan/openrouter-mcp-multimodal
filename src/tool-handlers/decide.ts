@@ -32,6 +32,19 @@ const MAX_QUESTIONS = 50;
 const MAX_INSTRUCTIONS_LENGTH = 10_000;
 /** Maximum serialized size for the entire state object (bytes). */
 const MAX_STATE_BYTES = 100_000;
+/**
+ * Maximum criteria entries per question (choice/noul objects). Without a cap
+ * an attacker can submit 50 questions × unlimited criteria × unlimited
+ * string length, causing memory exhaustion during JSON.stringify.
+ */
+const MAX_CRITERIA_ENTRIES = 100;
+/** Maximum criteria levels for score-type questions. */
+const MAX_SCORE_LEVELS = 100;
+/**
+ * Maximum character length for each criteria description string. Matches the
+ * per-field ceiling applied to instructions — criteria values had no limit.
+ */
+const MAX_CRITERIA_VALUE_LENGTH = 10_000;
 /** Keys that could cause prototype pollution when iterated with Object.entries/for-in. */
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
@@ -109,12 +122,24 @@ export async function handleDecide(
           `questions.${name}.criteria must be an array of 2+ levels for score type.`,
         );
       }
-      // Validate each score level is a string description.
+      if (q.criteria.length > MAX_SCORE_LEVELS) {
+        return toolError(
+          ErrorCode.INVALID_INPUT,
+          `questions.${name}.criteria has ${q.criteria.length} levels — max ${MAX_SCORE_LEVELS}.`,
+        );
+      }
+      // Validate each score level is a string description within size limits.
       for (let i = 0; i < q.criteria.length; i++) {
         if (typeof q.criteria[i] !== 'string') {
           return toolError(
             ErrorCode.INVALID_INPUT,
             `questions.${name}.criteria[${i}] must be a string.`,
+          );
+        }
+        if ((q.criteria[i] as string).length > MAX_CRITERIA_VALUE_LENGTH) {
+          return toolError(
+            ErrorCode.INVALID_INPUT,
+            `questions.${name}.criteria[${i}] exceeds max length ${MAX_CRITERIA_VALUE_LENGTH}.`,
           );
         }
       }
@@ -129,6 +154,13 @@ export async function handleDecide(
           `questions.${name}.criteria must be an object with 2+ options for ${q.type} type.`,
         );
       }
+      const criteriaKeys = Object.keys(q.criteria as Record<string, unknown>);
+      if (criteriaKeys.length > MAX_CRITERIA_ENTRIES) {
+        return toolError(
+          ErrorCode.INVALID_INPUT,
+          `questions.${name}.criteria has ${criteriaKeys.length} entries — max ${MAX_CRITERIA_ENTRIES}.`,
+        );
+      }
       // Block prototype-pollution keys in criteria objects.
       const unsafeCKey = hasUnsafeKey(q.criteria as Record<string, unknown>);
       if (unsafeCKey) {
@@ -137,12 +169,18 @@ export async function handleDecide(
           `questions.${name}.criteria contains unsafe key "${unsafeCKey}".`,
         );
       }
-      // Validate each criteria value is a string description.
+      // Validate each criteria value is a string description within size limits.
       for (const [ck, cv] of Object.entries(q.criteria as Record<string, unknown>)) {
         if (typeof cv !== 'string') {
           return toolError(
             ErrorCode.INVALID_INPUT,
             `questions.${name}.criteria.${ck} must be a string.`,
+          );
+        }
+        if (cv.length > MAX_CRITERIA_VALUE_LENGTH) {
+          return toolError(
+            ErrorCode.INVALID_INPUT,
+            `questions.${name}.criteria.${ck} exceeds max length ${MAX_CRITERIA_VALUE_LENGTH}.`,
           );
         }
       }
