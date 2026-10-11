@@ -21,6 +21,9 @@ src/tool-handlers/              ← One handler file per tool (handleChatComplet
 src/openrouter-api.ts           ← Direct HTTP client for /videos, /images, /audio/speech, /audio/transcriptions, /rerank, /embeddings, /api/alpha/decisions
 src/openrouter-openai-client.ts ← OpenAI SDK configured for OpenRouter base URL
 src/errors.ts                   ← ErrorCode taxonomy (INVALID_INPUT, UNSAFE_PATH, UPSTREAM_*, etc.)
+src/logger.ts                   ← Stderr JSON line logger with secret redaction (stdout reserved for MCP)
+src/model-cache.ts              ← Shared model catalog cache with TTL, routing suffix handling, and search
+src/tts-defaults.ts             ← TTS default constants (model, voice, response format)
 ```
 
 ### Tools (21 total)
@@ -68,7 +71,7 @@ src/errors.ts                   ← ErrorCode taxonomy (INVALID_INPUT, UNSAFE_PA
 | `npm run test:all`             | unit + regression + integration                 | Pre-release gate                    |
 | `npm run ci`                   | lint + format + version sync + build + test:all | **The one command before shipping** |
 
-Current: **71 test files, 2096 tests**.
+Current: **72 test files, 2126 tests**.
 
 ## Releasing (read this before publishing)
 
@@ -120,6 +123,10 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 | Path sandbox              | `src/tool-handlers/path-safety.ts`, `src/tool-handlers/path-utils.ts` |
 | Cache headers             | `src/tool-handlers/cache.ts`                                          |
 | Provider routing          | `src/tool-handlers/provider-routing.ts`                               |
+| SSRF / fetch guards       | `src/tool-handlers/fetch-utils.ts`                                    |
+| Structured JSON logger    | `src/logger.ts`                                                       |
+| Model catalog cache       | `src/model-cache.ts`                                                  |
+| TTS defaults              | `src/tts-defaults.ts`                                                 |
 | Tests                     | `src/__tests__/`                                                      |
 | Python uvx launcher       | `python/mcp_server_openrouter_multimodal/`                            |
 | MCP registry manifest     | `server.json`                                                         |
