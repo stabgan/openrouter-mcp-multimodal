@@ -34,6 +34,16 @@ const MAX_TEXTS = 2048; // OpenAI's batch limit
  */
 const MAX_TEXT_LENGTH = 100_000;
 /**
+ * Maximum number of dimensions per embedding vector accepted from the
+ * upstream response.  User input validation caps the `dimensions` *request*
+ * parameter at 65 536, but the upstream *response* was not bounded —
+ * a malformed or compromised upstream could return vectors with millions of
+ * elements, causing memory amplification during the `.map()` sanitization
+ * and `JSON.stringify` of `structuredContent`.  The ceiling matches the
+ * user-input cap so input and output limits are consistent.
+ */
+const MAX_RESPONSE_EMBEDDING_DIMENSIONS = 65_536;
+/**
  * Aggregate character limit across all texts in a single request.
  * Per-text limits alone allow 2 048 × 100 000 chars ≈ 200 MB of payload,
  * which could cause memory exhaustion during JSON serialisation.  This cap
@@ -189,7 +199,16 @@ export async function handleEmbedText(
     const safeIndex =
       typeof e.index === 'number' && Number.isInteger(e.index) && e.index >= 0 ? e.index : i;
     const rawEmbedding = Array.isArray(e.embedding) ? e.embedding : [];
-    const safeEmbedding = rawEmbedding.map((v: unknown) =>
+    // Cap per-vector dimension count — input validation caps the requested
+    // `dimensions` at 65 536, but the upstream response is untrusted.
+    // Without this cap, a malformed upstream could return vectors with
+    // millions of elements, causing O(n) memory amplification during
+    // `.map()` and `JSON.stringify` of structuredContent.
+    const bounded =
+      rawEmbedding.length > MAX_RESPONSE_EMBEDDING_DIMENSIONS
+        ? rawEmbedding.slice(0, MAX_RESPONSE_EMBEDDING_DIMENSIONS)
+        : rawEmbedding;
+    const safeEmbedding = bounded.map((v: unknown) =>
       typeof v === 'number' && Number.isFinite(v) ? v : 0,
     );
     return { index: safeIndex, embedding: safeEmbedding };

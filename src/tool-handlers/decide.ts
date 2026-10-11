@@ -422,12 +422,22 @@ export async function handleDecide(
         // were passed through without type validation; a malformed
         // upstream response could inject strings, objects, or NaN into
         // structuredContent, causing type confusion in MCP clients.
+        //
+        // Also cap the number of entries to MAX_CRITERIA_ENTRIES — input
+        // validation limits criteria keys to 100 per question, but the
+        // upstream response is untrusted.  Without this cap, a malformed
+        // upstream could return choice maps with thousands of entries,
+        // causing memory amplification during iteration and serialization.
         const safeChoice: Record<string, number> = {};
         if (answer.choice && typeof answer.choice === 'object') {
+          let choiceCount = 0;
           for (const [ck, cv] of Object.entries(answer.choice)) {
+            if (choiceCount >= MAX_CRITERIA_ENTRIES) break;
             if (UNSAFE_KEYS.has(ck)) continue;
+            if (ck.length > MAX_CRITERIA_KEY_LENGTH) continue;
             if (typeof cv === 'number' && Number.isFinite(cv)) {
               safeChoice[ck] = cv;
+              choiceCount++;
             }
           }
         }
@@ -439,9 +449,19 @@ export async function handleDecide(
         // including in structuredContent.  A malformed upstream response
         // could send a non-array or embed non-numeric elements that
         // cause type confusion in MCP clients.
+        //
+        // Also cap the array length to MAX_SCORE_LEVELS — input
+        // validation limits criteria levels to 100 per question, but the
+        // upstream response is untrusted.  Without this cap, a malformed
+        // upstream could return score arrays with thousands of entries,
+        // causing memory amplification during `.map()` and serialization.
         let safeScore: number[] | undefined;
         if (Array.isArray(answer.score) && answer.score.length > 0) {
-          safeScore = answer.score.map((v: unknown) =>
+          const bounded =
+            answer.score.length > MAX_SCORE_LEVELS
+              ? answer.score.slice(0, MAX_SCORE_LEVELS)
+              : answer.score;
+          safeScore = bounded.map((v: unknown) =>
             typeof v === 'number' && Number.isFinite(v) ? v : 0,
           );
         }
