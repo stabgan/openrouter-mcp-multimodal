@@ -39,6 +39,13 @@ const MAX_CONSECUTIVE_POLL_FAILURES = 5;
 const MAX_VIDEO_ID_LENGTH = 256;
 
 /**
+ * Model IDs follow the `org/model-name[:suffix]` pattern — 256 chars is
+ * generous for any real identifier while preventing multi-megabyte strings
+ * from inflating API request bodies, log entries, and MCP responses.
+ */
+const MAX_MODEL_ID_LENGTH = 256;
+
+/**
  * Per-prompt character limit.  Video generation prompts are short; this
  * ceiling prevents multi-megabyte payloads that would exhaust memory during
  * JSON.stringify — matching the MAX_INPUT_LENGTH / MAX_TEXT_LENGTH pattern
@@ -415,6 +422,12 @@ export async function handleGenerateVideo(
 
   if (args.model !== undefined && typeof args.model !== 'string') {
     return toolError(ErrorCode.INVALID_INPUT, 'model must be a string.');
+  }
+  if (typeof args.model === 'string' && args.model.length > MAX_MODEL_ID_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `model identifier exceeds max length ${MAX_MODEL_ID_LENGTH} (got ${args.model.length}).`,
+    );
   }
 
   if (args.resolution !== undefined && typeof args.resolution !== 'string') {

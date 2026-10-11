@@ -14,6 +14,7 @@ import { extractCacheMeta, validateCacheOptions } from './cache.js';
 import { awaitCompletionWithHeaders } from './openai-withresponse.js';
 import {
   DEFAULT_CHAT_MODEL,
+  MAX_MODEL_ID_LENGTH,
   type ChatToolRequest,
   buildChatCompletionBody,
   buildChatCompletionRequestOpts,
@@ -71,6 +72,12 @@ export async function handleChatCompletion(
 
   if (model !== undefined && typeof model !== 'string') {
     return toolError(ErrorCode.INVALID_INPUT, 'model must be a string.');
+  }
+  if (typeof model === 'string' && model.length > MAX_MODEL_ID_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `model identifier exceeds max length ${MAX_MODEL_ID_LENGTH} (got ${model.length}).`,
+    );
   }
 
   const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });

@@ -16,6 +16,12 @@ export interface RerankDocumentsRequest {
 const DEFAULT_MODEL = 'cohere/rerank-v3.5';
 const MAX_DOCUMENTS = 1000;
 /**
+ * Model IDs follow the `org/model-name[:suffix]` pattern — 256 chars is
+ * generous for any real identifier while preventing multi-megabyte strings
+ * from inflating API request bodies, log entries, and MCP responses.
+ */
+const MAX_MODEL_ID_LENGTH = 256;
+/**
  * Per-document and per-query character limits.  Rerank models process
  * short-to-medium text passages; without a ceiling an attacker can send
  * 1 000 multi-megabyte documents, causing memory exhaustion during
@@ -147,6 +153,12 @@ export async function handleRerankDocuments(
   // applied to query, provider, and capabilities in search_models.
   if (model !== undefined && typeof model !== 'string') {
     return toolError(ErrorCode.INVALID_INPUT, 'model must be a string.');
+  }
+  if (typeof model === 'string' && model.length > MAX_MODEL_ID_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `model identifier exceeds max length ${MAX_MODEL_ID_LENGTH} (got ${model.length}).`,
+    );
   }
   // Validate return_documents type — the handler uses `=== true` for strict
   // boolean comparison, so non-boolean truthy values like `"true"` or `1`

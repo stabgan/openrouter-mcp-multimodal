@@ -37,6 +37,12 @@ export interface TextToSpeechRequest extends CacheOptions {
 const MIN_SPEED = 0.25;
 const MAX_SPEED = 4.0;
 /**
+ * Model IDs follow the `org/model-name[:suffix]` pattern — 256 chars is
+ * generous for any real identifier while preventing multi-megabyte strings
+ * from inflating API request bodies, log entries, and MCP responses.
+ */
+const MAX_MODEL_ID_LENGTH = 256;
+/**
  * Per-field character limits.  TTS APIs have their own ceilings (OpenAI caps
  * at 4 096 chars, others vary), but without a client-side guard an attacker
  * can send multi-megabyte strings — wasting memory during JSON serialisation
@@ -80,6 +86,12 @@ export async function handleTextToSpeech(
 
   if (model !== undefined && typeof model !== 'string') {
     return toolError(ErrorCode.INVALID_INPUT, 'model must be a string.');
+  }
+  if (typeof model === 'string' && model.length > MAX_MODEL_ID_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `model identifier exceeds max length ${MAX_MODEL_ID_LENGTH} (got ${model.length}).`,
+    );
   }
   if (voice !== undefined && typeof voice !== 'string') {
     return toolError(ErrorCode.INVALID_INPUT, 'voice must be a string.');

@@ -18,6 +18,13 @@ export interface EmbedTextRequest {
 }
 
 const DEFAULT_MODEL = 'openai/text-embedding-3-small';
+/**
+ * Model IDs follow the `org/model-name[:suffix]` pattern — 256 chars is
+ * generous for any real identifier while preventing multi-megabyte strings
+ * from inflating API request bodies, log entries, and MCP responses.
+ * Matches the MAX_QUESTION_NAME_LENGTH ceiling in the `decide` handler.
+ */
+const MAX_MODEL_ID_LENGTH = 256;
 const MAX_TEXTS = 2048; // OpenAI's batch limit
 /**
  * Per-text character limit.  text-embedding-3-large accepts ~8 191 tokens
@@ -99,6 +106,12 @@ export async function handleEmbedText(
 
   if (model !== undefined && (typeof model !== 'string' || !model.trim())) {
     return toolError(ErrorCode.INVALID_INPUT, 'model must be a non-empty string.');
+  }
+  if (typeof model === 'string' && model.length > MAX_MODEL_ID_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `model identifier exceeds max length ${MAX_MODEL_ID_LENGTH} (got ${model.length}).`,
+    );
   }
 
   const effectiveModel = model?.trim() || DEFAULT_MODEL;

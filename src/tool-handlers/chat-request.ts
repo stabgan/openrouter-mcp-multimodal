@@ -12,6 +12,14 @@ import { type CacheOptions, buildCacheHeaders } from './cache.js';
 
 export const DEFAULT_CHAT_MODEL = 'google/gemma-4-26b-a4b-it:free';
 
+/**
+ * Model IDs follow the `org/model-name[:suffix]` pattern — 256 chars is
+ * generous for any real identifier while preventing multi-megabyte strings
+ * from inflating API request bodies, log entries, and MCP responses.
+ * Shared by all tool handlers that accept a model parameter.
+ */
+export const MAX_MODEL_ID_LENGTH = 256;
+
 /** Shared request shape for sync and async chat completion tools. */
 export interface ChatToolRequest extends CacheOptions {
   model?: string;

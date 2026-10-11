@@ -26,6 +26,13 @@ export interface SpeechToTextRequest extends CacheOptions {
 
 const DEFAULT_MODEL = 'openai/whisper-1';
 
+/**
+ * Model IDs follow the `org/model-name[:suffix]` pattern — 256 chars is
+ * generous for any real identifier while preventing multi-megabyte strings
+ * from inflating API request bodies, log entries, and MCP responses.
+ */
+const MAX_MODEL_ID_LENGTH = 256;
+
 const VALID_RESPONSE_FORMATS = new Set<string>(STT_RESPONSE_FORMATS);
 
 function formatTranscriptionContent(
@@ -61,6 +68,12 @@ export async function handleSpeechToText(
 
   if (model !== undefined && typeof model !== 'string') {
     return toolError(ErrorCode.INVALID_INPUT, 'model must be a string.');
+  }
+  if (typeof model === 'string' && model.length > MAX_MODEL_ID_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `model identifier exceeds max length ${MAX_MODEL_ID_LENGTH} (got ${model.length}).`,
+    );
   }
 
   if (response_format && !VALID_RESPONSE_FORMATS.has(response_format)) {

@@ -4,6 +4,13 @@ import { ErrorCode, toolError } from '../errors.js';
 import { classifyUpstreamError } from './openrouter-errors.js';
 import { buildStructuredResult } from './structured-output.js';
 
+/**
+ * Model IDs follow the `org/model-name[:suffix]` pattern — 256 chars is
+ * generous for any real identifier while preventing multi-megabyte strings
+ * from inflating error messages and MCP responses (reflection amplification).
+ */
+const MAX_MODEL_ID_LENGTH = 256;
+
 export async function handleGetModelInfo(
   request: { params: { arguments: { model: string } } },
   modelCache: ModelCache,
@@ -19,6 +26,12 @@ export async function handleGetModelInfo(
 
   if (!model) {
     return toolError(ErrorCode.INVALID_INPUT, 'model is required.');
+  }
+  if (model.length > MAX_MODEL_ID_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `model identifier exceeds max length ${MAX_MODEL_ID_LENGTH} (got ${model.length}).`,
+    );
   }
 
   if (apiClient) {

@@ -36,6 +36,13 @@ const DEFAULT_FORMAT = 'pcm16';
 const DEFAULT_AUDIO_GEN_MAX_BYTES = 50 * 1024 * 1024; // 50 MiB — matches SPEECH_MAX_BYTES
 
 /**
+ * Model IDs follow the `org/model-name[:suffix]` pattern — 256 chars is
+ * generous for any real identifier while preventing multi-megabyte strings
+ * from inflating API request bodies, log entries, and MCP responses.
+ */
+const MAX_MODEL_ID_LENGTH = 256;
+
+/**
  * Per-prompt character limit.  Prevents multi-megabyte payloads that would
  * exhaust memory during JSON.stringify — matching the MAX_INPUT_LENGTH /
  * MAX_TEXT_LENGTH pattern used by text_to_speech, embed_text, and rerank.
@@ -76,6 +83,12 @@ export async function handleGenerateAudio(
 
   if (model !== undefined && typeof model !== 'string') {
     return toolError(ErrorCode.INVALID_INPUT, 'model must be a string.');
+  }
+  if (typeof model === 'string' && model.length > MAX_MODEL_ID_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `model identifier exceeds max length ${MAX_MODEL_ID_LENGTH} (got ${model.length}).`,
+    );
   }
   if (voice !== undefined && typeof voice !== 'string') {
     return toolError(ErrorCode.INVALID_INPUT, 'voice must be a string.');

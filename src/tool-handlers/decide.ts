@@ -33,6 +33,12 @@ const MAX_INSTRUCTIONS_LENGTH = 10_000;
 /** Maximum serialized size for the entire state object (bytes). */
 const MAX_STATE_BYTES = 100_000;
 /**
+ * Model IDs follow the `org/model-name[:suffix]` pattern — 256 chars is
+ * generous for any real identifier while preventing multi-megabyte strings
+ * from inflating API request bodies, log entries, and MCP responses.
+ */
+const MAX_MODEL_ID_LENGTH = 256;
+/**
  * Maximum criteria entries per question (choice/noul objects). Without a cap
  * an attacker can submit 50 questions × unlimited criteria × unlimited
  * string length, causing memory exhaustion during JSON.stringify.
@@ -215,6 +221,12 @@ export async function handleDecide(
 
   if (model !== undefined && (typeof model !== 'string' || !model.trim())) {
     return toolError(ErrorCode.INVALID_INPUT, 'model must be a non-empty string.');
+  }
+  if (typeof model === 'string' && model.length > MAX_MODEL_ID_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `model identifier exceeds max length ${MAX_MODEL_ID_LENGTH} (got ${model.length}).`,
+    );
   }
 
   // Validate state object if provided — block prototype-pollution keys and
