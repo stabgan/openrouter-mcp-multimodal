@@ -190,6 +190,21 @@ const VALID_RESPONSE_FORMAT_TYPES = new Set(['text', 'json_object', 'json_schema
  */
 const MAX_RESPONSE_FORMAT_BYTES = 100_000;
 
+/** Keys that could cause prototype pollution when iterated with Object.entries/for-in. */
+const UNSAFE_RESPONSE_FORMAT_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+/**
+ * Shallow check for prototype-pollution keys on a user-supplied object.
+ * Matches the `hasUnsafeKey` pattern used in the `decide`, `provider-routing`,
+ * and `search-models` handlers.
+ */
+function responseFormatHasUnsafeKey(obj: Record<string, unknown>): string | null {
+  for (const key of Object.keys(obj)) {
+    if (UNSAFE_RESPONSE_FORMAT_KEYS.has(key)) return key;
+  }
+  return null;
+}
+
 const VALID_REASONING_EFFORTS = new Set(['low', 'medium', 'high']);
 
 /**
@@ -409,6 +424,22 @@ export function validateResponseFormat(
       `response_format.type '${responseFormat.type}' is not supported. Valid values: ${[...VALID_RESPONSE_FORMAT_TYPES].join(', ')}.`,
     );
   }
+  // Block prototype-pollution keys on the top-level response_format object.
+  // Every other user-supplied complex object that flows into outbound API
+  // request bodies is checked: questions/state in decide, provider in
+  // provider-routing, capabilities in search-models.  response_format was
+  // the remaining gap — it is forwarded verbatim via
+  // `body.response_format = input.response_format` in buildChatCompletionBody.
+  // MCP clients that process structuredContent with unsafe iteration patterns
+  // (for...in, lodash deep-merge, Object.assign spread) could be exploited
+  // by a malicious upstream response that echoes the format object back.
+  const unsafeRfKey = responseFormatHasUnsafeKey(responseFormat as Record<string, unknown>);
+  if (unsafeRfKey) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `response_format contains unsafe key "${unsafeRfKey}".`,
+    );
+  }
   // Cap total serialized size for ALL non-text types.
   // `buildChatCompletionBody` filters out type: "text", so only json_object
   // and json_schema are serialized into the outbound request body.
@@ -437,6 +468,19 @@ export function validateResponseFormat(
         ErrorCode.INVALID_INPUT,
         'response_format.json_schema is required when type is "json_schema". ' +
           'It must be an object with at least a "name" and "schema" field.',
+      );
+    }
+    // Block prototype-pollution keys on the json_schema wrapper object.
+    // The inner `schema` (the actual JSON Schema) is not checked because
+    // its property names are user-defined and "constructor" is a plausible
+    // field name in a schema describing class definitions.  The wrapper
+    // object has a fixed shape (name, schema, strict?) so dangerous keys
+    // are never legitimate here.
+    const unsafeJsKey = responseFormatHasUnsafeKey(schema as Record<string, unknown>);
+    if (unsafeJsKey) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `response_format.json_schema contains unsafe key "${unsafeJsKey}".`,
       );
     }
     const s = schema as { name?: unknown; schema?: unknown };
