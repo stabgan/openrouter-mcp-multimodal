@@ -323,6 +323,27 @@ export function validateSeed(seed: number | undefined): ToolErrorResult | null {
 }
 
 /**
+ * Validate a parameter that must be a boolean when present.
+ *
+ * Several chat-completion parameters (`fusion`, `response_healing`,
+ * `online`, `include_reasoning`) toggle server-side features via truthy
+ * checks in `buildChatCompletionBody`.  Without explicit type validation,
+ * a malicious MCP client can send non-boolean truthy values (strings,
+ * numbers, objects, arrays) that silently enable features.  While the
+ * downstream effect is the same as `true`, accepting wrong types is
+ * inconsistent with every other validated parameter and masks caller bugs.
+ * Matches the `typeof logprobs !== 'boolean'` check in `validateLogprobs`
+ * and the `typeof return_documents !== 'boolean'` check in `rerank.ts`.
+ */
+export function validateBooleanParam(value: unknown, name: string): ToolErrorResult | null {
+  if (value === undefined) return null;
+  if (typeof value !== 'boolean') {
+    return toolError(ErrorCode.INVALID_INPUT, `${name} must be a boolean.`);
+  }
+  return null;
+}
+
+/**
  * Validate the `subagent` parameter.
  *
  * `subagent` is the only chat parameter where user-controlled data (the

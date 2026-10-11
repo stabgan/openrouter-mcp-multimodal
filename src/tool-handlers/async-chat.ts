@@ -37,6 +37,7 @@ import {
   validateLogprobs,
   validateSeed,
   validateSubagent,
+  validateBooleanParam,
 } from './chat-request.js';
 import { validateProviderOptions } from './provider-routing.js';
 
@@ -270,6 +271,17 @@ export async function handleStartChatCompletion(
 
   const subagentError = validateSubagent(subagent);
   if (subagentError) return subagentError;
+
+  // Validate boolean toggle params — same check applied in chat_completion.
+  for (const [val, paramName] of [
+    [online, 'online'],
+    [fusion, 'fusion'],
+    [response_healing, 'response_healing'],
+    [include_reasoning, 'include_reasoning'],
+  ] as const) {
+    const boolErr = validateBooleanParam(val, paramName);
+    if (boolErr) return boolErr;
+  }
 
   const effectiveModel = model?.trim() || defaultModel || DEFAULT_CHAT_MODEL;
   const jobId = generateJobId();

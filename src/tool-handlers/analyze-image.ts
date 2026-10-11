@@ -90,6 +90,10 @@ export async function handleAnalyzeImage(
   const providerError = validateProviderOptions(provider);
   if (providerError) return providerError;
 
+  if (cache_input !== undefined && typeof cache_input !== 'boolean') {
+    return toolError(ErrorCode.INVALID_INPUT, 'cache_input must be a boolean.');
+  }
+
   let imageUrl: string;
   try {
     imageUrl = await prepareImageUrl(image_path);

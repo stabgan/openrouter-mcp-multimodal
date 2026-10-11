@@ -32,6 +32,7 @@ import {
   validateLogprobs,
   validateSeed,
   validateSubagent,
+  validateBooleanParam,
 } from './chat-request.js';
 import { validateProviderOptions } from './provider-routing.js';
 
@@ -123,6 +124,21 @@ export async function handleChatCompletion(
 
   const subagentError = validateSubagent(subagent);
   if (subagentError) return subagentError;
+
+  // Validate boolean toggle params — MCP clients that ignore the JSON schema
+  // can send strings, numbers, or objects for these fields. Without explicit
+  // type checks, non-boolean truthy values silently enable features. Matches
+  // the `typeof logprobs !== 'boolean'` pattern and the `return_documents`
+  // check in rerank.ts.
+  for (const [val, paramName] of [
+    [online, 'online'],
+    [fusion, 'fusion'],
+    [response_healing, 'response_healing'],
+    [include_reasoning, 'include_reasoning'],
+  ] as const) {
+    const boolErr = validateBooleanParam(val, paramName);
+    if (boolErr) return boolErr;
+  }
 
   const wantsReasoning = include_reasoning ?? readIncludeReasoningDefault();
 

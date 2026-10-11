@@ -91,6 +91,10 @@ export async function handleAnalyzeVideo(
   const providerError = validateProviderOptions(provider);
   if (providerError) return providerError;
 
+  if (cache_input !== undefined && typeof cache_input !== 'boolean') {
+    return toolError(ErrorCode.INVALID_INPUT, 'cache_input must be a boolean.');
+  }
+
   const pickedModel =
     model?.trim() ||
     process.env.OPENROUTER_DEFAULT_VIDEO_MODEL ||
