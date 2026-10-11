@@ -18,7 +18,7 @@ src/tool-definitions.ts         ← Tool JSON schemas (inputSchema, outputSchema
 src/tool-descriptions.ts        ← TOOL_NAMES array + structured descriptions (use when / bad examples / fails when)
 src/tool-icons.ts               ← SVG data URI icons for each tool (MCP 2025-11-25)
 src/tool-handlers/              ← One handler file per tool (handleChatCompletion, handleGenerateVideo, etc.)
-src/openrouter-api.ts           ← Direct HTTP client for /videos, /images, /audio/speech, /audio/transcriptions, /rerank
+src/openrouter-api.ts           ← Direct HTTP client for /videos, /images, /audio/speech, /audio/transcriptions, /rerank, /embeddings, /api/alpha/decisions
 src/openrouter-openai-client.ts ← OpenAI SDK configured for OpenRouter base URL
 src/errors.ts                   ← ErrorCode taxonomy (INVALID_INPUT, UNSAFE_PATH, UPSTREAM_*, etc.)
 ```
@@ -40,7 +40,7 @@ src/errors.ts                   ← ErrorCode taxonomy (INVALID_INPUT, UNSAFE_PA
 - **Tool definitions live in `tool-definitions.ts`**, descriptions in `tool-descriptions.ts`, icons in `tool-icons.ts`. All three must stay in sync with `TOOL_NAMES`. The build-time assertion in `tool-definitions.ts` catches count mismatches.
 - **Handlers** return `{ content, _meta }` for success or `toolError(ErrorCode, message)` for errors. Every error carries `_meta.code`.
 - **Path safety**: all local file reads go through `resolveSafeInputPath`, all writes through `resolveSafeOutputPath`. Never bypass the sandbox.
-- **OpenRouter API**: chat/analyze tools use the OpenAI SDK via `openrouter-openai-client.ts`. Video/image/audio dedicated endpoints and rerank use the direct HTTP client in `openrouter-api.ts`.
+- **OpenRouter API**: chat/analyze tools use the OpenAI SDK via `openrouter-openai-client.ts`. Video/image/audio dedicated endpoints, rerank, embeddings, and decisions use the direct HTTP client in `openrouter-api.ts`.
 - **Async tools**: `start_chat_completion` fires a background request and returns a `job_id` immediately. `get_chat_completion_status` polls. Video generation follows the same pattern via `generate_video` + `get_video_status`.
 - **Caching**: `cache`, `cache_ttl`, `cache_clear` params on tools map to `X-OpenRouter-Cache*` headers via `cache.ts`.
 - **Provider routing**: `provider` param on tools passes through to OpenRouter's routing system. Env defaults in `provider-routing.ts`.
@@ -68,7 +68,7 @@ src/errors.ts                   ← ErrorCode taxonomy (INVALID_INPUT, UNSAFE_PA
 | `npm run test:all` | unit + regression + integration | Pre-release gate |
 | `npm run ci` | lint + format + version sync + build + test:all | **The one command before shipping** |
 
-Current: **59 test files, 1607 tests**.
+Current: **62 test files, 1664 tests**.
 
 ## Releasing (read this before publishing)
 
