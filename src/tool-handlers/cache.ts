@@ -117,11 +117,23 @@ export function extractCacheMeta(headers: Headers | undefined): CacheMeta | null
   if (!status) return null;
   const ageStr = headers.get('x-openrouter-cache-age');
   const ttl = headers.get('x-openrouter-cache-ttl') ?? undefined;
-  const meta: CacheMeta = { status };
+  // Cap header strings — the upstream response is untrusted.  Real cache
+  // status values are short keywords ("HIT", "MISS") and TTL values are
+  // short numeric strings; without length caps a malformed or compromised
+  // CDN/proxy could inject multi-megabyte header values that inflate the
+  // MCP `_meta.cache` object.  Matches the defence-in-depth pattern applied
+  // to finish_reason (64 chars) and every other untrusted string in the
+  // codebase.  128 chars is generous for any real header value.
+  const MAX_CACHE_HEADER_LENGTH = 128;
+  const safeStatus =
+    status.length > MAX_CACHE_HEADER_LENGTH ? status.slice(0, MAX_CACHE_HEADER_LENGTH) : status;
+  const meta: CacheMeta = { status: safeStatus };
   if (ageStr) {
     const n = Number(ageStr);
     if (Number.isFinite(n)) meta.age = n;
   }
-  if (ttl) meta.ttl = ttl;
+  if (ttl) {
+    meta.ttl = ttl.length > MAX_CACHE_HEADER_LENGTH ? ttl.slice(0, MAX_CACHE_HEADER_LENGTH) : ttl;
+  }
   return meta;
 }

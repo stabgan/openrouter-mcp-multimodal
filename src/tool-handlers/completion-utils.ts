@@ -12,6 +12,35 @@ const DEFAULT_MAX_RESULT_TEXT_CHARS = 512_000;
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 /**
+ * Maximum length for upstream `finish_reason` and `native_finish_reason`
+ * strings forwarded into MCP `_meta`.
+ *
+ * Real values are short keywords ("stop", "length", "content_filter",
+ * "tool_calls", "function_call"); without a ceiling a malformed or
+ * compromised upstream could return a multi-megabyte string that inflates
+ * every MCP response from every chat-based handler (chat_completion,
+ * analyze_image, analyze_audio, analyze_video, async_chat).
+ *
+ * 64 chars matches `MAX_FINISH_REASON_LENGTH` in `generate-audio.ts` which
+ * already caps `finish_reason` for the streaming audio path.  Applying the
+ * same cap in `buildCompletionMeta` closes the gap for all non-streaming
+ * completion handlers.
+ */
+const MAX_FINISH_REASON_LENGTH = 64;
+
+/**
+ * Cap an optional upstream string for safe inclusion in MCP `_meta`.
+ * Returns `undefined` for missing/non-string values, the original string
+ * when within the limit, or a truncated copy.  Used for finish_reason,
+ * native_finish_reason, and cache header values — all untrusted upstream
+ * strings that had no length cap before this change.
+ */
+function capMetaString(value: unknown, maxLength: number): string | undefined {
+  if (typeof value !== 'string' || value.length === 0) return undefined;
+  return value.length > maxLength ? value.slice(0, maxLength) : value;
+}
+
+/**
  * Maximum number of content entries in the sanitized logprobs output.
  * A typical response has one entry per generated token; 10 000 covers
  * the largest realistic completions while preventing memory exhaustion
@@ -434,11 +463,23 @@ export function buildCompletionMeta(
   extracted: ExtractedText,
   opts: BuildMetaOptions = {},
 ): Record<string, unknown> {
+  // Cap finish_reason / native_finish_reason — these originate from the
+  // untrusted upstream completion response and flow into MCP `_meta` for
+  // every chat-based handler.  Without a length cap, a malformed upstream
+  // could return a multi-megabyte string that inflates every MCP response.
+  // Matches the MAX_FINISH_REASON_LENGTH already applied in generate_audio's
+  // streaming path and the MAX_SHORT_PARAM_LENGTH caps in generate_video.
+  const safeFinishReason = capMetaString(extracted.finishReason, MAX_FINISH_REASON_LENGTH);
+  const safeNativeFinishReason = capMetaString(
+    extracted.nativeFinishReason,
+    MAX_FINISH_REASON_LENGTH,
+  );
+
   const meta: Record<string, unknown> = {
-    finish_reason: extracted.finishReason,
+    finish_reason: safeFinishReason,
   };
-  if (extracted.nativeFinishReason) {
-    meta.native_finish_reason = extracted.nativeFinishReason;
+  if (safeNativeFinishReason) {
+    meta.native_finish_reason = safeNativeFinishReason;
   }
   if (opts.includeReasoning && extracted.reasoning && !extracted.reasonedOnly) {
     const capped = capResultText(extracted.reasoning);
