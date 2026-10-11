@@ -117,7 +117,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
       'UPSTREAM_TIMEOUT: upstream did not respond in time',
       'MODEL_NOT_FOUND: model slug does not exist on OpenRouter',
     ],
-    worksWith: ['validate_model', 'search_models'],
+    worksWith: ['validate_model', 'search_models', 'embed_text', 'decide', 'rerank_documents'],
   }),
 
   start_chat_completion: buildToolDescription({
@@ -585,7 +585,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
       'UNSAFE_PATH: image path escaped sandbox',
       'UPSTREAM_REFUSED / JOB_FAILED: same as generate_video',
     ],
-    worksWith: ['generate_video', 'get_video_status'],
+    worksWith: ['generate_video', 'get_video_status', 'generate_image', 'generate_image_dedicated'],
   }),
 
   get_video_status: buildToolDescription({
