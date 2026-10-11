@@ -221,9 +221,9 @@ describe('handleDecide — answer entry as array from upstream', () => {
       decideReq({ questions: { q1: noulQuestion(), q2: noulQuestion() } }),
       client,
     )) as DecideSuccess;
-    // q1 (array) should be present with only { type: undefined }
+    // q1 (array) should be present with only { type: 'unknown' }
     expect(r.structuredContent.answers.q1).toBeDefined();
-    expect(r.structuredContent.answers.q1.type).toBeUndefined();
+    expect(r.structuredContent.answers.q1.type).toBe('unknown');
     // q2 should be properly handled
     expect(r.structuredContent.answers.q2).toBeDefined();
     expect(r.structuredContent.answers.q2.type).toBe('noul');
@@ -234,7 +234,7 @@ describe('handleDecide — answer entry as array from upstream', () => {
 
   it('treats non-empty array answer entry via default switch case', async () => {
     // [0.5, 0.5] is truthy, typeof is 'object', passes guard.
-    // [0.5, 0.5].type is undefined → default case.
+    // [0.5, 0.5].type is undefined → default case → safeType = 'unknown'.
     const client = mockDecideClient({
       answers: {
         q1: [0.5, 0.5],
@@ -245,7 +245,7 @@ describe('handleDecide — answer entry as array from upstream', () => {
       decideReq({ questions: { q1: noulQuestion(), q2: noulQuestion() } }),
       client,
     )) as DecideSuccess;
-    expect(r.structuredContent.answers.q1.type).toBeUndefined();
+    expect(r.structuredContent.answers.q1.type).toBe('unknown');
     expect(r.content[0].text).toContain('q2');
   });
 });

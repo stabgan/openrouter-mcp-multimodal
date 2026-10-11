@@ -346,8 +346,8 @@ describe('handleDecide — answer with undefined type hits default branch', () =
       decideReq({ questions: { q1: noulQ(), q2: noulQ() } }),
       client,
     )) as DecideSuccess;
-    // q1 has undefined type → default branch → only type field preserved
-    expect(r.structuredContent.answers.q1).toEqual({ type: undefined });
+    // q1 has undefined type → default branch → safeType = 'unknown' (non-string fallback)
+    expect(r.structuredContent.answers.q1).toEqual({ type: 'unknown' });
     // q1's noul field is NOT in structuredContent (stripped by allowlist)
     expect(r.structuredContent.answers.q1).not.toHaveProperty('noul');
     // q2 is normal
