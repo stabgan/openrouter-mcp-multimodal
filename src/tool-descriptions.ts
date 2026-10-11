@@ -92,6 +92,9 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
       'Input is a single image/audio/video file → use analyze_image / analyze_audio / analyze_video (dedicated wrappers)',
       'You need to create images, audio, or video → use generate_* / text_to_speech tools',
       'You only need to check if a model exists → use validate_model',
+      'You need a structured yes/no, choice, or score decision with calibrated probabilities → use decide',
+      'You need vector embeddings for RAG or semantic search → use embed_text',
+      'You need to rerank documents by relevance to a query → use rerank_documents',
     ],
     goodExamples: [
       '`{ "messages": [{ "role": "user", "content": "Explain recursion in one paragraph." }] }`',
