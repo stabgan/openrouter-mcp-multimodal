@@ -300,6 +300,27 @@ export function validateResponseFormat(
   return null;
 }
 
+/**
+ * Upper bound for `web_max_results`. OpenRouter's web plugin returns at most
+ * a handful of results per query; without a ceiling an attacker can send an
+ * absurdly large value that the upstream ignores but that bloats the request
+ * body and any downstream logging.
+ */
+const MAX_WEB_MAX_RESULTS = 100;
+/**
+ * Maximum number of blocked domains.  50 is generous for any real use case
+ * and prevents an unbounded array from inflating the serialized request body.
+ */
+const MAX_WEB_BLOCKED_DOMAINS = 50;
+/**
+ * Per-domain character limit.  RFC 1035 limits DNS names to 253 characters;
+ * anything longer cannot be a valid domain and is rejected early to prevent
+ * oversized payloads.  Matches the per-element bounding pattern applied by
+ * `embed_text` (MAX_TEXT_LENGTH), `rerank` (MAX_DOCUMENT_LENGTH), and
+ * `decide` (MAX_CRITERIA_VALUE_LENGTH).
+ */
+const MAX_WEB_BLOCKED_DOMAIN_LENGTH = 253;
+
 export function validateWebSearchOptions(
   webMaxResults: number | undefined,
   webBlockedDomains: string[] | undefined,
@@ -314,16 +335,34 @@ export function validateWebSearchOptions(
     ) {
       return toolError(ErrorCode.INVALID_INPUT, 'web_max_results must be a positive integer.');
     }
+    if (webMaxResults > MAX_WEB_MAX_RESULTS) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `web_max_results ${webMaxResults} exceeds max ${MAX_WEB_MAX_RESULTS}.`,
+      );
+    }
   }
   if (webBlockedDomains !== undefined) {
     if (!Array.isArray(webBlockedDomains)) {
       return toolError(ErrorCode.INVALID_INPUT, 'web_blocked_domains must be an array of strings.');
+    }
+    if (webBlockedDomains.length > MAX_WEB_BLOCKED_DOMAINS) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `web_blocked_domains has ${webBlockedDomains.length} entries — max ${MAX_WEB_BLOCKED_DOMAINS}.`,
+      );
     }
     for (let i = 0; i < webBlockedDomains.length; i++) {
       if (typeof webBlockedDomains[i] !== 'string' || !webBlockedDomains[i]!.trim()) {
         return toolError(
           ErrorCode.INVALID_INPUT,
           `web_blocked_domains[${i}] must be a non-empty string.`,
+        );
+      }
+      if (webBlockedDomains[i]!.length > MAX_WEB_BLOCKED_DOMAIN_LENGTH) {
+        return toolError(
+          ErrorCode.INVALID_INPUT,
+          `web_blocked_domains[${i}] exceeds max length ${MAX_WEB_BLOCKED_DOMAIN_LENGTH} (got ${webBlockedDomains[i]!.length}). DNS names cannot exceed 253 characters.`,
         );
       }
     }
