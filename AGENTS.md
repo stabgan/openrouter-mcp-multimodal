@@ -120,10 +120,19 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 | OpenRouter HTTP client    | `src/openrouter-api.ts`                                               |
 | OpenAI SDK client         | `src/openrouter-openai-client.ts`                                     |
 | Error taxonomy            | `src/errors.ts`                                                       |
+| Upstream error classifier | `src/tool-handlers/openrouter-errors.ts`                              |
+| Chat request building     | `src/tool-handlers/chat-request.ts`                                   |
+| Chat completion parsing   | `src/tool-handlers/completion-utils.ts`                               |
+| OpenAI withResponse       | `src/tool-handlers/openai-withresponse.ts`                            |
+| Binary result policy      | `src/tool-handlers/tool-result-payload.ts`                            |
+| Structured output helper  | `src/tool-handlers/structured-output.ts`                              |
 | Path sandbox              | `src/tool-handlers/path-safety.ts`, `src/tool-handlers/path-utils.ts` |
 | Cache headers             | `src/tool-handlers/cache.ts`                                          |
 | Provider routing          | `src/tool-handlers/provider-routing.ts`                               |
 | SSRF / fetch guards       | `src/tool-handlers/fetch-utils.ts`                                    |
+| Image pipeline            | `src/tool-handlers/image-utils.ts`, `src/tool-handlers/image-source.ts` |
+| Video format validation   | `src/tool-handlers/video-utils.ts`                                    |
+| Audio utilities           | `src/tool-handlers/audio-utils.ts`                                    |
 | Structured JSON logger    | `src/logger.ts`                                                       |
 | Model catalog cache       | `src/model-cache.ts`                                                  |
 | TTS defaults              | `src/tts-defaults.ts`                                                 |
