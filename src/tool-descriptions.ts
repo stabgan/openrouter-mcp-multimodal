@@ -76,7 +76,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
       'Send messages to an OpenRouter chat model and get a text reply. Supports provider routing, ' +
       'model suffixes (`:nitro` fastest, `:floor` cheapest, `:free` zero-cost, `:online` web search, ' +
       '`:exacto` tool accuracy), reasoning tokens, reasoning effort control (`reasoning_effort`), ' +
-      'web search (`online: true`), structured output (`response_format`), response caching, ' +
+      'web search (`online: true`, `web_max_results`, `web_blocked_domains`), structured output (`response_format`), response caching, ' +
       'multi-model fusion (`fusion: true`), subagent delegation (`subagent: true`), JSON response healing, ' +
       'standard sampling controls (`temperature`, `top_p`, `stop`, `frequency_penalty`, `presence_penalty`), ' +
       'log probabilities (`logprobs`, `top_logprobs`), and deterministic output (`seed`).',
@@ -101,6 +101,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
     goodExamples: [
       '`{ "messages": [{ "role": "user", "content": "Explain recursion in one paragraph." }] }`',
       '`{ "model": "openai/gpt-4o:nitro", "messages": [...], "online": true }` for web search',
+      '`{ "messages": [...], "online": true, "web_blocked_domains": ["example.com"], "web_max_results": 10 }` for filtered web search',
       '`{ "messages": [...], "include_reasoning": true }` for chain-of-thought models',
       '`{ "messages": [...], "reasoning_effort": "high" }` for maximum reasoning depth on thinking models',
       '`{ "messages": [...], "response_format": { "type": "json_object" } }` for JSON mode',
