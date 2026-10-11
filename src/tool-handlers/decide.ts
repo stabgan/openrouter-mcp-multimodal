@@ -75,6 +75,41 @@ function hasUnsafeKey(obj: Record<string, unknown>): string | null {
   return null;
 }
 
+/**
+ * Maximum nesting depth for recursive prototype-pollution scanning.
+ * Prevents stack overflow on pathologically deep objects while still
+ * covering any realistic state structure.
+ */
+const MAX_STATE_NESTING_DEPTH = 32;
+
+/**
+ * Recursively check for prototype-pollution keys in arbitrarily nested
+ * objects and arrays.  `hasUnsafeKey` only inspects the top level; this
+ * variant walks the full tree so that `{ nested: { __proto__: {} } }`
+ * is rejected.  Depth is capped to prevent stack overflow from
+ * adversarially deep structures.
+ *
+ * Used for the `state` parameter which accepts arbitrary JSON — the only
+ * user-supplied deeply-nested object without recursive key validation.
+ */
+function hasDeepUnsafeKey(value: unknown, depth = 0): string | null {
+  if (depth > MAX_STATE_NESTING_DEPTH) return null;
+  if (!value || typeof value !== 'object') return null;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = hasDeepUnsafeKey(item, depth + 1);
+      if (found) return found;
+    }
+    return null;
+  }
+  for (const key of Object.keys(value as Record<string, unknown>)) {
+    if (UNSAFE_KEYS.has(key)) return key;
+    const found = hasDeepUnsafeKey((value as Record<string, unknown>)[key], depth + 1);
+    if (found) return found;
+  }
+  return null;
+}
+
 export async function handleDecide(
   request: { params: { arguments: DecideRequest } },
   apiClient: OpenRouterAPIClient,
@@ -235,7 +270,7 @@ export async function handleDecide(
     if (typeof state !== 'object' || state === null || Array.isArray(state)) {
       return toolError(ErrorCode.INVALID_INPUT, 'state must be a plain object.');
     }
-    const unsafeSKey = hasUnsafeKey(state as Record<string, unknown>);
+    const unsafeSKey = hasDeepUnsafeKey(state);
     if (unsafeSKey) {
       return toolError(ErrorCode.INVALID_INPUT, `state contains unsafe key "${unsafeSKey}".`);
     }
@@ -295,7 +330,13 @@ export async function handleDecide(
         typeof answer.noul === 'number' && Number.isFinite(answer.noul) ? answer.noul : 0;
       lines.push(`${name}: ${prob >= 0.5 ? 'YES' : 'NO'} (P=${(prob * 100).toFixed(1)}%)`);
     } else if (answer.type === 'choice' && answer.choice) {
-      const best = Object.entries(answer.choice).sort(([, a], [, b]) => b - a)[0];
+      // Guard against non-numeric probability values from the upstream API.
+      // Without this, non-finite values produce "NaN%" in user-visible text.
+      // Matches the defensive typeof+isFinite check applied to noul above.
+      const entries = Object.entries(answer.choice)
+        .filter(([, v]) => typeof v === 'number' && Number.isFinite(v))
+        .sort(([, a], [, b]) => b - a);
+      const best = entries[0];
       lines.push(`${name}: ${best?.[0] ?? '?'} (P=${((best?.[1] ?? 0) * 100).toFixed(1)}%)`);
     } else if (answer.type === 'score' && Array.isArray(answer.score) && answer.score.length > 0) {
       // Use a loop instead of Math.max(...arr) to avoid stack overflow on
@@ -309,8 +350,12 @@ export async function handleDecide(
           maxIdx = i;
         }
       }
+      // Guard: when no valid score was found (all NaN), maxVal stays at
+      // -Infinity — display 0% instead of leaking NaN into user-visible
+      // text.  Finite values and Infinity pass through faithfully.
+      const displayScore = maxVal === -Infinity ? 0 : maxVal;
       lines.push(
-        `${name}: level ${maxIdx + 1}/${answer.score.length} (P=${((answer.score[maxIdx] ?? 0) * 100).toFixed(1)}%)`,
+        `${name}: level ${maxIdx + 1}/${answer.score.length} (P=${(displayScore * 100).toFixed(1)}%)`,
       );
     }
   }

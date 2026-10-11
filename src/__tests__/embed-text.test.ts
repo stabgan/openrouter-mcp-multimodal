@@ -398,6 +398,140 @@ describe('handleEmbedText', () => {
     });
   });
 
+  // ── Validation: per-text length ──────────────────────────────────────
+
+  it('returns INVALID_INPUT when a text exceeds MAX_TEXT_LENGTH (100_000)', async () => {
+    const longText = 'a'.repeat(100_001);
+    const r = (await handleEmbedText(req({ texts: [longText] }), mockApiClient({}))) as ErrorResult;
+    expect(r.isError).toBe(true);
+    expect(r._meta.code).toBe('INVALID_INPUT');
+    expect(r.content[0].text).toContain('texts[0]');
+    expect(r.content[0].text).toContain('100000');
+    expect(r.content[0].text).toContain('100001');
+  });
+
+  it('allows text at exactly MAX_TEXT_LENGTH (100_000)', async () => {
+    const exactText = 'a'.repeat(100_000);
+    const client = mockApiClient({
+      data: [{ index: 0, embedding: [0.1] }],
+      model: 'openai/text-embedding-3-small',
+    });
+    const r = (await handleEmbedText(req({ texts: [exactText] }), client)) as SuccessResult;
+    expect(r.content).toBeDefined();
+    expect(r.structuredContent.embeddings).toHaveLength(1);
+  });
+
+  // ── Validation: aggregate input size ───────────────────────────────
+
+  it('returns INVALID_INPUT when total input chars exceed MAX_TOTAL_INPUT_CHARS', async () => {
+    // 200 texts × 50_001 chars = 10_000_200 > 10_000_000
+    const bigText = 'a'.repeat(50_001);
+    const texts = Array.from({ length: 200 }, () => bigText);
+    const r = (await handleEmbedText(req({ texts }), mockApiClient({}))) as ErrorResult;
+    expect(r.isError).toBe(true);
+    expect(r._meta.code).toBe('INVALID_INPUT');
+    expect(r.content[0].text).toContain('Total input size');
+    expect(r.content[0].text).toContain('10000000');
+  });
+
+  // ── Validation: dimensions upper bound ─────────────────────────────
+
+  it('returns INVALID_INPUT when dimensions exceed 65536', async () => {
+    const r = (await handleEmbedText(
+      req({ texts: 'hello', dimensions: 65537 }),
+      mockApiClient({}),
+    )) as ErrorResult;
+    expect(r.isError).toBe(true);
+    expect(r._meta.code).toBe('INVALID_INPUT');
+    expect(r.content[0].text).toContain('65537');
+    expect(r.content[0].text).toContain('65536');
+  });
+
+  it('accepts dimensions at exactly 65536', async () => {
+    const client = mockApiClient({
+      data: [{ index: 0, embedding: [0.1] }],
+      model: 'openai/text-embedding-3-small',
+    });
+    const r = (await handleEmbedText(
+      req({ texts: 'hello', dimensions: 65536 }),
+      client,
+    )) as SuccessResult;
+    expect(r.structuredContent).toBeDefined();
+  });
+
+  // ── Validation: model length ───────────────────────────────────────
+
+  it('returns INVALID_INPUT when model exceeds MAX_MODEL_ID_LENGTH (256)', async () => {
+    const longModel = 'a'.repeat(257);
+    const r = (await handleEmbedText(
+      req({ texts: 'hello', model: longModel }),
+      mockApiClient({}),
+    )) as ErrorResult;
+    expect(r.isError).toBe(true);
+    expect(r._meta.code).toBe('INVALID_INPUT');
+    expect(r.content[0].text).toContain('256');
+    expect(r.content[0].text).toContain('257');
+  });
+
+  it('accepts model at exactly MAX_MODEL_ID_LENGTH (256)', async () => {
+    const exactModel = 'a'.repeat(256);
+    const client = mockApiClient({
+      data: [{ index: 0, embedding: [0.1] }],
+      model: exactModel,
+    });
+    const r = (await handleEmbedText(
+      req({ texts: 'hello', model: exactModel }),
+      client,
+    )) as SuccessResult;
+    expect(r.structuredContent).toBeDefined();
+  });
+
+  // ── Malformed embedding responses ──────────────────────────────────
+
+  it('returns INTERNAL when first embedding has no embedding field', async () => {
+    const client = mockApiClient({
+      data: [{ index: 0 }],
+      model: 'openai/text-embedding-3-small',
+    });
+    const r = (await handleEmbedText(req({ texts: 'hello' }), client)) as ErrorResult;
+    expect(r.isError).toBe(true);
+    expect(r._meta.code).toBe('INTERNAL');
+    expect(r.content[0].text).toContain('unexpected shape');
+  });
+
+  it('returns INTERNAL when first embedding has empty embedding array', async () => {
+    const client = mockApiClient({
+      data: [{ index: 0, embedding: [] }],
+      model: 'openai/text-embedding-3-small',
+    });
+    const r = (await handleEmbedText(req({ texts: 'hello' }), client)) as ErrorResult;
+    expect(r.isError).toBe(true);
+    expect(r._meta.code).toBe('INTERNAL');
+    expect(r.content[0].text).toContain('unexpected shape');
+  });
+
+  it('returns INTERNAL when first embedding has non-array embedding', async () => {
+    const client = mockApiClient({
+      data: [{ index: 0, embedding: 'not an array' }],
+      model: 'openai/text-embedding-3-small',
+    });
+    const r = (await handleEmbedText(req({ texts: 'hello' }), client)) as ErrorResult;
+    expect(r.isError).toBe(true);
+    expect(r._meta.code).toBe('INTERNAL');
+    expect(r.content[0].text).toContain('unexpected shape');
+  });
+
+  it('returns INTERNAL when first element in data is null', async () => {
+    const client = mockApiClient({
+      data: [null],
+      model: 'openai/text-embedding-3-small',
+    });
+    const r = (await handleEmbedText(req({ texts: 'hello' }), client)) as ErrorResult;
+    expect(r.isError).toBe(true);
+    expect(r._meta.code).toBe('INTERNAL');
+    expect(r.content[0].text).toContain('unexpected shape');
+  });
+
   // ── Arguments fallback ─────────────────────────────────────────────
 
   it('handles missing arguments gracefully', async () => {
