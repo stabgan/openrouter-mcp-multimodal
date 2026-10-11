@@ -105,7 +105,12 @@ export async function handleAnalyzeVideo(
   try {
     videoData = await prepareVideoData(video_path);
   } catch (err) {
-    return classifyResourceLoadError(err, `video_path "${video_path}"`);
+    // Pre-truncate user-controlled value before embedding in the prefix
+    // string.  video_path can be a 200 MB data URL — the template literal
+    // allocates the full string before toolErrorFrom's MAX_PREFIX_LENGTH
+    // truncation runs.  200 chars matches the convention in path-safety.ts.
+    const safePath = video_path.length > 200 ? video_path.slice(0, 200) + '…' : video_path;
+    return classifyResourceLoadError(err, `video_path "${safePath}"`);
   }
 
   const videoBlock: Record<string, unknown> = {

@@ -98,7 +98,12 @@ export async function handleAnalyzeImage(
   try {
     imageUrl = await prepareImageUrl(image_path);
   } catch (err) {
-    return classifyResourceLoadError(err, `image_path "${image_path}"`);
+    // Pre-truncate user-controlled value before embedding in the prefix
+    // string.  image_path can be a 200 MB data URL — the template literal
+    // allocates the full string before toolErrorFrom's MAX_PREFIX_LENGTH
+    // truncation runs.  200 chars matches the convention in path-safety.ts.
+    const safePath = image_path.length > 200 ? image_path.slice(0, 200) + '…' : image_path;
+    return classifyResourceLoadError(err, `image_path "${safePath}"`);
   }
 
   const imageBlock: Record<string, unknown> = {
