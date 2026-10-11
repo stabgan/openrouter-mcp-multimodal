@@ -27,8 +27,15 @@ const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
  * - `prompt_tokens` / `completion_tokens` / `total_tokens` — standard
  *   OpenAI-compatible token accounting (embeddings, chat, transcription).
  * - `cost` — OpenRouter-specific cost in USD.
+ * - `duration_s` — video generation duration in seconds.
  */
-const KNOWN_NUMERIC_KEYS = ['prompt_tokens', 'completion_tokens', 'total_tokens', 'cost'] as const;
+const KNOWN_NUMERIC_KEYS = [
+  'prompt_tokens',
+  'completion_tokens',
+  'total_tokens',
+  'cost',
+  'duration_s',
+] as const;
 
 /**
  * Sanitize an upstream `usage` object by allowlisting known numeric fields.

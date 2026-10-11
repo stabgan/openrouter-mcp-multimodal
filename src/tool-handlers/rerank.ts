@@ -84,8 +84,19 @@ function normalizeRerankResults(
     return out;
   });
 
+  // Cap upstream model string — user-supplied model IDs are capped at
+  // MAX_MODEL_ID_LENGTH above, but the upstream response echoes a model
+  // string that could differ (or be absurdly long in a malformed response).
+  // Cap it to the same ceiling used for input validation — matches the
+  // pattern already applied in the `embed_text` handler.
+  const responseModel = response.model;
+  const safeResponseModel =
+    typeof responseModel === 'string' && responseModel.length <= MAX_MODEL_ID_LENGTH
+      ? responseModel
+      : undefined;
+
   const payload = {
-    model: response.model ?? modelFallback,
+    model: safeResponseModel ?? modelFallback,
     results: normalized,
   };
 

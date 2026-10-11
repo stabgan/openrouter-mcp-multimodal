@@ -7,6 +7,7 @@ import { resolveOptionalOutputPath, isToolErrorResult, UnsafePathError } from '.
 import { resolveImageBase64 } from './image-source.js';
 import { readEnvInt } from './fetch-utils.js';
 import { classifyUpstreamError, classifyResourceLoadError } from './openrouter-errors.js';
+import { sanitizeUpstreamUsage } from './sanitize-usage.js';
 import { buildBinaryToolResult } from './tool-result-payload.js';
 import { replaceExtension, writeOutputFile, isFileSystemError } from './path-utils.js';
 import {
@@ -387,7 +388,14 @@ async function finalizeCompletedJob(
     mime,
     size_bytes: buffer.length,
   };
-  if (status.usage) baseMeta.usage = status.usage;
+  // Sanitize upstream usage — allowlist known numeric fields and drop
+  // everything else.  Previously `status.usage` was forwarded raw, which
+  // could leak prototype-pollution keys (`__proto__`, `constructor`,
+  // `prototype`), non-numeric values, or arbitrary extra properties from
+  // the untrusted upstream response into MCP _meta.  Every other handler
+  // uses `sanitizeUpstreamUsage`; generate_video was the remaining gap.
+  const safeUsage = sanitizeUpstreamUsage(status.usage);
+  if (safeUsage) baseMeta.usage = safeUsage;
   if (status.unsigned_urls) baseMeta.unsigned_urls = status.unsigned_urls;
 
   if (savePath) {
