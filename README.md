@@ -493,6 +493,46 @@ If the job is still running when `max_wait_ms` elapses, the response succeeds wi
 
 With `save_path` set (as above), the result is a **text pointer** to the saved file once complete — not inline video. See [Binary tool results](#binary-tool-results-v470).
 
+### Embed text (vector embeddings)
+
+```json
+{
+  "tool": "embed_text",
+  "arguments": {
+    "texts": ["What is MCP?", "Model Context Protocol enables tool use for LLMs."],
+    "model": "openai/text-embedding-3-small",
+    "dimensions": 1024
+  }
+}
+```
+
+Returns embedding arrays for RAG, semantic search, or clustering. 37+ models supported — pass a single string or an array of up to 2048 texts.
+
+### Structured decision (System One)
+
+```json
+{
+  "tool": "decide",
+  "arguments": {
+    "questions": {
+      "is_bug": {
+        "type": "noul",
+        "instructions": "Is this a bug report or a feature request?",
+        "criteria": {
+          "true": "Describes broken or incorrect behavior",
+          "false": "Requests new functionality"
+        }
+      }
+    },
+    "state": {
+      "ticket": "The login button does not respond when clicked on Safari."
+    }
+  }
+}
+```
+
+Returns calibrated probabilities instead of generated text. Three question types: `noul` (yes/no), `choice` (pick one category), `score` (ordinal rubric). Models: `typesafe/jev-1.13` (default), `upstage/solar-decide`, `microsoft/decision-1`.
+
 More examples: [docs/plans/tool-description-improvement.md](./docs/plans/tool-description-improvement.md)
 
 ## Security
