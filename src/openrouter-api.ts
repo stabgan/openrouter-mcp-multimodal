@@ -490,6 +490,25 @@ async function readTranscriptionResponse(
   return readJsonOrThrow<TranscriptionResponse>(res, context);
 }
 
+/**
+ * JSON reviver that strips `__proto__` keys from parsed objects.
+ *
+ * Defence-in-depth: every handler sanitises its own response fields, but the
+ * raw parsed JSON carries potential `__proto__` keys through intermediate
+ * processing (e.g. `extractEmbeddedError` iteration, `formatTranscriptionContent`
+ * verbose_json serialisation).  Stripping at the parse layer ensures no
+ * code path can accidentally forward `__proto__` keys to MCP clients — even
+ * future handlers that forget to sanitise individually.
+ *
+ * Only strips `__proto__` (never legitimate in API JSON), NOT `constructor`
+ * or `prototype` (which can be valid property names in model descriptions,
+ * error messages, and schema definitions — and are already handled by the
+ * per-handler UNSAFE_KEYS guards).
+ */
+function jsonReviverStripProto(key: string, value: unknown): unknown {
+  return key === '__proto__' ? undefined : value;
+}
+
 async function readJsonOrThrow<T>(
   res: Response,
   context: string,
@@ -499,7 +518,7 @@ async function readJsonOrThrow<T>(
   const raw = buffer.toString('utf8');
   let data: unknown;
   try {
-    data = JSON.parse(raw);
+    data = JSON.parse(raw, jsonReviverStripProto);
   } catch {
     const snippet = raw.length > 500 ? raw.slice(0, 500) + '…' : raw;
     const detail = sanitizeErrorMessage(snippet);
