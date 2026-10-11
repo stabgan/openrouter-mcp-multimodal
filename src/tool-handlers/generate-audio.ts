@@ -49,6 +49,15 @@ const MAX_MODEL_ID_LENGTH = 256;
  */
 const MAX_PROMPT_LENGTH = 100_000;
 
+/**
+ * Voice identifier length limit.  Real voice IDs are short slugs (e.g.
+ * "alloy", "echo", "shimmer"); without a ceiling a malicious MCP client
+ * can inject a multi-megabyte string that inflates the serialized request
+ * body and log entries.  256 chars matches text_to_speech's MAX_VOICE_LENGTH
+ * and the model-ID ceiling used by every handler.
+ */
+const MAX_VOICE_LENGTH = 256;
+
 function getAudioGenMaxBytes(): number {
   return readEnvInt('OPENROUTER_AUDIO_GEN_MAX_BYTES', DEFAULT_AUDIO_GEN_MAX_BYTES, 1024);
 }
@@ -92,6 +101,12 @@ export async function handleGenerateAudio(
   }
   if (voice !== undefined && typeof voice !== 'string') {
     return toolError(ErrorCode.INVALID_INPUT, 'voice must be a string.');
+  }
+  if (typeof voice === 'string' && voice.length > MAX_VOICE_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `voice exceeds max length ${MAX_VOICE_LENGTH} (got ${voice.length}).`,
+    );
   }
 
   if (format && !(VALID_FORMATS as readonly string[]).includes(format)) {
