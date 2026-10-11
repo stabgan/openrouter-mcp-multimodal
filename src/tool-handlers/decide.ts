@@ -389,23 +389,46 @@ export async function handleDecide(
     // prototype-pollution keys) from flowing into structuredContent.
     switch (answer.type) {
       case 'noul': {
-        sanitizedAnswers[name] = { type: 'noul', noul: answer.noul };
+        // Validate that noul is a finite number before including it in
+        // structuredContent.  The summary-building code below already
+        // guards against non-finite values, but structuredContent passed
+        // the raw upstream value through — a string, object, or NaN
+        // could cause type confusion in MCP clients.
+        const safeNoul =
+          typeof answer.noul === 'number' && Number.isFinite(answer.noul) ? answer.noul : undefined;
+        sanitizedAnswers[name] = { type: 'noul', noul: safeNoul };
         break;
       }
       case 'choice': {
-        // Deep-sanitize choice maps — strip unsafe keys from per-option probs.
+        // Deep-sanitize choice maps — strip unsafe keys and non-numeric
+        // values from per-option probability maps.  Previously values
+        // were passed through without type validation; a malformed
+        // upstream response could inject strings, objects, or NaN into
+        // structuredContent, causing type confusion in MCP clients.
         const safeChoice: Record<string, number> = {};
         if (answer.choice && typeof answer.choice === 'object') {
           for (const [ck, cv] of Object.entries(answer.choice)) {
             if (UNSAFE_KEYS.has(ck)) continue;
-            safeChoice[ck] = cv;
+            if (typeof cv === 'number' && Number.isFinite(cv)) {
+              safeChoice[ck] = cv;
+            }
           }
         }
         sanitizedAnswers[name] = { type: 'choice', choice: safeChoice };
         break;
       }
       case 'score': {
-        sanitizedAnswers[name] = { type: 'score', score: answer.score };
+        // Validate that score is an array of finite numbers before
+        // including in structuredContent.  A malformed upstream response
+        // could send a non-array or embed non-numeric elements that
+        // cause type confusion in MCP clients.
+        let safeScore: number[] | undefined;
+        if (Array.isArray(answer.score) && answer.score.length > 0) {
+          safeScore = answer.score.map((v: unknown) =>
+            typeof v === 'number' && Number.isFinite(v) ? v : 0,
+          );
+        }
+        sanitizedAnswers[name] = { type: 'score', score: safeScore };
         break;
       }
       default:
