@@ -251,8 +251,18 @@ export class ToolHandlers {
               this.apiClient,
               this.modelCache,
             );
-          default:
-            throw new McpError(McpErrorCode.MethodNotFound, `Unknown tool: ${name}`);
+          default: {
+            // Cap tool name to prevent oversized error responses from
+            // untrusted MCP input.  McpError bypasses toolError()'s
+            // message capping and is re-thrown directly to the SDK for
+            // serialisation — a multi-megabyte name would produce a
+            // proportionally large error response (DoS via amplification).
+            const safeName =
+              typeof name === 'string' && name.length > 128
+                ? name.slice(0, 128) + '…'
+                : String(name ?? 'undefined');
+            throw new McpError(McpErrorCode.MethodNotFound, `Unknown tool: ${safeName}`);
+          }
         }
       };
       try {
