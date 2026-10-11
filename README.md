@@ -570,6 +570,8 @@ More examples: [docs/plans/tool-description-improvement.md](./docs/plans/tool-de
 - **Async job reads** — `get_chat_completion_status` resolves disk paths only under `OPENROUTER_OUTPUT_DIR/openrouter-jobs/` (4.7.0+)
 - **SSRF protection** — private/reserved IPs blocked on URL fetches
 - **Untrusted content** — analyze outputs tagged `_meta.content_is_untrusted: true`
+- **Prototype-pollution defense** — all API output boundaries (model records, embeddings, decisions, rerank results, log context) recursively strip `__proto__`, `constructor`, and `prototype` keys before forwarding to MCP clients
+- **Secret redaction** — the stderr JSON logger redacts API keys and sensitive values; stdout is reserved for MCP protocol traffic
 
 Override sandboxes only with `OPENROUTER_ALLOW_UNSAFE_PATHS=1` (discouraged).
 
