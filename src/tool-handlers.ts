@@ -124,7 +124,7 @@ export class ToolHandlers {
 
   private register(server: Server) {
     // Pre-compute the merged tool list once — TOOL_DEFINITIONS and TOOL_ICONS
-    // are module-level constants that never change, so rebuilding 19 objects
+    // are module-level constants that never change, so rebuilding 21 objects
     // with spread on every ListTools request is unnecessary allocation.
     const toolsWithIcons = TOOL_DEFINITIONS.map((tool) => ({
       ...tool,
