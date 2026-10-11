@@ -21,3 +21,35 @@ One exported `handle*` function per MCP tool, registered in `tool-handlers.ts`. 
 ## ErrorCode
 
 Closed taxonomy in `errors.ts` (`UNSAFE_PATH`, `INVALID_INPUT`, `UPSTREAM_HTTP`, …). Every tool error carries `_meta.code` for agent routing.
+
+## Embeddings
+
+The `embed_text` tool calls `POST /api/v1/embeddings` to generate vector embeddings from text. Supports 37+ models (text-embedding-3-small/large, Voyage, Cohere Embed, Nomic, Jina, etc.). Returns embedding arrays for RAG, semantic search, and clustering. Optional `dimensions` parameter for models that support truncated embeddings.
+
+## Decisions (System One)
+
+The `decide` tool calls `POST /api/alpha/decisions` — a non-v1 alpha endpoint for structured decisions. System One models (typesafe/jev-1.13, upstage/solar-decide, microsoft/decision-1) return calibrated probabilities instead of generated text. Three question types: **noul** (yes/no with confidence), **choice** (classify into categories), **score** (ordinal rubric). Each question carries `instructions` and `criteria`.
+
+## Async chat completion
+
+`start_chat_completion` fires a background chat request and returns a `job_id` immediately. `get_chat_completion_status` polls by `job_id`. Designed for reasoning models (DeepSeek R1, Claude Opus) or remote MCP bridges with short timeouts. Job state is held in memory; the `OPENROUTER_ASYNC_JOBS_MEMORY_MAX` env var caps the store (default 200, LRU eviction). Disk-based result paths resolve only under `OPENROUTER_OUTPUT_DIR/openrouter-jobs/`.
+
+## Model suffixes
+
+OpenRouter routing suffixes appended to model slugs: `:nitro` (fastest provider), `:floor` (cheapest), `:free` (zero-cost tier), `:online` (web-search grounded), `:exacto` (tool-accuracy optimized). Passed through to OpenRouter's routing layer verbatim.
+
+## Provider routing
+
+Per-request or env-level control over which OpenRouter providers handle a call. Parameters: `sort` (price/throughput/latency), `only`/`ignore` (allow/block lists), `order` (preference), `quantizations`, `require_parameters`, `data_collection` (allow/deny), `allow_fallbacks`. Env defaults in `provider-routing.ts`; per-request `provider` param on tools overrides them.
+
+## Response caching
+
+`cache`, `cache_ttl`, `cache_clear` parameters on tools map to `X-OpenRouter-Cache*` HTTP headers via `cache.ts`. `OPENROUTER_CACHE_RESPONSES=true` enables caching server-wide. Cache hits cost zero tokens.
+
+## Tool icons
+
+SVG data-URI icons for each tool, registered in `tool-icons.ts` (MCP 2025-11-25 spec). Icons are embedded directly in tool definitions so MCP clients can display them without additional fetches. Must stay in sync with `TOOL_NAMES`.
+
+## SSRF guard
+
+All outbound URL fetches in `fetch-utils.ts` block private/reserved IPv4 ranges (loopback, link-local, RFC 1918, CGNAT) before connecting. Prevents server-side request forgery when callers pass attacker-controlled URLs to analyze tools.
