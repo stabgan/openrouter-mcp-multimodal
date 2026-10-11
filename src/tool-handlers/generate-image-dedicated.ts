@@ -62,6 +62,16 @@ const MAX_MODEL_ID_LENGTH = 256;
  */
 const MAX_PROMPT_LENGTH = 100_000;
 
+/**
+ * Short parameter length limit for enum-like string parameters (aspect_ratio,
+ * resolution, quality, output_format).  Real values are short keywords (e.g.
+ * "16:9", "1024x1024", "hd", "png"); without a ceiling a malicious MCP client
+ * can inject a multi-megabyte string that inflates the serialized audit log
+ * entry and creates transient multi-megabyte template literals in error
+ * messages.  64 chars matches MAX_SHORT_PARAM_LENGTH in generate-video.ts.
+ */
+const MAX_SHORT_PARAM_LENGTH = 64;
+
 const VALID_ASPECT_RATIOS = new Set<string>(IMAGE_ASPECT_RATIOS);
 const VALID_RESOLUTIONS = new Set<string>(IMAGE_DEDICATED_RESOLUTIONS);
 const VALID_QUALITIES = new Set<string>(IMAGE_DEDICATED_QUALITIES);
@@ -124,14 +134,38 @@ export async function handleGenerateImageDedicated(
   if (aspect_ratio !== undefined && typeof aspect_ratio !== 'string') {
     return toolError(ErrorCode.INVALID_INPUT, 'aspect_ratio must be a string.');
   }
+  if (typeof aspect_ratio === 'string' && aspect_ratio.length > MAX_SHORT_PARAM_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `aspect_ratio exceeds max length ${MAX_SHORT_PARAM_LENGTH} (got ${aspect_ratio.length}).`,
+    );
+  }
   if (resolution !== undefined && typeof resolution !== 'string') {
     return toolError(ErrorCode.INVALID_INPUT, 'resolution must be a string.');
+  }
+  if (typeof resolution === 'string' && resolution.length > MAX_SHORT_PARAM_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `resolution exceeds max length ${MAX_SHORT_PARAM_LENGTH} (got ${resolution.length}).`,
+    );
   }
   if (quality !== undefined && typeof quality !== 'string') {
     return toolError(ErrorCode.INVALID_INPUT, 'quality must be a string.');
   }
+  if (typeof quality === 'string' && quality.length > MAX_SHORT_PARAM_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `quality exceeds max length ${MAX_SHORT_PARAM_LENGTH} (got ${quality.length}).`,
+    );
+  }
   if (output_format !== undefined && typeof output_format !== 'string') {
     return toolError(ErrorCode.INVALID_INPUT, 'output_format must be a string.');
+  }
+  if (typeof output_format === 'string' && output_format.length > MAX_SHORT_PARAM_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `output_format exceeds max length ${MAX_SHORT_PARAM_LENGTH} (got ${output_format.length}).`,
+    );
   }
 
   logger.audit('generate_image_dedicated.start', {

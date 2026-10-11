@@ -60,6 +60,16 @@ const MAX_PROMPT_LENGTH = 100_000;
  */
 const MAX_VOICE_LENGTH = 256;
 
+/**
+ * Short parameter length limit for the `format` enum parameter.  Real values
+ * are short keywords (e.g. "pcm16", "wav", "mp3"); without a ceiling a
+ * malicious MCP client can inject a multi-megabyte string that inflates the
+ * serialized audit log entry and creates transient multi-megabyte template
+ * literals in error messages.  64 chars matches MAX_SHORT_PARAM_LENGTH in
+ * generate-video.ts and generate-image.ts.
+ */
+const MAX_FORMAT_LENGTH = 64;
+
 function getAudioGenMaxBytes(): number {
   return readEnvInt('OPENROUTER_AUDIO_GEN_MAX_BYTES', DEFAULT_AUDIO_GEN_MAX_BYTES, 1024);
 }
@@ -119,6 +129,12 @@ export async function handleGenerateAudio(
   // tool handlers (aspect_ratio, resolution, quality, output_format, etc.).
   if (format !== undefined && format !== null && typeof format !== 'string') {
     return toolError(ErrorCode.INVALID_INPUT, 'format must be a string.');
+  }
+  if (typeof format === 'string' && format.length > MAX_FORMAT_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `format exceeds max length ${MAX_FORMAT_LENGTH} (got ${format.length}).`,
+    );
   }
   if (format && !(VALID_FORMATS as readonly string[]).includes(format)) {
     return toolError(
