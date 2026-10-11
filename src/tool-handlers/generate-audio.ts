@@ -110,6 +110,15 @@ export async function handleGenerateAudio(
     );
   }
 
+  // Validate format type — MCP clients that ignore the JSON schema can send
+  // numbers, booleans, or objects.  Without this guard, non-string values
+  // pass the falsy check or produce confusing "not supported" errors from
+  // the includes check instead of a clear type error.  Matches the explicit
+  // typeof checks applied to every other string enum parameter across all
+  // tool handlers (aspect_ratio, resolution, quality, output_format, etc.).
+  if (format !== undefined && format !== null && typeof format !== 'string') {
+    return toolError(ErrorCode.INVALID_INPUT, 'format must be a string.');
+  }
   if (format && !(VALID_FORMATS as readonly string[]).includes(format)) {
     return toolError(
       ErrorCode.INVALID_INPUT,
