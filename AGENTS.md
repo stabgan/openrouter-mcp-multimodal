@@ -72,7 +72,7 @@ src/tts-defaults.ts             ← TTS default constants (model, voice, respons
 | `npm run test:all`             | unit + regression + integration                 | Pre-release gate                    |
 | `npm run ci`                   | lint + format + version sync + build + test:all | **The one command before shipping** |
 
-Current: **120 test files, 3534 tests** (118 unit/mock + 1 regression + 1 integration).
+Current: **123 test files, 3603 tests** (121 unit/mock + 1 regression + 1 integration).
 
 ## Releasing (read this before publishing)
 
@@ -125,6 +125,8 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 | Chat request building     | `src/tool-handlers/chat-request.ts`                                   |
 | Async chat jobs           | `src/tool-handlers/async-chat.ts`                                     |
 | Chat completion parsing   | `src/tool-handlers/completion-utils.ts`                               |
+| Embeddings handler        | `src/tool-handlers/embed-text.ts`                                     |
+| Decisions handler         | `src/tool-handlers/decide.ts`                                         |
 | OpenAI withResponse       | `src/tool-handlers/openai-withresponse.ts`                            |
 | Binary result policy      | `src/tool-handlers/tool-result-payload.ts`                            |
 | Structured output helper  | `src/tool-handlers/structured-output.ts`                              |
