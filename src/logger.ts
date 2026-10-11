@@ -34,29 +34,49 @@ function redactString(value: string, key?: string): string {
     .replace(SK_GENERIC_KEY, '[REDACTED]');
 }
 
+/**
+ * Maximum recursion depth for log-context sanitization.  Every other
+ * recursive function in the codebase has a depth cap (`hasDeepUnsafeKey`
+ * in decide.ts: 32, `sanitizePersistedMeta` in async-chat.ts: 2 levels).
+ * Without this limit, a deeply nested non-circular object reaching the
+ * logger could overflow the call stack, crashing the MCP server (DoS).
+ *
+ * 32 matches the ceiling used by the decide handler's state validator —
+ * generous for any real log context while preventing pathological inputs.
+ */
+const MAX_LOG_SANITIZE_DEPTH = 32;
+
 function sanitizeCtx(
   ctx: Record<string, unknown>,
   seen = new WeakSet<object>(),
+  depth = MAX_LOG_SANITIZE_DEPTH,
 ): Record<string, unknown> {
+  if (depth <= 0) return { note: 'depth limit' };
   if (seen.has(ctx)) return { note: 'circular' };
   seen.add(ctx);
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(ctx)) {
     // Guard against prototype pollution from untrusted JSON input.
     if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
-    out[key] = sanitizeLogValue(key, value, seen);
+    out[key] = sanitizeLogValue(key, value, seen, depth - 1);
   }
   return out;
 }
 
-function sanitizeLogValue(key: string, value: unknown, seen = new WeakSet<object>()): unknown {
+function sanitizeLogValue(
+  key: string,
+  value: unknown,
+  seen = new WeakSet<object>(),
+  depth = MAX_LOG_SANITIZE_DEPTH,
+): unknown {
   if (typeof value === 'string') return redactString(value, key);
   if (typeof value === 'number' || typeof value === 'boolean' || value === null) return value;
+  if (depth <= 0) return '[depth limit]';
   if (Array.isArray(value)) {
-    return value.map((item, index) => sanitizeLogValue(`${key}[${index}]`, item, seen));
+    return value.map((item, index) => sanitizeLogValue(`${key}[${index}]`, item, seen, depth - 1));
   }
   if (value && typeof value === 'object') {
-    return sanitizeCtx(value as Record<string, unknown>, seen);
+    return sanitizeCtx(value as Record<string, unknown>, seen, depth);
   }
   return value;
 }
