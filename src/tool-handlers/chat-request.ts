@@ -153,6 +153,16 @@ export function validateMaxTokens(max_tokens: number | undefined): ToolErrorResu
 
 const VALID_RESPONSE_FORMAT_TYPES = new Set(['text', 'json_object', 'json_schema']);
 
+/**
+ * Maximum serialized size for `response_format.json_schema` (bytes).
+ * Every other user-controlled complex object that gets serialized into outbound
+ * API requests has a size cap (`MAX_STATE_BYTES` in `decide`, `MAX_TOTAL_INPUT_CHARS`
+ * in `embed_text`/`rerank`). Without this limit, a malicious MCP client can inject
+ * a multi-megabyte JSON schema that exhausts memory during `JSON.stringify` of the
+ * outbound request body. 100 KB is generous for any real JSON schema.
+ */
+const MAX_RESPONSE_FORMAT_BYTES = 100_000;
+
 const VALID_REASONING_EFFORTS = new Set(['low', 'medium', 'high']);
 
 export function validateReasoningEffort(
@@ -294,6 +304,22 @@ export function validateResponseFormat(
       return toolError(
         ErrorCode.INVALID_INPUT,
         'response_format.json_schema.schema must be a JSON Schema object.',
+      );
+    }
+    // Cap serialized size to prevent memory exhaustion during JSON.stringify
+    // of the outbound request body. Mirrors MAX_STATE_BYTES in the `decide`
+    // handler — every user-controlled complex object that gets serialized
+    // needs a ceiling.
+    let schemaSize: number;
+    try {
+      schemaSize = JSON.stringify(schema).length;
+    } catch {
+      return toolError(ErrorCode.INVALID_INPUT, 'response_format.json_schema is not serializable.');
+    }
+    if (schemaSize > MAX_RESPONSE_FORMAT_BYTES) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `response_format.json_schema serialized size (${schemaSize} bytes) exceeds max ${MAX_RESPONSE_FORMAT_BYTES}. Simplify the schema.`,
       );
     }
   }
