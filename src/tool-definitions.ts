@@ -1080,6 +1080,96 @@ export const TOOL_DEFINITIONS = [
     },
   },
   {
+    name: 'embed_text',
+    title: 'Embed text',
+    description: TOOL_DESCRIPTIONS.embed_text,
+    annotations: {
+      title: 'Embed text',
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        texts: {
+          oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' }, maxItems: 2048 }],
+          description: 'Text or array of texts to embed (max 2048).',
+        },
+        model: {
+          type: 'string',
+          description:
+            'Embedding model. Default: openai/text-embedding-3-small. Browse: openrouter.ai/collections/embedding-models',
+        },
+        dimensions: {
+          type: 'integer',
+          minimum: 1,
+          description: 'Output vector dimensions (model-dependent).',
+        },
+      },
+      required: ['texts'],
+    },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        embeddings: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              index: { type: 'integer' },
+              embedding: { type: 'array', items: { type: 'number' } },
+            },
+          },
+        },
+        model: { type: 'string' },
+        dimensions: { type: 'integer' },
+      },
+    },
+  },
+  {
+    name: 'decide',
+    title: 'Decide',
+    description: TOOL_DESCRIPTIONS.decide,
+    annotations: {
+      title: 'Decide',
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        questions: {
+          type: 'object',
+          description:
+            'Map of question names to definitions. Each: { type: "noul"|"choice"|"score", instructions: string, criteria: {...} }.',
+        },
+        state: {
+          type: 'object',
+          description: 'Context/state for the decision (e.g. ticket text, user info).',
+        },
+        model: {
+          type: 'string',
+          description:
+            'Decision model. Default: typesafe/jev-1.13. Also: upstage/solar-decide, microsoft/decision-1.',
+        },
+      },
+      required: ['questions'],
+    },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        answers: {
+          type: 'object',
+          description: 'Map of question names to answers with calibrated probabilities.',
+        },
+      },
+    },
+  },
+  {
     name: 'health_check',
     title: 'Health check',
     description: TOOL_DESCRIPTIONS.health_check,

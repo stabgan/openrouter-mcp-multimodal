@@ -71,6 +71,8 @@ export const TOOL_ICONS: Record<string, ToolIcon> = {
   generate_video_from_image: icon(ICONS.video),
   get_video_status: icon(ICONS.poll),
   rerank_documents: icon(ICONS.rerank),
+  embed_text: icon(ICONS.search),
+  decide: icon(ICONS.check),
   health_check: icon(ICONS.health),
 };
 

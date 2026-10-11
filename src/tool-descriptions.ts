@@ -63,6 +63,8 @@ export const TOOL_NAMES = [
   'generate_video_from_image',
   'get_video_status',
   'rerank_documents',
+  'embed_text',
+  'decide',
   'health_check',
 ] as const;
 
@@ -626,6 +628,69 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
       'UPSTREAM_HTTP: provider error',
     ],
     worksWith: ['search_models', 'chat_completion'],
+  }),
+
+  embed_text: buildToolDescription({
+    summary:
+      'Generate vector embeddings via POST /api/v1/embeddings. 37+ models (text-embedding-3-small/large, ' +
+      'voyage, Cohere embed, etc.). Returns embedding arrays for RAG, semantic search, clustering.',
+    useWhen: [
+      'You need vector embeddings for semantic search or RAG',
+      'You want to compute text similarity',
+      'You need to cluster or classify text by meaning',
+    ],
+    notWhen: [
+      'You want text generation → chat_completion',
+      'You want to rank documents by relevance → rerank_documents',
+      'Input texts are empty',
+    ],
+    goodExamples: [
+      '`{ "texts": "What is MCP?" }` — single text',
+      '`{ "texts": ["query", "doc1", "doc2"], "model": "openai/text-embedding-3-large", "dimensions": 1024 }`',
+    ],
+    badExamples: [
+      '`{ "texts": [] }` → INVALID_INPUT (empty array)',
+      '`{ "texts": [""] }` → INVALID_INPUT (empty string)',
+      '`{ "input": "text" }` → wrong key; use `texts`',
+    ],
+    failsWhen: [
+      'INVALID_INPUT: empty texts, bad dimensions, too many texts (>2048)',
+      'MODEL_NOT_FOUND: invalid embedding model',
+      'UPSTREAM_REFUSED: credits exhausted',
+    ],
+    worksWith: ['rerank_documents', 'chat_completion'],
+  }),
+
+  decide: buildToolDescription({
+    summary:
+      'Structured decisions via POST /api/alpha/decisions. System One models return calibrated ' +
+      'probabilities instead of text. Question types: noul (yes/no), choice (pick one), score (ordered rubric). ' +
+      'Models: typesafe/jev-1.13, upstage/solar-decide, microsoft/decision-1.',
+    useWhen: [
+      'You need a fast yes/no decision with confidence (noul)',
+      'You need to classify/route into categories (choice)',
+      'You need to score/rank on an ordinal scale (score)',
+      'You want calibrated probabilities, not generated text',
+    ],
+    notWhen: [
+      'You want text generation → chat_completion',
+      'You want multi-model consensus → chat_completion with fusion: true',
+      'You want embeddings → embed_text',
+    ],
+    goodExamples: [
+      '`{ "questions": { "is_bug": { "type": "noul", "instructions": "Is this a bug?", "criteria": { "true": "Bug described", "false": "Feature request" } } }, "state": { "ticket": "..." } }`',
+      '`{ "questions": { "team": { "type": "choice", "instructions": "Which team?", "criteria": { "frontend": "UI issues", "backend": "API issues" } } } }`',
+    ],
+    badExamples: [
+      '`{ "questions": {} }` → INVALID_INPUT (empty)',
+      '`{ "questions": { "q": { "type": "unknown" } } }` → INVALID_INPUT (bad type)',
+    ],
+    failsWhen: [
+      'INVALID_INPUT: empty questions, invalid type, missing criteria/instructions',
+      'MODEL_NOT_FOUND: invalid decision model',
+      'UPSTREAM_REFUSED: credits exhausted',
+    ],
+    worksWith: ['chat_completion', 'embed_text'],
   }),
 
   health_check: buildToolDescription({

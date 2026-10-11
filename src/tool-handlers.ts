@@ -26,6 +26,8 @@ import {
 } from './tool-handlers/generate-video.js';
 import { handleRerankDocuments } from './tool-handlers/rerank.js';
 import { handleHealthCheck } from './tool-handlers/health-check.js';
+import { handleEmbedText } from './tool-handlers/embed-text.js';
+import { handleDecide } from './tool-handlers/decide.js';
 import { handleGenerateImageDedicated } from './tool-handlers/generate-image-dedicated.js';
 import { handleTextToSpeech } from './tool-handlers/text-to-speech.js';
 import { handleSpeechToText } from './tool-handlers/speech-to-text.js';
@@ -46,6 +48,8 @@ import type {
   GenerateVideoFromImageRequest,
 } from './tool-handlers/generate-video.js';
 import type { RerankDocumentsRequest } from './tool-handlers/rerank.js';
+import type { EmbedTextRequest } from './tool-handlers/embed-text.js';
+import type { DecideRequest } from './tool-handlers/decide.js';
 import type { GenerateImageDedicatedRequest } from './tool-handlers/generate-image-dedicated.js';
 import type { TextToSpeechRequest } from './tool-handlers/text-to-speech.js';
 import type { SpeechToTextRequest } from './tool-handlers/speech-to-text.js';
@@ -234,6 +238,13 @@ export class ToolHandlers {
               wrapToolArgs(args as RerankDocumentsRequest | undefined),
               this.apiClient,
             );
+          case 'embed_text':
+            return handleEmbedText(
+              wrapToolArgs(args as EmbedTextRequest | undefined),
+              this.apiClient,
+            );
+          case 'decide':
+            return handleDecide(wrapToolArgs(args as DecideRequest | undefined), this.apiClient);
           case 'health_check':
             return handleHealthCheck(
               wrapToolArgs(args as Record<string, unknown> | undefined),

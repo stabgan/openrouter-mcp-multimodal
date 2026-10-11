@@ -310,6 +310,69 @@ export class OpenRouterAPIClient {
     }
     return readJsonOrThrow<RerankResponse>(res, 'POST /rerank');
   }
+
+  /** POST /embeddings — generate vector embeddings from text. */
+  async createEmbeddings(params: {
+    model: string;
+    input: string | string[];
+    dimensions?: number;
+    encoding_format?: string;
+  }): Promise<EmbeddingsResponse> {
+    const body: Record<string, unknown> = {
+      model: params.model,
+      input: params.input,
+    };
+    if (typeof params.dimensions === 'number' && params.dimensions > 0)
+      body.dimensions = params.dimensions;
+    if (params.encoding_format) body.encoding_format = params.encoding_format;
+    const res = await fetchWithRetry(
+      `${BASE_URL}/embeddings`,
+      {
+        method: 'POST',
+        headers: this.authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(body),
+      },
+      { retries: 2, timeoutMs: DEFAULT_TIMEOUT_MS },
+    );
+    if (!res.ok) {
+      const detail = await safeReadText(res);
+      throw new Error(`POST /embeddings failed: HTTP ${res.status}${detail ? ` — ${detail}` : ''}`);
+    }
+    return readJsonOrThrow<EmbeddingsResponse>(res, 'POST /embeddings');
+  }
+
+  /**
+   * POST /api/alpha/decisions — structured decision endpoint.
+   * Note: this uses `/api/alpha/` not `/api/v1/` per OpenRouter's API.
+   */
+  async submitDecision(params: {
+    model: string;
+    questions: Record<string, DecisionQuestion>;
+    state?: Record<string, unknown>;
+  }): Promise<DecisionsResponse> {
+    const body: Record<string, unknown> = {
+      model: params.model,
+      questions: params.questions,
+    };
+    if (params.state && Object.keys(params.state).length > 0) body.state = params.state;
+    // Decisions API lives under /api/alpha/, not /api/v1/
+    const res = await fetchWithRetry(
+      'https://openrouter.ai/api/alpha/decisions',
+      {
+        method: 'POST',
+        headers: this.authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(body),
+      },
+      { retries: 2, timeoutMs: DEFAULT_TIMEOUT_MS },
+    );
+    if (!res.ok) {
+      const detail = await safeReadText(res);
+      throw new Error(
+        `POST /alpha/decisions failed: HTTP ${res.status}${detail ? ` — ${detail}` : ''}`,
+      );
+    }
+    return readJsonOrThrow<DecisionsResponse>(res, 'POST /alpha/decisions');
+  }
 }
 
 export interface VideoJobEnvelope {
@@ -451,6 +514,33 @@ async function readJsonOrThrow<T>(
     if (embedded) throw new Error(`${context}: ${sanitizeErrorMessage(embedded)}`);
   }
   return data as T;
+}
+
+export interface EmbeddingsResponse {
+  object?: string;
+  data?: Array<{ object?: string; index: number; embedding: number[] }>;
+  model?: string;
+  usage?: { prompt_tokens?: number; total_tokens?: number; cost?: number; [key: string]: unknown };
+  [key: string]: unknown;
+}
+
+export interface DecisionQuestion {
+  type: 'noul' | 'choice' | 'score';
+  instructions: string;
+  criteria: Record<string, string> | string[];
+}
+
+export interface DecisionAnswer {
+  type: 'noul' | 'choice' | 'score';
+  noul?: number;
+  choice?: Record<string, number>;
+  score?: number[];
+}
+
+export interface DecisionsResponse {
+  answers?: Record<string, DecisionAnswer>;
+  usage?: { cost?: number; [key: string]: unknown };
+  [key: string]: unknown;
 }
 
 export const _internals = {

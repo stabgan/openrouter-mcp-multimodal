@@ -50,8 +50,8 @@ function expectEnum(toolName: string, prop: string, expected: readonly string[])
 
 describe('tool catalog contract', () => {
   it('defines exactly 19 tools with matching names in definitions and descriptions', () => {
-    expect(TOOL_NAMES).toHaveLength(19);
-    expect(TOOL_DEFINITION_NAMES).toHaveLength(19);
+    expect(TOOL_NAMES).toHaveLength(21);
+    expect(TOOL_DEFINITION_NAMES).toHaveLength(21);
     expect(new Set(TOOL_DEFINITION_NAMES)).toEqual(new Set(TOOL_NAMES));
     for (const name of TOOL_NAMES) {
       expect(TOOL_DESCRIPTIONS[name]).toBeTruthy();

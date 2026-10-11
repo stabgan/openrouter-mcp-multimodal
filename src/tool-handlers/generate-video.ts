@@ -602,35 +602,7 @@ export async function handleGetVideoStatus(
     return toolError(ErrorCode.JOB_FAILED, extractJobError(status), { video_id: id });
   }
   if (status.status === 'completed') {
-    try {
-      const { content, _meta } = await finalizeCompletedJob(apiClient, status, safeSavePath);
-      return { content, _meta };
-    } catch (err) {
-      if (err instanceof UnsafePathError) return toolErrorFrom(ErrorCode.UNSAFE_PATH, err);
-      if (isFileSystemError(err)) {
-        return toolErrorFrom(ErrorCode.INTERNAL, err, 'Write', {
-          suggestions: [
-            'Check that OPENROUTER_OUTPUT_DIR is writable',
-            'Verify sufficient disk space',
-          ],
-        });
-      }
-      const errMsg = err instanceof Error ? err.message : String(err);
-      if (errMsg.toLowerCase().includes('too large')) {
-        return toolErrorFrom(ErrorCode.RESOURCE_TOO_LARGE, err, 'Download', {
-          suggestions: [
-            'Raise OPENROUTER_VIDEO_GEN_MAX_BYTES to allow larger downloads',
-            'Reduce video resolution or duration',
-          ],
-        });
-      }
-      return toolErrorFrom(ErrorCode.UPSTREAM_HTTP, err, 'Download', {
-        suggestions: [
-          'Retry after a brief delay',
-          'Check https://status.openrouter.ai for outages',
-        ],
-      });
-    }
+    return safeFinalizeCompletedJob(apiClient, status, safeSavePath);
   }
   return {
     content: [
