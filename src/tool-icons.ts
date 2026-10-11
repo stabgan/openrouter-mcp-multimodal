@@ -43,6 +43,12 @@ const ICONS = {
   poll: svgDataUri(
     `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></svg>`,
   ),
+  embed: svgDataUri(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>`,
+  ),
+  decide: svgDataUri(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`,
+  ),
 } as const;
 
 export type ToolIcon = Array<{ src: string; mimeType: string; sizes: string[] }>;
@@ -71,8 +77,8 @@ export const TOOL_ICONS: Record<string, ToolIcon> = {
   generate_video_from_image: icon(ICONS.video),
   get_video_status: icon(ICONS.poll),
   rerank_documents: icon(ICONS.rerank),
-  embed_text: icon(ICONS.search),
-  decide: icon(ICONS.check),
+  embed_text: icon(ICONS.embed),
+  decide: icon(ICONS.decide),
   health_check: icon(ICONS.health),
 };
 
