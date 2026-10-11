@@ -68,7 +68,7 @@ src/errors.ts                   ← ErrorCode taxonomy (INVALID_INPUT, UNSAFE_PA
 | `npm run test:all`             | unit + regression + integration                 | Pre-release gate                    |
 | `npm run ci`                   | lint + format + version sync + build + test:all | **The one command before shipping** |
 
-Current: **70 test files, 2061 tests**.
+Current: **71 test files, 2096 tests**.
 
 ## Releasing (read this before publishing)
 
