@@ -19,6 +19,12 @@ export interface EmbedTextRequest {
 
 const DEFAULT_MODEL = 'openai/text-embedding-3-small';
 const MAX_TEXTS = 2048; // OpenAI's batch limit
+/**
+ * Per-text character limit.  text-embedding-3-large accepts ~8 191 tokens
+ * ≈ 32 KiB of English; set the ceiling higher to cover multi-byte scripts
+ * but still prevent multi-megabyte payloads from a single element.
+ */
+const MAX_TEXT_LENGTH = 100_000;
 
 export async function handleEmbedText(
   request: { params: { arguments: EmbedTextRequest } },
@@ -48,6 +54,12 @@ export async function handleEmbedText(
     }
     if (!inputArray[i]!.trim()) {
       return toolError(ErrorCode.INVALID_INPUT, `texts[${i}] is empty.`);
+    }
+    if (inputArray[i]!.length > MAX_TEXT_LENGTH) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `texts[${i}] exceeds max length ${MAX_TEXT_LENGTH} (got ${inputArray[i]!.length}).`,
+      );
     }
   }
 

@@ -28,6 +28,19 @@ export interface DecideRequest {
 const DEFAULT_MODEL = 'typesafe/jev-1.13';
 const VALID_QUESTION_TYPES = new Set(['noul', 'choice', 'score']);
 const MAX_QUESTIONS = 50;
+/** Maximum length for a single instructions string (characters). */
+const MAX_INSTRUCTIONS_LENGTH = 10_000;
+/** Maximum serialized size for the entire state object (bytes). */
+const MAX_STATE_BYTES = 100_000;
+/** Keys that could cause prototype pollution when iterated with Object.entries/for-in. */
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+function hasUnsafeKey(obj: Record<string, unknown>): string | null {
+  for (const key of Object.keys(obj)) {
+    if (UNSAFE_KEYS.has(key)) return key;
+  }
+  return null;
+}
 
 export async function handleDecide(
   request: { params: { arguments: DecideRequest } },
@@ -55,6 +68,13 @@ export async function handleDecide(
     );
   }
 
+  // Block prototype-pollution keys in question names (matches guards in
+  // logger.ts and provider-routing.ts).
+  const unsafeQKey = hasUnsafeKey(questions as Record<string, unknown>);
+  if (unsafeQKey) {
+    return toolError(ErrorCode.INVALID_INPUT, `questions contains unsafe key "${unsafeQKey}".`);
+  }
+
   for (const name of questionNames) {
     const q = questions[name]!;
     if (!q || typeof q !== 'object') {
@@ -72,6 +92,12 @@ export async function handleDecide(
         `questions.${name}.instructions must be a non-empty string.`,
       );
     }
+    if (q.instructions.length > MAX_INSTRUCTIONS_LENGTH) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `questions.${name}.instructions exceeds max length ${MAX_INSTRUCTIONS_LENGTH}.`,
+      );
+    }
     if (!q.criteria) {
       return toolError(ErrorCode.INVALID_INPUT, `questions.${name}.criteria is required.`);
     }
@@ -82,6 +108,15 @@ export async function handleDecide(
           ErrorCode.INVALID_INPUT,
           `questions.${name}.criteria must be an array of 2+ levels for score type.`,
         );
+      }
+      // Validate each score level is a string description.
+      for (let i = 0; i < q.criteria.length; i++) {
+        if (typeof q.criteria[i] !== 'string') {
+          return toolError(
+            ErrorCode.INVALID_INPUT,
+            `questions.${name}.criteria[${i}] must be a string.`,
+          );
+        }
       }
     } else {
       if (
@@ -94,11 +129,52 @@ export async function handleDecide(
           `questions.${name}.criteria must be an object with 2+ options for ${q.type} type.`,
         );
       }
+      // Block prototype-pollution keys in criteria objects.
+      const unsafeCKey = hasUnsafeKey(q.criteria as Record<string, unknown>);
+      if (unsafeCKey) {
+        return toolError(
+          ErrorCode.INVALID_INPUT,
+          `questions.${name}.criteria contains unsafe key "${unsafeCKey}".`,
+        );
+      }
+      // Validate each criteria value is a string description.
+      for (const [ck, cv] of Object.entries(q.criteria as Record<string, unknown>)) {
+        if (typeof cv !== 'string') {
+          return toolError(
+            ErrorCode.INVALID_INPUT,
+            `questions.${name}.criteria.${ck} must be a string.`,
+          );
+        }
+      }
     }
   }
 
   if (model !== undefined && (typeof model !== 'string' || !model.trim())) {
     return toolError(ErrorCode.INVALID_INPUT, 'model must be a non-empty string.');
+  }
+
+  // Validate state object if provided — block prototype-pollution keys and
+  // cap serialized size to prevent oversized payloads.
+  if (state !== undefined) {
+    if (typeof state !== 'object' || state === null || Array.isArray(state)) {
+      return toolError(ErrorCode.INVALID_INPUT, 'state must be a plain object.');
+    }
+    const unsafeSKey = hasUnsafeKey(state as Record<string, unknown>);
+    if (unsafeSKey) {
+      return toolError(ErrorCode.INVALID_INPUT, `state contains unsafe key "${unsafeSKey}".`);
+    }
+    let stateSize: number;
+    try {
+      stateSize = JSON.stringify(state).length;
+    } catch {
+      return toolError(ErrorCode.INVALID_INPUT, 'state is not serializable.');
+    }
+    if (stateSize > MAX_STATE_BYTES) {
+      return toolError(
+        ErrorCode.INVALID_INPUT,
+        `state serialized size (${stateSize} bytes) exceeds max ${MAX_STATE_BYTES}.`,
+      );
+    }
   }
 
   const effectiveModel = model?.trim() || DEFAULT_MODEL;
