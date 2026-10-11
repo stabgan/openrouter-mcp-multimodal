@@ -36,6 +36,16 @@ export interface TextToSpeechRequest extends CacheOptions {
 
 const MIN_SPEED = 0.25;
 const MAX_SPEED = 4.0;
+/**
+ * Per-field character limits.  TTS APIs have their own ceilings (OpenAI caps
+ * at 4 096 chars, others vary), but without a client-side guard an attacker
+ * can send multi-megabyte strings — wasting memory during JSON serialisation
+ * and outbound HTTP.  The 100 K ceiling for `input` matches the per-element
+ * limit used by `embed_text` and `rerank`; 10 K for `instructions` matches
+ * the `decide` handler.
+ */
+const MAX_INPUT_LENGTH = 100_000;
+const MAX_INSTRUCTIONS_LENGTH = 10_000;
 
 const VALID_FORMATS = new Set<string>(TTS_RESPONSE_FORMATS);
 
@@ -60,6 +70,12 @@ export async function handleTextToSpeech(
 
   if (typeof input !== 'string' || !input.trim()) {
     return toolError(ErrorCode.INVALID_INPUT, 'input text is required.');
+  }
+  if (input.length > MAX_INPUT_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `input exceeds max length ${MAX_INPUT_LENGTH} (got ${input.length}). Split the text into smaller chunks.`,
+    );
   }
 
   if (model !== undefined && typeof model !== 'string') {
@@ -88,6 +104,12 @@ export async function handleTextToSpeech(
 
   if (instructions !== undefined && typeof instructions !== 'string') {
     return toolError(ErrorCode.INVALID_INPUT, 'instructions must be a string.');
+  }
+  if (typeof instructions === 'string' && instructions.length > MAX_INSTRUCTIONS_LENGTH) {
+    return toolError(
+      ErrorCode.INVALID_INPUT,
+      `instructions exceeds max length ${MAX_INSTRUCTIONS_LENGTH} (got ${instructions.length}).`,
+    );
   }
 
   const cacheError = validateCacheOptions({ cache, cache_ttl, cache_clear });
