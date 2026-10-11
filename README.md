@@ -55,7 +55,7 @@ Unlike text-only MCP servers, one install covers the **full multimodal surface**
 | **Decisions** | `decide`                                                                                | Structured yes/no, choice, or score decisions with calibrated probabilities (System One models)                                                                                                                      |
 | **Catalog**   | `search_models`, `get_model_info`, `validate_model`, `rerank_documents`, `health_check` | Model discovery, validation, reranking, ops health                                                                                                                                                                   |
 
-**Production hardening:** input/output path sandboxes (including analyze\_\* local files as of v4.5.2), SSRF guards, structured errors with `_meta.code`, MCP 2025-11-25 structured outputs + tool icons, async video progress notifications, and **2146** automated tests (unit, mock, regression, and live integration).
+**Production hardening:** input/output path sandboxes (including analyze\_\* local files as of v4.5.2), SSRF guards, structured errors with `_meta.code`, MCP 2025-11-25 structured outputs + tool icons, async video progress notifications, and **2189** automated tests (unit, mock, regression, and live integration).
 
 ## Quick start
 
@@ -542,7 +542,7 @@ npm run build
 
 | Command                    | What it runs                                               |
 | :------------------------- | :--------------------------------------------------------- |
-| `npm test`                 | **2146** unit + mock tests (no API key, &lt;20s)           |
+| `npm test`                 | **2189** unit + mock tests (no API key, &lt;20s)           |
 | `npm run test:regression`  | Security + schema regression guards                        |
 | `npm run test:integration` | **17** live OpenRouter scenarios (**requires** `.env` key) |
 | `npm run test:e2e`         | Full MCP stdio smoke (`scripts/live-e2e.mjs`)              |
