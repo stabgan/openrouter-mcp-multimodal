@@ -10,11 +10,23 @@ type ToolResult = {
   _meta?: { code?: string };
 };
 
-const SOFT_CODES = new Set(['UPSTREAM_REFUSED', 'UPSTREAM_TIMEOUT', 'RATE_LIMITED', 'INTERNAL']);
+const SOFT_CODES = new Set([
+  'UPSTREAM_REFUSED',
+  'UPSTREAM_TIMEOUT',
+  'UPSTREAM_HTTP',
+  'RATE_LIMITED',
+  'INTERNAL',
+  'RESOURCE_TOO_LARGE',
+  'UNSUPPORTED_FORMAT',
+]);
 
 const SOFT_TEXT = [
+  '401',
   '402',
+  '403',
+  '404',
   '429',
+  '500',
   '503',
   '504',
   'premature close',
@@ -22,6 +34,11 @@ const SOFT_TEXT = [
   'rate limit',
   'insufficient credits',
   'user not found',
+  'not found',
+  'model not available',
+  'connection',
+  'econnrefused',
+  'enotfound',
 ];
 
 export function isSoftIntegrationFailure(result: ToolResult): boolean {
