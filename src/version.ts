@@ -1,6 +1,6 @@
 import { LATEST_PROTOCOL_VERSION } from '@modelcontextprotocol/sdk/types.js';
 
-export const SERVER_VERSION = '5.1.2';
+export const SERVER_VERSION = '5.1.3';
 
 /** Advertised MCP protocol version — derived from the installed SDK. */
 export const MCP_PROTOCOL_VERSION = LATEST_PROTOCOL_VERSION;

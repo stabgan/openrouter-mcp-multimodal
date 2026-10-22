@@ -2,6 +2,10 @@
 
 All notable changes to `@stabgan/openrouter-mcp-multimodal` are recorded here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.1.3] — 2026-10-22
+
+Patch: fix npm OIDC trusted publishing (remove registry-url that blocked OIDC auth).
+
 ## [5.1.2] — 2026-10-22
 
 Patch release: switch npm publishing to OIDC trusted publishing (no token needed).

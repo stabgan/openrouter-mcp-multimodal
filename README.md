@@ -142,7 +142,7 @@ npx -y @stabgan/openrouter-mcp-multimodal
 }
 ```
 
-Pin a release: `"args": ["-y", "@stabgan/openrouter-mcp-multimodal@5.1.2"]`
+Pin a release: `"args": ["-y", "@stabgan/openrouter-mcp-multimodal@5.1.3"]`
 
 </details>
 
@@ -154,7 +154,7 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/) (includes 
 ```bash
 export OPENROUTER_API_KEY=sk-or-v1-...
 uvx mcp-server-openrouter-multimodal
-# pin npm version: OPENROUTER_MCP_NPM_VERSION=5.1.2 uvx mcp-server-openrouter-multimodal
+# pin npm version: OPENROUTER_MCP_NPM_VERSION=5.1.3 uvx mcp-server-openrouter-multimodal
 ```
 
 ```json
@@ -173,7 +173,7 @@ uvx mcp-server-openrouter-multimodal
 
 **pipx equivalent:** `pipx run mcp-server-openrouter-multimodal`
 
-Optional: `OPENROUTER_MCP_NPM_VERSION=5.1.2` pins the underlying npm package.
+Optional: `OPENROUTER_MCP_NPM_VERSION=5.1.3` pins the underlying npm package.
 
 </details>
 
@@ -254,7 +254,7 @@ Use `-i` (interactive stdio). Avoid `-t` (TTY corrupts MCP framing on some hosts
 
 ```bash
 docker run --rm -i -e OPENROUTER_API_KEY=sk-or-v1-... \
-  ghcr.io/stabgan/openrouter-mcp-multimodal:5.1.2
+  ghcr.io/stabgan/openrouter-mcp-multimodal:5.1.3
 ```
 
 ```json
@@ -268,7 +268,7 @@ docker run --rm -i -e OPENROUTER_API_KEY=sk-or-v1-... \
         "-i",
         "-e",
         "OPENROUTER_API_KEY=sk-or-v1-...",
-        "ghcr.io/stabgan/openrouter-mcp-multimodal:5.1.2"
+        "ghcr.io/stabgan/openrouter-mcp-multimodal:5.1.3"
       ]
     }
   }

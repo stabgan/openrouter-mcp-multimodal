@@ -64,11 +64,13 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
           cache-dependency-path: package-lock.json
 
       - run: npm ci
+
+      - name: Ensure latest npm (OIDC trusted publishing support)
+        run: npm install -g npm@latest
 
       - name: Download build artifacts
         uses: actions/download-artifact@v8
@@ -76,7 +78,7 @@ jobs:
           name: dist
           path: dist/
 
-      - name: Publish to npm
+      - name: Publish to npm (OIDC trusted publishing)
         run: |
           PKG_VERSION=$(node -p "require('./package.json').version")
           if npm view "@stabgan/openrouter-mcp-multimodal@${PKG_VERSION}" version >/dev/null 2>&1; then

@@ -1,4 +1,4 @@
-# @stabgan/openrouter-mcp-multimodal (v5.1.2)
+# @stabgan/openrouter-mcp-multimodal (v5.1.3)
 
 > MCP server — 21 tools, 300+ OpenRouter models. Text chat, vision/audio/video analysis, image/audio/video generation, embeddings, structured decisions, model catalog, rerank, health check. Node.js 22+ (Docker uses Node 24).
 
@@ -8,10 +8,10 @@ Get a free API key: https://openrouter.ai/keys
 
 | Method | Command |
 | :--- | :--- |
-| npx | `npx -y @stabgan/openrouter-mcp-multimodal` (pin: `@5.1.2`) |
-| uvx | `uvx mcp-server-openrouter-multimodal` (needs Node 22+; pin: `OPENROUTER_MCP_NPM_VERSION=5.1.2`) |
-| Docker | `docker run --rm -i -e OPENROUTER_API_KEY=... stabgan/openrouter-mcp-multimodal:5.1.2` |
-| GHCR | `ghcr.io/stabgan/openrouter-mcp-multimodal:5.1.2` |
+| npx | `npx -y @stabgan/openrouter-mcp-multimodal` (pin: `@5.1.3`) |
+| uvx | `uvx mcp-server-openrouter-multimodal` (needs Node 22+; pin: `OPENROUTER_MCP_NPM_VERSION=5.1.3`) |
+| Docker | `docker run --rm -i -e OPENROUTER_API_KEY=... stabgan/openrouter-mcp-multimodal:5.1.3` |
+| GHCR | `ghcr.io/stabgan/openrouter-mcp-multimodal:5.1.3` |
 
 Full matrix: https://github.com/stabgan/openrouter-mcp-multimodal#install
 
