@@ -2,6 +2,23 @@
 
 All notable changes to `@stabgan/openrouter-mcp-multimodal` are recorded here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.1.1] — 2026-10-21
+
+Patch release: dependency updates and security maintenance.
+
+### Changed
+
+- bump openai SDK from 7.15.0 to 7.31.0
+- bump vite from 8.2.2 to 8.3.5
+- bump typescript-eslint from 8.70.0 to 8.71.1
+- bump prettier from 3.9.6 to 3.9.9
+- bump @types/node from 26.5.1 to 26.6.4
+- bump Docker node base image digest
+- bump astral-sh/setup-uv from 10.1.0 to 10.3.0
+
+
+All notable changes to `@stabgan/openrouter-mcp-multimodal` are recorded here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## [5.1.0] — 2026-10-07
 
 ### Added
