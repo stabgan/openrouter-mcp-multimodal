@@ -2,6 +2,6 @@
 
 from mcp_server_openrouter_multimodal.launcher import NPM_PACKAGE, main
 
-__version__ = "5.1.1"
+__version__ = "5.1.2"
 
 __all__ = ["main", "NPM_PACKAGE", "__version__"]

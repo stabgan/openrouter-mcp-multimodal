@@ -77,14 +77,12 @@ jobs:
           path: dist/
 
       - name: Publish to npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPMJS_TOKEN }}
         run: |
           PKG_VERSION=$(node -p "require('./package.json').version")
           if npm view "@stabgan/openrouter-mcp-multimodal@${PKG_VERSION}" version >/dev/null 2>&1; then
             echo "npm @${PKG_VERSION} already published; skipping"
           else
-            npm publish --access=public --provenance || npm publish --access=public
+            npm publish --access=public --provenance
           fi
 
   publish-pypi:
