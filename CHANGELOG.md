@@ -2,6 +2,13 @@
 
 All notable changes to `@stabgan/openrouter-mcp-multimodal` are recorded here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.1.4](https://github.com/stabgan/openrouter-mcp-multimodal/compare/v5.1.3...v5.1.4) (2026-10-24)
+
+
+### Bug Fixes
+
+* broaden integration test soft-fail to cover all upstream error codes ([7f25d94](https://github.com/stabgan/openrouter-mcp-multimodal/commit/7f25d94f7ebfbb4a253747be9db8ee4c201ca410))
+
 ## [5.1.3] — 2026-10-22
 
 Patch: fix npm OIDC trusted publishing (remove registry-url that blocked OIDC auth).
